@@ -69,8 +69,16 @@ class SQLInjectionDetector:
             'psycopg2': 'psycopg2',
             'pymysql': 'pymysql',
             'sqlalchemy': 'sqlalchemy',
-            'django.db': 'django.db'
+            'django.db': 'django.db',
+            'pymongo': 'pymongo',  # MongoDB
         }
+
+        # Whitelist for safe patterns (parameterized queries)
+        self.safe_patterns = [
+            r'execute\s*\(\s*"[^"]*\?"',  # SQLite parameterized
+            r'execute\s*\(\s*"[^"]*%s"',   # MySQL/Postgres parameterized
+            r'execute\s*\(\s*sql,?\s*params?=?.*',  # SQLAlchemy parameterized
+        ]
 
     def scan_file(self, file_path: str) -> List[Vulnerability]:
         """
@@ -106,8 +114,10 @@ class SQLInjectionDetector:
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
                 self._check_execute_call(node, file_path, content)
+                self._check_nosql_call(node, file_path, content)  # NEW: NoSQL
             elif isinstance(node, ast.BinOp):
                 self._check_string_concatenation(node, file_path, content)
+                self._check_dynamic_sql_generation(node, file_path, content)  # NEW: Dynamic SQL
             elif isinstance(node, ast.JoinedStr):
                 self._check_f_string(node, file_path, content)
             elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
@@ -204,16 +214,16 @@ class SQLInjectionDetector:
         return any(pattern in var_name.lower() for pattern in user_input_patterns)
 
     def _is_in_sql_context(self, node: ast.AST, content: str) -> bool:
-        """Check if node is used in SQL context"""
-        # Get the line where the node appears
+        """Check if node is used in SQL context, skip whitelisted safe patterns"""
         line_start = content.rfind('\n', 0, self._get_node_position(node)) + 1
         line_end = content.find('\n', line_start)
         if line_end == -1:
             line_end = len(content)
-        
         line_content = content[line_start:line_end].lower()
-        
-        # Check for SQL keywords
+        # Whitelist check
+        for pat in self.safe_patterns:
+            if re.search(pat, line_content):
+                return False
         sql_keywords = ['select', 'insert', 'update', 'delete', 'where', 'from', 'into', 'values']
         return any(keyword in line_content for keyword in sql_keywords)
 
@@ -245,17 +255,22 @@ class SQLInjectionDetector:
                         confidence=0.95
                     )
 
-    def _find_user_input_sources(self, tree: ast.AST) -> List[ast.Name]:
-        """Find user input sources in the AST"""
+    def _find_user_input_sources(self, tree: ast.AST) -> list:
+        """Find user input sources in the AST, including Tornado/aiohttp"""
         sources = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute):
-                # Check Flask/Django request patterns
+                # Flask/Django/FastAPI
                 if (isinstance(node.value, ast.Attribute) and 
-                    node.value.attr in ['args', 'form', 'json', 'cookies', 'GET', 'POST']):
+                    node.value.attr in ['args', 'form', 'json', 'cookies', 'GET', 'POST', 'query_params']):
+                    sources.append(node)
+                # Tornado
+                if node.attr in ['get_argument', 'get_body_argument', 'get_query_argument']:
+                    sources.append(node)
+                # aiohttp
+                if node.attr in ['query', 'post', 'json']:
                     sources.append(node)
             elif isinstance(node, ast.Call):
-                # Check input() function calls
                 if (isinstance(node.func, ast.Name) and 
                     node.func.id in ['input', 'raw_input']):
                     sources.append(node)
@@ -387,6 +402,47 @@ class SQLInjectionDetector:
                         code_snippet=self._get_code_snippet(content, node.lineno),
                         remediation="Use SQLAlchemy ORM or parameterized text()",
                         confidence=0.9
+                    )
+
+    def _check_nosql_call(self, node: ast.Call, file_path: str, content: str):
+        """Detect NoSQL injection in MongoDB (pymongo) calls"""
+        if isinstance(node.func, ast.Attribute):
+            if node.func.attr in ['find', 'find_one', 'update', 'delete_one', 'delete_many', 'insert_one', 'insert_many', 'authenticate']:
+                if node.args and self._is_vulnerable_nosql_argument(node.args[0]):
+                    self._add_vulnerability(
+                        file_path=file_path,
+                        line_number=node.lineno,
+                        vulnerability_type="NOSQL_INJECTION",
+                        description=f"Possible NoSQL injection in {node.func.attr}() with user input",
+                        severity="HIGH",
+                        code_snippet=self._get_code_snippet(content, node.lineno),
+                        remediation="Do not use user input directly in NoSQL queries. Use safe query building methods.",
+                        confidence=0.85
+                    )
+
+    def _is_vulnerable_nosql_argument(self, node: ast.AST) -> bool:
+        """Check if NoSQL argument contains user input"""
+        if isinstance(node, ast.Name):
+            return self._is_user_input_variable(node.id)
+        if isinstance(node, ast.Call):
+            if hasattr(node.func, 'id') and node.func.id in ['input', 'raw_input']:
+                return True
+        return False
+
+    def _check_dynamic_sql_generation(self, node: ast.BinOp, file_path: str, content: str):
+        """Detect dynamic SQL generation using join or format_map"""
+        if isinstance(node.op, ast.Add) or isinstance(node.op, ast.Mod):
+            if self._is_in_sql_context(node, content):
+                if 'join' in ast.dump(node) or 'format_map' in ast.dump(node):
+                    self._add_vulnerability(
+                        file_path=file_path,
+                        line_number=node.lineno,
+                        vulnerability_type="DYNAMIC_SQL_GENERATION",
+                        description="Dynamic SQL generation using join or format_map with user input",
+                        severity="HIGH",
+                        code_snippet=self._get_code_snippet(content, node.lineno),
+                        remediation="Avoid building SQL queries dynamically. Use parameterized queries.",
+                        confidence=0.8
                     )
 
     def _get_code_snippet(self, content: str, line_number: int, context_lines: int = 2) -> str:

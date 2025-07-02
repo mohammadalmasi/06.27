@@ -142,74 +142,62 @@ def extract_code_blocks(html):
     return code_blocks
 
 def highlight_sql_injection(code):
-    """Highlight vulnerable SQL patterns in code (JS/Python-like)."""
-    # More comprehensive patterns for SQL injection detection
+    """Highlight vulnerable SQL and NoSQL patterns in code (JS/Python-like)."""
+    # More comprehensive patterns for SQL and NoSQL injection detection
     patterns = [
-        # String concatenation with user input
+        # SQL injection patterns
         r'(\+\s*\w+)',  # + user_input
         r'(\+\s*[\'"][^\'"]*[\'"]\s*\+\s*\w+)',  # "SELECT * FROM users WHERE id = " + user_input
-        
-        # F-string formatting
         r'\{\w+\}',     # {user_input} in f-strings
-        
-        # String formatting
         r'%\s*\w+',      # % user_input
         r'\.format\(\w+\)',  # .format(user_input)
-        
-        # Database query patterns with user input
         r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*\+\s*\w+)',  # execute("SELECT * FROM " + table)
         r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*%\s*\w+)',   # execute("SELECT * FROM %s" % user_input)
         r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*\.\s*format\s*\(\s*\w+)',  # execute("SELECT * FROM {}".format(user_input))
-        
-        # Raw SQL queries with variables
         r'(SELECT\s+.*\s+FROM\s+.*\s+WHERE\s+.*\s*\+\s*\w+)',  # SELECT * FROM users WHERE id = + user_input
         r'(INSERT\s+INTO\s+.*\s+VALUES\s*\(\s*.*\s*\+\s*\w+)',  # INSERT INTO users VALUES ( + user_input)
         r'(UPDATE\s+.*\s+SET\s+.*\s+WHERE\s+.*\s*\+\s*\w+)',   # UPDATE users SET name = + user_input
-        
-        # Common vulnerable patterns
         r'(request\.form\[\w+\])',  # request.form['user_input']
         r'(request\.args\[\w+\])',  # request.args['user_input']
         r'(request\.cookies\[\w+\])',  # request.cookies['user_input']
         r'(input\s*\(\s*[\'"][^\'"]*[\'"]\s*\))',  # input("Enter value: ")
+        # NoSQL injection patterns (MongoDB)
+        r'(find\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # find({"name": username})
+        r'(find_one\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # find_one({"name": username})
+        r'(db\.[\w_]+\.find\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # db.users.find({"name": username})
+        r'(db\.[\w_]+\.find_one\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # db.users.find_one({"name": username})
     ]
-    
     highlighted = code
     for pat in patterns:
         highlighted = re.sub(pat, lambda m: f'<span class="vuln">{m.group(0)}</span>', highlighted, flags=re.IGNORECASE)
     return highlighted
 
 def highlight_sql_injection_web(code):
-    """Highlight vulnerable SQL patterns in code for web display."""
-    # More comprehensive patterns for SQL injection detection
+    """Highlight vulnerable SQL and NoSQL patterns in code for web display."""
+    # More comprehensive patterns for SQL and NoSQL injection detection
     patterns = [
-        # String concatenation with user input
+        # SQL injection patterns
         r'(\+\s*\w+)',  # + user_input
         r'(\+\s*[\'"][^\'"]*[\'"]\s*\+\s*\w+)',  # "SELECT * FROM users WHERE id = " + user_input
-        
-        # F-string formatting
         r'\{\w+\}',     # {user_input} in f-strings
-        
-        # String formatting
         r'%\s*\w+',      # % user_input
         r'\.format\(\w+\)',  # .format(user_input)
-        
-        # Database query patterns with user input
         r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*\+\s*\w+)',  # execute("SELECT * FROM " + table)
         r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*%\s*\w+)',   # execute("SELECT * FROM %s" % user_input)
         r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*\.\s*format\s*\(\s*\w+)',  # execute("SELECT * FROM {}".format(user_input))
-        
-        # Raw SQL queries with variables
         r'(SELECT\s+.*\s+FROM\s+.*\s+WHERE\s+.*\s*\+\s*\w+)',  # SELECT * FROM users WHERE id = + user_input
         r'(INSERT\s+INTO\s+.*\s+VALUES\s*\(\s*.*\s*\+\s*\w+)',  # INSERT INTO users VALUES ( + user_input)
         r'(UPDATE\s+.*\s+SET\s+.*\s+WHERE\s+.*\s*\+\s*\w+)',   # UPDATE users SET name = + user_input
-        
-        # Common vulnerable patterns
         r'(request\.form\[\w+\])',  # request.form['user_input']
         r'(request\.args\[\w+\])',  # request.args['user_input']
         r'(request\.cookies\[\w+\])',  # request.cookies['user_input']
         r'(input\s*\(\s*[\'"][^\'"]*[\'"]\s*\))',  # input("Enter value: ")
+        # NoSQL injection patterns (MongoDB)
+        r'(find\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # find({"name": username})
+        r'(find_one\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # find_one({"name": username})
+        r'(db\.[\w_]+\.find\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # db.users.find({"name": username})
+        r'(db\.[\w_]+\.find_one\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # db.users.find_one({"name": username})
     ]
-    
     highlighted = code
     for pat in patterns:
         highlighted = re.sub(pat, lambda m: f'<span class="vuln">{m.group(0)}</span>', highlighted, flags=re.IGNORECASE)

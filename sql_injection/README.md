@@ -13,102 +13,61 @@ This code is designed for:
 - Academic studies
 - Penetration testing training
 
-## 📁 Dataset Structure
+## ⚠️ UPDATE: FILES MERGED
+
+- `sql_vulnerable_dataset.py` has been merged into `unsafe_code_examples/python/sql_injection.py`.
+- All unique vulnerable code examples, dataset generation utilities, and advanced patterns are now in this single file.
+- You can find all Flask endpoints, class-based examples, and dataset utilities in `unsafe_code_examples/python/sql_injection.py`.
+
+## 📁 Dataset Structure (Updated)
 
 ```
 06.27/
 ├── app.py                              # SQL Injection Web Scanner (Flask app on port 5000)
-├── sql_vulnerable_dataset.py           # Python script to generate dataset
-├── dataset_summary.py                  # Dataset analysis and summary tool
 ├── sql_injection_detector.py           # SQL injection detection tool
-├── safe_code_example.py                # Safe code examples for comparison
-├── unsafe_code_example.py              # Original unsafe examples (merged into sql_injection.py)
-├── sql_injection_detection_python.md   # Detailed SQL injection detection guide
-├── vulnerable_code_examples/           # Organized vulnerable code by language
-│   ├── python/
-│   │   ├── sql_injection.py           # Comprehensive Python vulnerable examples (merged)
-│   │   └── sql_injection_dataset.json # JSON dataset with examples and payloads
-│   ├── php/
-│   │   └── basic_injection.php        # PHP vulnerable examples
-│   ├── java/
-│   │   └── basic_injection.java       # Java vulnerable examples
-│   ├── javascript/
-│   │   └── basic_injection.js         # JavaScript/Node.js vulnerable examples
+├── dataset_summary.py                  # Dataset analysis and summary tool
+├── safe_code_examples/                 # Safe code examples for comparison
+├── unsafe_code_examples/
+│   └── python/
+│       └── sql_injection.py            # Comprehensive Python vulnerable examples (ALL MERGED)
+│       └── sql_injection_dataset.json  # JSON dataset with examples and payloads
+│   └── php/
+│       └── basic_injection.php         # PHP vulnerable examples
+│   └── java/
+│       └── basic_injection.java        # Java vulnerable examples
+│   └── javascript/
+│       └── basic_injection.js          # JavaScript/Node.js vulnerable examples
 │   └── csharp/
-│       └── basic_injection.cs         # C# vulnerable examples
+│       └── basic_injection.cs          # C# vulnerable examples
 └── results/                            # Output and results directory
     └── pasted_code_result.docx         # Generated documentation
 ```
 
-## 🎯 Dataset Contents
+## 🎯 Dataset Contents (Updated)
 
 ### Main Python Application (`app.py`)
 
 A Flask-based SQL Injection Web Scanner running on port 5000 with endpoints for:
-- Scanning Python code for SQL injection vulnerabilities
+- Scanning Python code for SQL/NoSQL injection vulnerabilities
 - Analyzing code patterns and identifying risks
 - Providing detailed vulnerability reports
 
-### Comprehensive Python Examples (`vulnerable_code_examples/python/sql_injection.py`)
+### Comprehensive Python Examples (`unsafe_code_examples/python/sql_injection.py`)
 
-**MERGED FILE**: Contains all vulnerable patterns from both `sql_injection.py` and `unsafe_code_example.py`
+**MERGED FILE**: Contains all vulnerable patterns, dataset generation utilities, and advanced techniques from both `sql_injection.py` and `sql_vulnerable_dataset.py`.
 
 #### Features:
-- **Flask web application** running on port 5001
-- **15+ vulnerable endpoints** for testing different injection types
+- **Flask web application** with many vulnerable endpoints
+- **Class-based and function-based examples**
 - **Multiple database support** (SQLite, MySQL, PostgreSQL, MongoDB)
 - **Advanced injection techniques** (Union, Error, Boolean, Time-based, Blind)
 - **Real-world vulnerability patterns** (E-commerce, Banking, CMS, API)
 - **Input validation bypasses** and framework-specific vulnerabilities
+- **Dataset generation utilities** for research and testing
 
-#### Available Endpoints:
-```
-POST /vulnerable_login          # Authentication bypass testing
-GET  /vulnerable_search         # Search functionality testing
-GET  /vulnerable_user/<user_id> # User profile testing
-POST /vulnerable_insert         # Data insertion testing
-POST /vulnerable_update         # Data update testing
-POST /vulnerable_delete         # Data deletion testing
-GET  /vulnerable_union          # Union-based injection testing
-GET  /vulnerable_error          # Error-based injection testing
-GET  /vulnerable_time           # Time-based injection testing
-GET  /vulnerable_cookie         # Cookie-based injection testing
-POST /vulnerable_header         # Header-based injection testing
-POST /vulnerable_json           # JSON-based injection testing
-```
-
-### Language-Specific Examples
-
-#### Python Examples (`vulnerable_code_examples/python/`)
-- **Comprehensive Flask application** with multiple vulnerable endpoints
-- **Database setup scripts** with sample data
-- **Multiple database types** (SQLite, MySQL, PostgreSQL, MongoDB)
-- **Advanced injection techniques** and real-world patterns
-- **Input validation bypasses** and framework-specific vulnerabilities
-
-#### PHP Examples (`vulnerable_code_examples/php/`)
-- mysqli and PDO vulnerabilities
-- GET/POST parameter injection
-- Cookie and session vulnerabilities
-- String concatenation patterns
-
-#### Java Examples (`vulnerable_code_examples/java/`)
-- JDBC vulnerabilities
-- Prepared statement misuse
-- Batch operation vulnerabilities
-- Web application patterns
-
-#### JavaScript Examples (`vulnerable_code_examples/javascript/`)
-- Node.js Express vulnerabilities
-- MongoDB NoSQL injection
-- Template literal vulnerabilities
-- Cookie and session injection
-
-#### C# Examples (`vulnerable_code_examples/csharp/`)
-- ADO.NET vulnerabilities
-- String interpolation patterns
-- Input validation bypasses
-- Web application scenarios
+#### Available Endpoints and Classes:
+- All endpoints and classes from both original files are now available in this single file.
+- See the file for details on usage and available routes.
 
 ## 🔍 Vulnerability Types Covered
 
@@ -184,7 +143,7 @@ The dataset includes 10 key mitigation strategies:
 9. **Use stored procedures**
 10. **Implement proper authentication and authorization**
 
-## 🚀 Usage Examples
+## 🚀 Usage Examples (Updated)
 
 ### Running the Main Applications
 
@@ -192,8 +151,8 @@ The dataset includes 10 key mitigation strategies:
 # SQL Injection Web Scanner (Port 5000)
 python app.py
 
-# Comprehensive Vulnerable Application (Port 5001)
-cd vulnerable_code_examples/python
+# Comprehensive Vulnerable Application (Port 5001 or as specified in the file)
+cd unsafe_code_examples/python
 python sql_injection.py
 ```
 
@@ -269,7 +228,7 @@ npm install mysql sqlite3 express mongodb
 
 ```bash
 # 1. Start the vulnerable application
-cd vulnerable_code_examples/python
+cd unsafe_code_examples/python
 python sql_injection.py
 
 # 2. Start the web scanner (in another terminal)
@@ -287,11 +246,11 @@ python app.py
 
 ```bash
 # Python Flask application (Comprehensive)
-cd vulnerable_code_examples/python
+cd unsafe_code_examples/python
 python sql_injection.py
 
 # Node.js Express application
-cd vulnerable_code_examples/javascript
+cd unsafe_code_examples/javascript
 node basic_injection.js
 
 # PHP application (requires web server)

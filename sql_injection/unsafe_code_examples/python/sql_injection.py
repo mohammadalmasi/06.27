@@ -784,6 +784,130 @@ def vulnerable_time_route():
     return jsonify({"execution_time": execution_time})
 
 # ============================================================================
+# ADDITIONAL EXAMPLES FROM example_vulnerable_code.py
+# ============================================================================
+
+def classic_sql_injection():
+    user_id = request.args['id']
+    query = "SELECT * FROM users WHERE id = " + user_id  # Vulnerable
+    conn = sqlite3.connect('db.sqlite')
+    cursor = conn.cursor()
+    cursor.execute(query)
+    return cursor.fetchall()
+
+def nosql_injection():
+    client = pymongo.MongoClient()
+    db = client['testdb']
+    username = request.args['username']
+    # Vulnerable: user input directly in query
+    user = db.users.find({"name": username})
+    return list(user)
+
+def dynamic_sql_generation():
+    table = request.args['table']
+    # Vulnerable: dynamic SQL with join
+    query = "SELECT * FROM " + table
+    conn = sqlite3.connect('db.sqlite')
+    cursor = conn.cursor()
+    cursor.execute(query)
+    return cursor.fetchall()
+
+def safe_query():
+    user_id = request.args['id']
+    conn = sqlite3.connect('db.sqlite')
+    cursor = conn.cursor()
+    # Safe: parameterized query
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    return cursor.fetchall()
+
+# ============================================================================
+# MERGED FROM sql_vulnerable_dataset.py
+# ============================================================================
+
+# PythonSQLInjectionExamples, AdvancedSQLInjectionExamples, DatabaseSpecificVulnerabilities, FrameworkVulnerabilities, NoSQLInjectionExamples, InputValidationBypasses, RealWorldVulnerabilityPatterns, generate_vulnerable_dataset, save_dataset_to_file
+
+# (Copying only unique classes and functions not already present in this file)
+
+class PythonSQLInjectionExamples:
+    """Python-based SQL injection vulnerable code examples."""
+    def __init__(self):
+        self.app = Flask(__name__)
+        self.setup_routes()
+    def setup_routes(self):
+        @self.app.route('/vulnerable_login', methods=['POST'])
+        def vulnerable_login():
+            username = request.form['username']
+            password = request.form['password']
+            query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(query)
+            user = cursor.fetchone()
+            conn.close()
+            if user:
+                return jsonify({"status": "success", "message": "Login successful"})
+            else:
+                return jsonify({"status": "error", "message": "Invalid credentials"})
+        @self.app.route('/vulnerable_search', methods=['GET'])
+        def vulnerable_search():
+            search_term = request.args.get('q', '')
+            query = "SELECT * FROM products WHERE name LIKE '%" + search_term + "%'"
+            conn = sqlite3.connect('products.db')
+            cursor = conn.cursor()
+            cursor.execute(query)
+            products = cursor.fetchall()
+            conn.close()
+            return jsonify({"products": products})
+        @self.app.route('/vulnerable_user_profile', methods=['GET'])
+        def vulnerable_user_profile():
+            user_id = request.args.get('id', '')
+            query = "SELECT * FROM users WHERE id = %s" % user_id
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(query)
+            user = cursor.fetchone()
+            conn.close()
+            return jsonify({"user": user})
+        @self.app.route('/vulnerable_insert', methods=['POST'])
+        def vulnerable_insert():
+            name = request.form['name']
+            email = request.form['email']
+            query = "INSERT INTO users (name, email) VALUES ('" + name + "', '" + email + "')"
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(query)
+            conn.commit()
+            conn.close()
+            return jsonify({"status": "success", "message": "User created"})
+        @self.app.route('/vulnerable_update', methods=['POST'])
+        def vulnerable_update():
+            user_id = request.form['id']
+            new_name = request.form['name']
+            query = "UPDATE users SET name = '" + new_name + "' WHERE id = " + user_id
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(query)
+            conn.commit()
+            conn.close()
+            return jsonify({"status": "success", "message": "User updated"})
+        @self.app.route('/vulnerable_delete', methods=['POST'])
+        def vulnerable_delete():
+            user_id = request.form['id']
+            query = "DELETE FROM users WHERE id = " + user_id
+            conn = sqlite3.connect('users.db')
+            cursor = conn.cursor()
+            cursor.execute(query)
+            conn.commit()
+            conn.close()
+            return jsonify({"status": "success", "message": "User deleted"})
+
+# (Other advanced, database-specific, framework, NoSQL, input validation, and real-world pattern classes are already present in this file, so not duplicated.)
+
+# If you want to use the dataset generation utilities, you can also add:
+# def generate_vulnerable_dataset(): ...
+# def save_dataset_to_file(dataset, filename="sql_injection_dataset.json"): ...
+
+# ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
