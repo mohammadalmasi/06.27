@@ -280,16 +280,12 @@ def highlight_sql_injection_word(code):
     return highlighted
 
 def ensure_dirs():
-    os.makedirs('sourcecodes', exist_ok=True)
     os.makedirs('results', exist_ok=True)
 
 def save_code_block(page_idx, code_type, code):
     ensure_dirs()
-    ext = 'js' if 'js' in code_type.lower() or 'script' in code_type.lower() else 'txt'
-    filename = f"sourcecodes/page{page_idx}_{code_type.replace(' ', '_').lower()}.{ext}"
-    with open(filename, 'w', encoding='utf-8') as f:
-        f.write(code)
-    return filename
+    # No longer saving to sourcecodes directory
+    return None
 
 def result_txt_to_docx(result_filename):
     if not result_filename.endswith('.py') and not result_filename.endswith('.txt'):
