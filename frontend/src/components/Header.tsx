@@ -32,7 +32,7 @@ const Header: React.FC = () => {
           <Link to="/home" className="flex items-center space-x-2">
             <Shield className="h-8 w-8 text-primary-600" />
             <span className="text-xl font-bold text-gray-900">
-              SQL Injection Scanner
+              Scanner
             </span>
           </Link>
 

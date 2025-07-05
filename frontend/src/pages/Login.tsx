@@ -86,11 +86,8 @@ const Login: React.FC = () => {
             </div>
           </div>
           <h2 className="text-3xl font-bold text-white">
-            SQL Injection Scanner
+            Scanner
           </h2>
-          <p className="mt-2 text-primary-100">
-            Please login to access the SQL injection vulnerability scanner
-          </p>
         </div>
 
         {/* Login Form */}
@@ -177,14 +174,7 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h4>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p><strong>Username:</strong> admin</p>
-              <p><strong>Password:</strong> a</p>
-            </div>
-          </div>
+   
         </div>
 
         {/* Footer */}
