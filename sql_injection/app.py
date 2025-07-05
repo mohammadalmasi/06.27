@@ -1,4 +1,5 @@
-from flask import Flask, render_template_string, request, send_file
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -12,6 +13,11 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
+
+# Enable CORS for React frontend
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+     methods=["GET", "POST", "OPTIONS"], 
+     allow_headers=["Content-Type", "Authorization"])
 
 # Initialize the advanced SQL injection detector
 ast_detector = SQLInjectionDetector()
@@ -378,85 +384,146 @@ def github_raw_url(url):
         return parts[0].replace('github.com', 'raw.githubusercontent.com') + '/' + parts[1]
     return url
 
-@app.route('/', methods=['GET'])
-def index():
-    return render_template_string(INDEX_HTML)
-
-@app.route('/scan', methods=['POST'])
-def scan():
+@app.route('/api/scan', methods=['POST'])
+def api_scan():
+    ensure_dirs()
+    
     url = request.form.get('url', '').strip()
-    uploaded_file = request.files.get('file')
-    pasted_code = request.form.get('code', '').strip()
-    results = {}
-    file_summary = []
-    filename = None
-    if pasted_code:
-        ensure_dirs()
-        filename = 'pasted_code.py'
-        source_path = os.path.join('sourcecodes', filename)
-        with open(source_path, 'w', encoding='utf-8') as f:
-            f.write(pasted_code)
-        docx_path = scan_code_file(source_path)
-        file_summary.append(f'{source_path} → {docx_path}')
-        
-        results['Original Source'] = f'<pre>{pasted_code}</pre>'
-        results['Highlighted Vulnerabilities'] = f'<pre>{highlight_sql_injection_web(pasted_code)}</pre>'
-        
-        results['Word Document'] = f'<a href="/download/{os.path.basename(docx_path)}" target="_blank" class="download-link">Download {os.path.basename(docx_path)}</a>'
-    elif uploaded_file and uploaded_file.filename:
-        ensure_dirs()
-        filename = uploaded_file.filename
-        source_path = os.path.join('sourcecodes', filename)
-        uploaded_file.save(source_path)
-        docx_path = scan_code_file(source_path)
-        file_summary.append(f'{source_path} → {docx_path}')
-        with open(source_path, 'r', encoding='utf-8', errors='replace') as f:
-            code = f.read()
-        
-        results['Original Source'] = f'<pre>{code}</pre>'
-        results['Highlighted Vulnerabilities'] = f'<pre>{highlight_sql_injection_web(code)}</pre>'
-        
-        results['Word Document'] = f'<a href="/download/{os.path.basename(docx_path)}" target="_blank" class="download-link">Download {os.path.basename(docx_path)}</a>'
-    elif is_github_py_url(url):
-        raw_url = github_raw_url(url)
-        filename = raw_url.split('/')[-1]
-        source_path = os.path.join('sourcecodes', filename)
-        ensure_dirs()
-        try:
-            resp = requests.get(raw_url, timeout=10)
-            if resp.status_code == 200:
-                with open(source_path, 'w', encoding='utf-8') as f:
-                    f.write(resp.text)
-                docx_path = scan_code_file(source_path)
-                file_summary.append(f'{source_path} → {docx_path}')
-                with open(source_path, 'r', encoding='utf-8', errors='replace') as f:
-                    code = f.read()
-                
-                results['Original Source'] = f'<pre>{code}</pre>'
-                results['Highlighted Vulnerabilities'] = f'<pre>{highlight_sql_injection_web(code)}</pre>'
-                
-                results['Word Document'] = f'<a href="/download/{os.path.basename(docx_path)}" target="_blank" class="download-link">Download {os.path.basename(docx_path)}</a>'
+    code = request.form.get('code', '').strip()
+    file = request.files.get('file')
+    
+    vulnerabilities = []
+    scan_info = {
+        'scan_timestamp': datetime.now().isoformat(),
+        'input_type': None,
+        'file_name': None
+    }
+    
+    source_code = ""
+    
+    try:
+        if url:
+            # GitHub URL scanning
+            scan_info['input_type'] = 'url'
+            scan_info['file_name'] = url
+            
+            if is_github_py_url(url):
+                raw_url = github_raw_url(url)
+                try:
+                    response = requests.get(raw_url, timeout=10)
+                    if response.status_code == 200:
+                        python_code = response.text
+                        source_code = python_code
+                        
+                        # Save to temporary file for AST analysis
+                        temp_filename = f"temp_github_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
+                        temp_filepath = os.path.join('results', temp_filename)
+                        with open(temp_filepath, 'w', encoding='utf-8') as f:
+                            f.write(python_code)
+                        
+                        # Run AST-based analysis
+                        vulnerabilities = ast_detector.scan_file(temp_filepath)
+                        
+                        # Clean up temporary file
+                        if os.path.exists(temp_filepath):
+                            os.remove(temp_filepath)
+                    else:
+                        return jsonify({'error': f"Failed to fetch GitHub file: {response.status_code}"}), 400
+                except Exception as e:
+                    return jsonify({'error': f"Error fetching GitHub URL: {str(e)}"}), 400
             else:
-                results['Error'] = f'Failed to fetch file from GitHub (status {resp.status_code})'
-        except Exception as e:
-            results['Error'] = f'Error fetching file: {e}'
-    elif url:
-        pages = crawl_site(url, max_pages=5)
-        for idx, (page, html) in enumerate(pages.items(), 1):
-            code_blocks = extract_code_blocks(html)
-            if code_blocks:
-                code_html = ''
-                for code_type, code in code_blocks:
-                    code_html += f'<b>{code_type}:</b>\n<pre>{highlight_sql_injection(code)}</pre>\n'
-                    code_filename = save_code_block(idx, code_type, code)
-                    docx_path = scan_code_file(code_filename)
-                    file_summary.append(f'{code_filename} → {docx_path}')
-                results[page] = code_html
+                return jsonify({'error': "Please provide a valid GitHub Python file URL"}), 400
+        
+        elif file and file.filename:
+            # File upload scanning
+            scan_info['input_type'] = 'file'
+            scan_info['file_name'] = file.filename
+            
+            filename = file.filename
+            if filename.endswith('.py'):
+                try:
+                    content = file.read().decode('utf-8')
+                    source_code = content
+                    
+                    # Save to temporary file for AST analysis
+                    temp_filename = f"temp_upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
+                    temp_filepath = os.path.join('results', temp_filename)
+                    with open(temp_filepath, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    
+                    # Run AST-based analysis
+                    vulnerabilities = ast_detector.scan_file(temp_filepath)
+                    
+                    # Clean up temporary file
+                    if os.path.exists(temp_filepath):
+                        os.remove(temp_filepath)
+                        
+                except Exception as e:
+                    return jsonify({'error': f"Error processing uploaded file: {str(e)}"}), 400
             else:
-                results[page] = '<i>No code blocks found.</i>'
-    summary_html = '<br>'.join(file_summary)
-    results['File Summary'] = summary_html
-    return render_template_string(RESULTS_HTML, url=url, filename=filename, results=results)
+                return jsonify({'error': "Please upload a Python (.py) file"}), 400
+        
+        elif code:
+            # Code pasting scanning
+            scan_info['input_type'] = 'code'
+            scan_info['file_name'] = 'pasted_code.py'
+            source_code = code
+            
+            try:
+                # Save to temporary file for AST analysis
+                temp_filename = f"temp_paste_{datetime.now().strftime('%Y%m%d_%H%M%S')}.py"
+                temp_filepath = os.path.join('results', temp_filename)
+                with open(temp_filepath, 'w', encoding='utf-8') as f:
+                    f.write(code)
+                
+                # Run AST-based analysis
+                vulnerabilities = ast_detector.scan_file(temp_filepath)
+                
+                # Clean up temporary file
+                if os.path.exists(temp_filepath):
+                    os.remove(temp_filepath)
+                    
+            except Exception as e:
+                return jsonify({'error': f"Error processing pasted code: {str(e)}"}), 400
+        
+        else:
+            return jsonify({'error': "Please provide a GitHub URL, upload a file, or paste code"}), 400
+        
+        # Convert vulnerabilities to JSON-serializable format
+        vulnerabilities_json = []
+        for vuln in vulnerabilities:
+            vulnerabilities_json.append({
+                'file_path': vuln.file_path,
+                'line_number': vuln.line_number,
+                'vulnerability_type': vuln.vulnerability_type,
+                'description': vuln.description,
+                'severity': vuln.severity,
+                'code_snippet': vuln.code_snippet,
+                'remediation': vuln.remediation,
+                'confidence': vuln.confidence
+            })
+        
+        # Calculate summary statistics
+        summary = {
+            'total_vulnerabilities': len(vulnerabilities_json),
+            'high_severity': sum(1 for v in vulnerabilities_json if v['severity'].lower() == 'high'),
+            'medium_severity': sum(1 for v in vulnerabilities_json if v['severity'].lower() == 'medium'),
+            'low_severity': sum(1 for v in vulnerabilities_json if v['severity'].lower() == 'low')
+        }
+        
+        # Create highlighted source code with vulnerabilities marked in red
+        highlighted_code = highlight_sql_injection_web(source_code)
+        
+        return jsonify({
+            'vulnerabilities': vulnerabilities_json,
+            'summary': summary,
+            'scan_info': scan_info,
+            'highlighted_code': highlighted_code,
+            'original_code': source_code
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f"Unexpected error: {str(e)}"}), 500
 
 @app.route('/download/<filename>')
 def download_file(filename):
