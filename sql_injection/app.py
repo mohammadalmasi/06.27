@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, send_file
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -402,7 +402,7 @@ def scan():
         results['Original Source'] = f'<pre>{pasted_code}</pre>'
         results['Highlighted Vulnerabilities'] = f'<pre>{highlight_sql_injection_web(pasted_code)}</pre>'
         
-        results['Word Document'] = f'<a href="file://{os.path.abspath(docx_path)}" target="_blank">Download {os.path.basename(docx_path)}</a>'
+        results['Word Document'] = f'<a href="/download/{os.path.basename(docx_path)}" target="_blank" class="download-link">Download {os.path.basename(docx_path)}</a>'
     elif uploaded_file and uploaded_file.filename:
         ensure_dirs()
         filename = uploaded_file.filename
@@ -416,7 +416,7 @@ def scan():
         results['Original Source'] = f'<pre>{code}</pre>'
         results['Highlighted Vulnerabilities'] = f'<pre>{highlight_sql_injection_web(code)}</pre>'
         
-        results['Word Document'] = f'<a href="file://{os.path.abspath(docx_path)}" target="_blank">Download {os.path.basename(docx_path)}</a>'
+        results['Word Document'] = f'<a href="/download/{os.path.basename(docx_path)}" target="_blank" class="download-link">Download {os.path.basename(docx_path)}</a>'
     elif is_github_py_url(url):
         raw_url = github_raw_url(url)
         filename = raw_url.split('/')[-1]
@@ -435,7 +435,7 @@ def scan():
                 results['Original Source'] = f'<pre>{code}</pre>'
                 results['Highlighted Vulnerabilities'] = f'<pre>{highlight_sql_injection_web(code)}</pre>'
                 
-                results['Word Document'] = f'<a href="file://{os.path.abspath(docx_path)}" target="_blank">Download {os.path.basename(docx_path)}</a>'
+                results['Word Document'] = f'<a href="/download/{os.path.basename(docx_path)}" target="_blank" class="download-link">Download {os.path.basename(docx_path)}</a>'
             else:
                 results['Error'] = f'Failed to fetch file from GitHub (status {resp.status_code})'
         except Exception as e:
@@ -458,6 +458,18 @@ def scan():
     results['File Summary'] = summary_html
     return render_template_string(RESULTS_HTML, url=url, filename=filename, results=results)
 
+@app.route('/download/<filename>')
+def download_file(filename):
+    """Route to download generated Word documents"""
+    try:
+        file_path = os.path.join('results', filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True)
+        else:
+            return "File not found", 404
+    except Exception as e:
+        return f"Error downloading file: {e}", 500
+
 @app.route('/user')
 def get_user():
     user_id = request.args.get('id')  # <-- Source
@@ -468,5 +480,5 @@ def get_user():
     return cursor.fetchall()
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
-    # http://127.0.0.1:5000/
+    app.run(debug=True, port=5001) 
+    # http://127.0.0.1:5001/
