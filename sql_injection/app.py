@@ -9,10 +9,13 @@ from docx import Document
 from docx.shared import RGBColor
 import sqlite3
 from sql_injection_detector import SQLInjectionDetector
-from datetime import datetime
+from datetime import datetime, timedelta
+import jwt
+from functools import wraps
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
+app.config['JWT_SECRET_KEY'] = 'sql-injection-scanner-secret-key-2024'  # Change this in production
 
 # Enable CORS for React frontend
 CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
@@ -21,6 +24,39 @@ CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"],
 
 # Initialize the advanced SQL injection detector
 ast_detector = SQLInjectionDetector()
+
+# Authentication configuration
+ADMIN_USERNAME = "Admin"
+ADMIN_PASSWORD = "unipassau"
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        
+        # JWT is passed in the request header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(" ")[1]  # Bearer <token>
+            except IndexError:
+                return jsonify({'error': 'Token is missing!'}), 401
+        
+        if not token:
+            return jsonify({'error': 'Token is missing!'}), 401
+        
+        try:
+            # Decode the token
+            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
+            current_user = data['username']
+        except jwt.ExpiredSignatureError:
+            return jsonify({'error': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'error': 'Token is invalid!'}), 401
+        
+        return f(current_user, *args, **kwargs)
+    
+    return decorated
 
 INDEX_HTML = '''
 <!DOCTYPE html>
@@ -384,8 +420,46 @@ def github_raw_url(url):
         return parts[0].replace('github.com', 'raw.githubusercontent.com') + '/' + parts[1]
     return url
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            # Create JWT token
+            token = jwt.encode({
+                'username': username,
+                'exp': datetime.utcnow() + timedelta(hours=24)  # Token expires in 24 hours
+            }, app.config['JWT_SECRET_KEY'], algorithm='HS256')
+            
+            return jsonify({
+                'token': token,
+                'username': username,
+                'message': 'Login successful'
+            }), 200
+        else:
+            return jsonify({'error': 'Invalid credentials'}), 401
+            
+    except Exception as e:
+        return jsonify({'error': f'Login failed: {str(e)}'}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    return jsonify({'message': 'Logout successful'}), 200
+
+@app.route('/api/verify-token', methods=['POST'])
+@token_required
+def verify_token(current_user):
+    return jsonify({
+        'valid': True,
+        'username': current_user
+    }), 200
+
 @app.route('/api/scan', methods=['POST'])
-def api_scan():
+@token_required
+def api_scan(current_user):
     ensure_dirs()
     
     url = request.form.get('url', '').strip()

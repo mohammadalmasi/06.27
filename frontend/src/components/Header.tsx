@@ -1,16 +1,24 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Shield, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Shield, Menu, X, User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const Header: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   const navigation = [
-    { name: 'Home', href: '/' },
-    { name: 'Scanner', href: '/scanner' },
+    { name: 'Home', href: '/home' },
+    { name: 'SQL Scanner', href: '/scanner' },
     { name: 'About', href: '/about' },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   const isActiveRoute = (path: string) => {
     return location.pathname === path;
@@ -21,7 +29,7 @@ const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo and Brand */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to="/home" className="flex items-center space-x-2">
             <Shield className="h-8 w-8 text-primary-600" />
             <span className="text-xl font-bold text-gray-900">
               SQL Injection Scanner
@@ -29,21 +37,48 @@ const Header: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
-            {navigation.map((item) => (
+          <div className="hidden md:flex items-center space-x-8">
+            <nav className="flex space-x-8">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    isActiveRoute(item.href)
+                      ? 'bg-primary-100 text-primary-700'
+                      : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Authentication Section */}
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-gray-700">
+                  <User className="h-4 w-4" />
+                  <span className="text-sm font-medium">{user?.username}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            ) : (
               <Link
-                key={item.name}
-                to={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  isActiveRoute(item.href)
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
-                }`}
+                to="/login"
+                className="flex items-center space-x-1 px-4 py-2 rounded-md text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors duration-200"
               >
-                {item.name}
+                <User className="h-4 w-4" />
+                <span>Login</span>
               </Link>
-            ))}
-          </nav>
+            )}
+          </div>
 
           {/* Mobile menu button */}
           <button
@@ -76,6 +111,37 @@ const Header: React.FC = () => {
                   {item.name}
                 </Link>
               ))}
+              
+              {/* Mobile Authentication */}
+              <div className="border-t border-gray-200 pt-3 mt-3">
+                {isAuthenticated ? (
+                  <>
+                    <div className="flex items-center px-3 py-2 text-gray-700">
+                      <User className="h-4 w-4 mr-2" />
+                      <span className="text-sm font-medium">{user?.username}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center w-full px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      <span>Logout</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center px-3 py-2 rounded-md text-base font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors duration-200"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    <span>Login</span>
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         )}

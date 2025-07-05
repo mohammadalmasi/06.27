@@ -5,13 +5,16 @@ import {
   Upload, 
   Link as LinkIcon, 
   Code, 
-  AlertTriangle, 
-  CheckCircle, 
+  X,
   Loader2,
-  FileText,
-  X
+  FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface ScanModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
 interface ScanInput {
   type: 'url' | 'file' | 'code';
@@ -19,7 +22,7 @@ interface ScanInput {
   filename?: string;
 }
 
-const Scanner: React.FC = () => {
+const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'url' | 'file' | 'code'>('url');
   const [isScanning, setIsScanning] = useState(false);
@@ -138,6 +141,7 @@ const Scanner: React.FC = () => {
       localStorage.setItem('scanInput', JSON.stringify(scanInput));
       
       toast.success('Scan completed successfully');
+      onClose();
       navigate('/results');
       
     } catch (error) {
@@ -172,21 +176,26 @@ const Scanner: React.FC = () => {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            SQL Injection Vulnerability Scanner
-          </h1>
-          <p className="text-lg text-gray-600">
-            Upload your code, paste it directly, or scan GitHub files for SQL injection vulnerabilities
-          </p>
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Start SQL Injection Scan
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
 
-        {/* Main Scanner Interface */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Content */}
+        <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-200">
             <button
@@ -209,7 +218,7 @@ const Scanner: React.FC = () => {
               }`}
             >
               <Upload className="h-5 w-5 mx-auto mb-1" />
-              File Upload
+              Upload File
             </button>
             <button
               onClick={() => handleTabChange('code')}
@@ -226,74 +235,65 @@ const Scanner: React.FC = () => {
 
           {/* Tab Content */}
           <div className="p-6">
-            {/* URL Tab */}
             {activeTab === 'url' && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    GitHub Python File URL
+                    GitHub File URL
                   </label>
                   <input
                     type="url"
                     value={scanInput.content}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder="https://github.com/user/repo/blob/main/file.py"
-                    className="input-field"
+                    placeholder="https://github.com/username/repo/blob/main/file.py"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    autoFocus
                   />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter a direct link to a Python file on GitHub
+                  <p className="mt-1 text-sm text-gray-500">
+                    Paste a GitHub URL to a Python, JavaScript, PHP, Java, or C# file
                   </p>
                 </div>
               </div>
             )}
 
-            {/* File Upload Tab */}
             {activeTab === 'file' && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Upload Source Code File
                   </label>
+                  <div
+                    {...getRootProps()}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors duration-200 ${
+                      isDragActive
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <input {...getInputProps()} />
+                    <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <p className="text-sm text-gray-600">
+                      Drop your file here, or click to browse
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Supports: .py, .js, .php, .java, .cs, .ts, .jsx, .tsx (Max 2MB)
+                    </p>
+                  </div>
                   
-                  {uploadedFiles.length === 0 ? (
-                    <div
-                      {...getRootProps()}
-                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors duration-200 ${
-                        isDragActive
-                          ? 'border-primary-400 bg-primary-50'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      <input {...getInputProps()} />
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-lg font-medium text-gray-700 mb-2">
-                        {isDragActive
-                          ? 'Drop your file here'
-                          : 'Drag and drop your file here, or click to browse'}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Supports .py, .js, .php, .java, .cs, .ts files (max 2MB)
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="border border-gray-300 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-8 w-8 text-primary-600" />
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {uploadedFiles[0].name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {(uploadedFiles[0].size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
+                  {uploadedFiles.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <FileText className="h-5 w-5 text-gray-600" />
+                          <span className="text-sm font-medium text-gray-900">
+                            {uploadedFiles[0].name}
+                          </span>
                         </div>
                         <button
                           onClick={removeFile}
-                          className="text-gray-400 hover:text-gray-600"
+                          className="text-red-500 hover:text-red-700 transition-colors duration-200"
                         >
-                          <X className="h-5 w-5" />
+                          <X className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
@@ -302,115 +302,54 @@ const Scanner: React.FC = () => {
               </div>
             )}
 
-            {/* Code Paste Tab */}
             {activeTab === 'code' && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Paste Source Code
+                    Paste Your Code
                   </label>
                   <textarea
                     value={scanInput.content}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder="# Paste your Python code here..."
+                    placeholder="# Paste your Python, JavaScript, PHP, Java, or C# code here..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono text-sm"
                     rows={12}
-                    className="textarea-field font-mono text-sm"
+                    autoFocus
                   />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Paste your source code directly for analysis
-                  </p>
                 </div>
               </div>
             )}
-
-            {/* Scan Button */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <button
-                onClick={handleScan}
-                disabled={!canScan()}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                  canScan()
-                    ? 'bg-primary-600 hover:bg-primary-700 text-white'
-                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isScanning ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Scanning Code...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Start Security Scan
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Information Cards */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Supported Languages
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                Python (.py)
-              </li>
-              <li className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                JavaScript (.js, .jsx, .ts, .tsx)
-              </li>
-              <li className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                PHP (.php)
-              </li>
-              <li className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                Java (.java)
-              </li>
-              <li className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                C# (.cs)
-              </li>
-            </ul>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Detection Capabilities
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                String concatenation vulnerabilities
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                Dynamic query construction
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                Parameterized query validation
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                NoSQL injection patterns
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                Framework-specific vulnerabilities
-              </li>
-            </ul>
-          </div>
+        {/* Footer */}
+        <div className="flex items-center justify-between p-6 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleScan}
+            disabled={!canScan()}
+            className={`px-6 py-2 rounded-md font-medium transition-colors duration-200 flex items-center space-x-2 ${
+              canScan()
+                ? 'bg-primary-600 text-white hover:bg-primary-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {isScanning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+            <span>{isScanning ? 'Scanning...' : 'Start Scan'}</span>
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-export default Scanner; 
+export default ScanModal; 

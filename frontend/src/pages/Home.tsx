@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import ScanModal from '../components/ScanModal';
 import { 
   Shield, 
   Search, 
@@ -13,6 +15,18 @@ import {
 } from 'lucide-react';
 
 const Home: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+
+  const handleStartScanning = () => {
+    if (isAuthenticated) {
+      setIsScanModalOpen(true);
+    } else {
+      // If not authenticated, redirect to login with scanner redirect
+      window.location.href = '/login?redirect=/scanner';
+    }
+  };
+  
   const features = [
     {
       icon: <Search className="h-8 w-8 text-primary-600" />,
@@ -78,13 +92,13 @@ const Home: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
-              <Link
-                to="/scanner"
+              <button
+                onClick={handleStartScanning}
                 className="bg-white text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center"
               >
                 Start Scanning
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
+              </button>
               
               <Link
                 to="/about"
@@ -161,13 +175,13 @@ const Home: React.FC = () => {
             Upload your code or paste it directly for instant analysis.
           </p>
           
-          <Link
-            to="/scanner"
+          <button
+            onClick={handleStartScanning}
             className="bg-white text-primary-600 px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200 inline-flex items-center"
           >
-            Get Started Now
+            Start Scanning Now
             <ArrowRight className="ml-2 h-5 w-5" />
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -183,6 +197,12 @@ const Home: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Scan Modal */}
+      <ScanModal
+        isOpen={isScanModalOpen}
+        onClose={() => setIsScanModalOpen(false)}
+      />
     </div>
   );
 };
