@@ -26,8 +26,8 @@ CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"],
 ast_detector = SQLInjectionDetector()
 
 # Authentication configuration
-ADMIN_USERNAME = "Admin"
-ADMIN_PASSWORD = "unipassau"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "a"
 
 def token_required(f):
     @wraps(f)
