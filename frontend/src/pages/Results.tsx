@@ -9,12 +9,8 @@ import {
   FileText,
   Code,
   Shield,
-  AlertCircle,
-  Eye,
-  EyeOff
+  AlertCircle
 } from 'lucide-react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface Vulnerability {
   file_path: string;
@@ -45,7 +41,6 @@ const Results: React.FC = () => {
   const navigate = useNavigate();
   const [results, setResults] = useState<ScanResults | null>(null);
   const [scanInput, setScanInput] = useState<any>(null);
-  const [expandedVulnerabilities, setExpandedVulnerabilities] = useState<Set<number>>(new Set());
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
 
   useEffect(() => {
@@ -65,16 +60,6 @@ const Results: React.FC = () => {
       navigate('/scanner');
     }
   }, [navigate]);
-
-  const toggleVulnerability = (index: number) => {
-    const newExpanded = new Set(expandedVulnerabilities);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
-    setExpandedVulnerabilities(newExpanded);
-  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity.toLowerCase()) {
@@ -402,8 +387,7 @@ const Results: React.FC = () => {
             filteredVulnerabilities.map((vulnerability, index) => (
               <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
                 <div 
-                  className={`p-6 border-l-4 cursor-pointer hover:bg-gray-50 transition-colors duration-200 ${getSeverityColor(vulnerability.severity).replace('bg-', 'border-').replace('-50', '-500')}`}
-                  onClick={() => toggleVulnerability(index)}
+                  className={`p-6 border-l-4 ${getSeverityColor(vulnerability.severity).replace('bg-', 'border-').replace('-50', '-500')}`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3">
@@ -427,53 +411,8 @@ const Results: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center text-gray-400">
-                      {expandedVulnerabilities.has(index) ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </div>
                   </div>
                 </div>
-
-                {expandedVulnerabilities.has(index) && (
-                  <div className="border-t border-gray-200 bg-gray-50 p-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Code Snippet */}
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                          <Code className="h-4 w-4 mr-2" />
-                          Vulnerable Code
-                        </h4>
-                        <div className="rounded-lg overflow-hidden">
-                          <SyntaxHighlighter
-                            language="python"
-                            style={vscDarkPlus}
-                            className="text-sm"
-                            showLineNumbers={true}
-                            startingLineNumber={Math.max(1, vulnerability.line_number - 2)}
-                          >
-                            {vulnerability.code_snippet}
-                          </SyntaxHighlighter>
-                        </div>
-                      </div>
-
-                      {/* Remediation */}
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                          <Shield className="h-4 w-4 mr-2" />
-                          Remediation
-                        </h4>
-                        <div className="bg-white rounded-lg p-4 border border-gray-200">
-                          <p className="text-sm text-gray-700 leading-relaxed">
-                            {vulnerability.remediation}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))
           )}
