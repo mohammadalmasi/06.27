@@ -248,6 +248,37 @@ def highlight_sql_injection_web(code):
         highlighted = re.sub(pat, lambda m: f'<span class="vuln">{m.group(0)}</span>', highlighted, flags=re.IGNORECASE)
     return highlighted
 
+def highlight_sql_injection_word(code):
+    """Highlight vulnerable SQL and NoSQL patterns in code for Word document generation."""
+    # More comprehensive patterns for SQL and NoSQL injection detection
+    patterns = [
+        # SQL injection patterns
+        r'(\+\s*\w+)',  # + user_input
+        r'(\+\s*[\'"][^\'"]*[\'"]\s*\+\s*\w+)',  # "SELECT * FROM users WHERE id = " + user_input
+        r'\{\w+\}',     # {user_input} in f-strings
+        r'%\s*\w+',      # % user_input
+        r'\.format\(\w+\)',  # .format(user_input)
+        r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*\+\s*\w+)',  # execute("SELECT * FROM " + table)
+        r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*%\s*\w+)',   # execute("SELECT * FROM %s" % user_input)
+        r'(execute\s*\(\s*[\'"][^\'"]*[\'"]\s*\.\s*format\s*\(\s*\w+)',  # execute("SELECT * FROM {}".format(user_input))
+        r'(SELECT\s+.*\s+FROM\s+.*\s+WHERE\s+.*\s*\+\s*\w+)',  # SELECT * FROM users WHERE id = + user_input
+        r'(INSERT\s+INTO\s+.*\s+VALUES\s*\(\s*.*\s*\+\s*\w+)',  # INSERT INTO users VALUES ( + user_input)
+        r'(UPDATE\s+.*\s+SET\s+.*\s+WHERE\s+.*\s*\+\s*\w+)',   # UPDATE users SET name = + user_input
+        r'(request\.form\[\w+\])',  # request.form['user_input']
+        r'(request\.args\[\w+\])',  # request.args['user_input']
+        r'(request\.cookies\[\w+\])',  # request.cookies['user_input']
+        r'(input\s*\(\s*[\'"][^\'"]*[\'"]\s*\))',  # input("Enter value: ")
+        # NoSQL injection patterns (MongoDB)
+        r'(find\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # find({"name": username})
+        r'(find_one\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # find_one({"name": username})
+        r'(db\.[\w_]+\.find\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # db.users.find({"name": username})
+        r'(db\.[\w_]+\.find_one\s*\(\s*\{[^}]*[\w\'\"]+\s*:\s*\w+[^}]*\}\s*\))',  # db.users.find_one({"name": username})
+    ]
+    highlighted = code
+    for pat in patterns:
+        highlighted = re.sub(pat, lambda m: f'[VULNERABLE:{m.group(0)}]', highlighted, flags=re.IGNORECASE)
+    return highlighted
+
 def ensure_dirs():
     os.makedirs('sourcecodes', exist_ok=True)
     os.makedirs('results', exist_ok=True)
@@ -596,11 +627,202 @@ def api_scan(current_user):
             'summary': summary,
             'scan_info': scan_info,
             'highlighted_code': highlighted_code,
-            'original_code': source_code
+            'original_code': source_code,
+            'scan_timestamp': scan_info['scan_timestamp']
         })
         
     except Exception as e:
         return jsonify({'error': f"Unexpected error: {str(e)}"}), 500
+
+@app.route('/api/generate-report', methods=['POST'])
+@token_required
+def generate_word_report(current_user):
+    """Generate a Word document report from scan results"""
+    try:
+        data = request.get_json()
+        
+        # Extract data from request
+        vulnerabilities = data.get('vulnerabilities', [])
+        summary = data.get('summary', {})
+        scan_info = data.get('scan_info', {})
+        original_code = data.get('original_code', '')
+        
+        # Create Word document
+        doc = Document()
+        
+        # Add title
+        title = doc.add_heading('SQL Injection Security Scan Report', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Add file information
+        doc.add_heading('Scan Information', level=1)
+        info_table = doc.add_table(rows=4, cols=2)
+        info_table.style = 'Table Grid'
+        
+        # Populate info table
+        info_data = [
+            ['Scan Date:', scan_info.get('scan_timestamp', 'N/A')],
+            ['Input Type:', scan_info.get('input_type', 'N/A')],
+            ['File Name:', scan_info.get('file_name', 'N/A')],
+            ['Total Vulnerabilities:', str(summary.get('total_vulnerabilities', 0))]
+        ]
+        
+        for i, (key, value) in enumerate(info_data):
+            row = info_table.rows[i]
+            row.cells[0].text = key
+            row.cells[0].paragraphs[0].runs[0].bold = True
+            row.cells[1].text = value
+        
+        # Add executive summary
+        doc.add_heading('Executive Summary', level=1)
+        summary_para = doc.add_paragraph()
+        
+        total_vulns = summary.get('total_vulnerabilities', 0)
+        high_severity = summary.get('high_severity', 0)
+        medium_severity = summary.get('medium_severity', 0)
+        low_severity = summary.get('low_severity', 0)
+        
+        if total_vulns > 0:
+            summary_para.add_run('⚠️ SECURITY ISSUES DETECTED\n\n').bold = True
+            summary_para.add_run(f'This security scan identified {total_vulns} potential SQL injection vulnerabilities:\n')
+            summary_para.add_run(f'• High Severity: {high_severity} issues\n')
+            summary_para.add_run(f'• Medium Severity: {medium_severity} issues\n')
+            summary_para.add_run(f'• Low Severity: {low_severity} issues\n\n')
+            
+            if high_severity > 0:
+                summary_para.add_run('IMMEDIATE ACTION REQUIRED: High severity vulnerabilities pose significant security risks and should be addressed immediately.')
+        else:
+            summary_para.add_run('✅ NO VULNERABILITIES DETECTED\n\n').bold = True
+            summary_para.add_run('This security scan found no SQL injection vulnerabilities in the analyzed code.')
+        
+        # Add vulnerability details
+        if vulnerabilities:
+            doc.add_heading('Vulnerability Details', level=1)
+            
+            for i, vuln in enumerate(vulnerabilities, 1):
+                # Vulnerability header
+                vuln_heading = doc.add_heading(f'Vulnerability #{i}: {vuln.get("vulnerability_type", "").replace("_", " ").title()}', level=2)
+                
+                # Vulnerability info table
+                vuln_table = doc.add_table(rows=6, cols=2)
+                vuln_table.style = 'Table Grid'
+                
+                vuln_data = [
+                    ['File Path:', vuln.get('file_path', 'N/A')],
+                    ['Line Number:', str(vuln.get('line_number', 'N/A'))],
+                    ['Severity:', vuln.get('severity', 'N/A')],
+                    ['Confidence:', f"{vuln.get('confidence', 0):.2f}"],
+                    ['Description:', vuln.get('description', 'N/A')],
+                    ['Remediation:', vuln.get('remediation', 'N/A')]
+                ]
+                
+                for j, (key, value) in enumerate(vuln_data):
+                    row = vuln_table.rows[j]
+                    row.cells[0].text = key
+                    row.cells[0].paragraphs[0].runs[0].bold = True
+                    row.cells[1].text = value
+                
+                # Add code snippet with vulnerability highlighting if available
+                if vuln.get('code_snippet'):
+                    doc.add_paragraph('Code Snippet:')
+                    
+                    # Highlight vulnerable patterns in the code snippet
+                    highlighted_snippet = highlight_sql_injection_word(vuln['code_snippet'])
+                    
+                    # Parse and format the highlighted code snippet
+                    code_para = doc.add_paragraph()
+                    code_para.style = 'No Spacing'
+                    
+                    i = 0
+                    while i < len(highlighted_snippet):
+                        if highlighted_snippet.startswith('[VULNERABLE:', i):
+                            # Find the end of the vulnerable section
+                            end = highlighted_snippet.find(']', i)
+                            if end != -1:
+                                # Extract the vulnerable code (remove the marker)
+                                vuln_text = highlighted_snippet[i+12:end]
+                                # Add the vulnerable code with red formatting
+                                run = code_para.add_run(vuln_text)
+                                run.font.name = 'Courier New'
+                                run.font.size = Pt(9)
+                                run.font.color.rgb = RGBColor(255, 0, 0)  # Red color
+                                run.bold = True
+                                i = end + 1
+                                continue
+                        
+                        # Add normal character
+                        run = code_para.add_run(highlighted_snippet[i])
+                        run.font.name = 'Courier New'
+                        run.font.size = Pt(9)
+                        i += 1
+                
+                doc.add_paragraph()  # Add spacing
+        
+        # Add recommendations
+        doc.add_heading('Security Recommendations', level=1)
+        recommendations = [
+            'Use parameterized queries or prepared statements instead of string concatenation',
+            'Implement input validation and sanitization',
+            'Use ORM (Object-Relational Mapping) frameworks when possible',
+            'Apply the principle of least privilege to database accounts',
+            'Regularly update and patch database systems',
+            'Implement proper error handling that doesn\'t expose sensitive information',
+            'Use web application firewalls (WAF) as an additional layer of protection',
+            'Conduct regular security code reviews and penetration testing'
+        ]
+        
+        for rec in recommendations:
+            doc.add_paragraph(f'• {rec}')
+        
+        # Add source code section with vulnerability highlighting
+        if original_code and len(original_code.strip()) > 0:
+            doc.add_heading('Analyzed Source Code', level=1)
+            doc.add_paragraph('The following source code was analyzed for SQL injection vulnerabilities (vulnerable patterns highlighted in red):')
+            
+            # Generate highlighted code with vulnerability markers
+            highlighted_code = highlight_sql_injection_word(original_code)
+            
+            # Parse and format the highlighted code
+            code_para = doc.add_paragraph()
+            code_para.style = 'No Spacing'
+            
+            i = 0
+            while i < len(highlighted_code):
+                if highlighted_code.startswith('[VULNERABLE:', i):
+                    # Find the end of the vulnerable section
+                    end = highlighted_code.find(']', i)
+                    if end != -1:
+                        # Extract the vulnerable code (remove the marker)
+                        vuln_text = highlighted_code[i+12:end]
+                        # Add the vulnerable code with red formatting
+                        run = code_para.add_run(vuln_text)
+                        run.font.name = 'Courier New'
+                        run.font.size = Pt(8)
+                        run.font.color.rgb = RGBColor(255, 0, 0)  # Red color
+                        run.bold = True
+                        i = end + 1
+                        continue
+                
+                # Add normal character
+                run = code_para.add_run(highlighted_code[i])
+                run.font.name = 'Courier New'
+                run.font.size = Pt(8)
+                i += 1
+        
+        # Save document
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'security_scan_report_{timestamp}.docx'
+        filepath = os.path.join('results', filename)
+        doc.save(filepath)
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'message': 'Report generated successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f"Failed to generate report: {str(e)}"}), 500
 
 @app.route('/download/<filename>')
 def download_file(filename):

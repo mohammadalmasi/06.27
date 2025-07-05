@@ -107,26 +107,85 @@ const Results: React.FC = () => {
     return vuln.severity.toLowerCase() === filterSeverity.toLowerCase();
   }) || [];
 
-  const downloadReport = () => {
+  const downloadReport = async () => {
     if (!results) return;
     
-    const reportData = {
-      scan_timestamp: new Date().toISOString(),
-      input_type: scanInput?.type || 'unknown',
-      file_name: scanInput?.filename || 'N/A',
-      summary: results.summary,
-      vulnerabilities: results.vulnerabilities
-    };
+    try {
+      const reportData = {
+        vulnerabilities: results.vulnerabilities,
+        summary: results.summary,
+        scan_info: {
+          scan_timestamp: new Date().toISOString(),
+          input_type: scanInput?.type || 'unknown',
+          file_name: scanInput?.filename || scanInput?.type || 'N/A'
+        },
+        original_code: results.original_code || ''
+      };
 
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `security-scan-report-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/generate-report', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(reportData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate report');
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.filename) {
+        // Download the generated Word document
+        const downloadResponse = await fetch(`http://localhost:5001/download/${result.filename}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        
+        if (downloadResponse.ok) {
+          const blob = await downloadResponse.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = result.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } else {
+          throw new Error('Failed to download report');
+        }
+      } else {
+        throw new Error(result.error || 'Failed to generate report');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      // Fallback to JSON if Word generation fails
+      const reportData = {
+        scan_timestamp: new Date().toISOString(),
+        input_type: scanInput?.type || 'unknown',
+        file_name: scanInput?.filename || 'N/A',
+        summary: results.summary,
+        vulnerabilities: results.vulnerabilities
+      };
+
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `security-scan-report-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   if (!results) {
@@ -165,7 +224,7 @@ const Results: React.FC = () => {
               className="btn-primary flex items-center"
             >
               <Download className="h-4 w-4 mr-2" />
-              Download Report
+              Download Word Report
             </button>
           </div>
           
@@ -435,7 +494,7 @@ const Results: React.FC = () => {
             className="btn-secondary flex items-center justify-center"
           >
             <Download className="h-4 w-4 mr-2" />
-            Download Full Report
+            Download Word Report
           </button>
         </div>
       </div>
