@@ -6,7 +6,10 @@ from urllib.parse import urljoin, urlparse
 import re
 import os
 from docx import Document
-from docx.shared import RGBColor
+from docx.shared import RGBColor, Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml.shared import OxmlElement, qn
 import sqlite3
 from sql_injection_detector import SQLInjectionDetector
 from datetime import datetime, timedelta
