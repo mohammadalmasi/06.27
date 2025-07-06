@@ -219,6 +219,10 @@ def scan_code_file(filename):
 def scan_code_content_enhanced(code_content: str, source_name: str) -> dict:
     """Enhanced scanning of code content with SonarQube security standards"""
     try:
+        # Ensure directories exist
+        # Use /tmp directory which is writable on App Engine
+        os.makedirs('/tmp/results', exist_ok=True)
+        
         # Create temporary file for scanning
         temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
         temp_file.write(code_content)
@@ -316,7 +320,8 @@ def api_scan_code(current_user):
         url = data.get('url')
         
         # Ensure directories exist
-        os.makedirs('results', exist_ok=True)
+        # Use /tmp directory which is writable on App Engine
+        os.makedirs('/tmp/results', exist_ok=True)
         
         if code_content:
             # Scan provided code content

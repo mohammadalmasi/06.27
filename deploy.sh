@@ -51,17 +51,17 @@ fi
 
 # Deploy Backend
 echo -e "${YELLOW}🐍 Deploying Flask Backend...${NC}"
-cd sql_injection
+cd backend
 
 # Check if requirements.txt exists
 if [ ! -f "requirements.txt" ]; then
-    echo -e "${RED}❌ requirements.txt not found in sql_injection directory${NC}"
+    echo -e "${RED}❌ requirements.txt not found in backend directory${NC}"
     exit 1
 fi
 
 # Check if app.yaml exists
 if [ ! -f "app.yaml" ]; then
-    echo -e "${RED}❌ app.yaml not found in sql_injection directory${NC}"
+    echo -e "${RED}❌ app.yaml not found in backend directory${NC}"
     exit 1
 fi
 

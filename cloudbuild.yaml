@@ -6,7 +6,7 @@ steps:
       - '-c'
       - |
         echo "🐍 Deploying Flask Backend..."
-        cd sql_injection
+        cd backend
         gcloud app deploy app.yaml --quiet
         echo "✅ Backend deployed successfully"
     id: 'deploy-backend'

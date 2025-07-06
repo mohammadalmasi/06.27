@@ -67,7 +67,8 @@ def token_required(f):
     return decorated
 
 def ensure_dirs():
-    os.makedirs('results', exist_ok=True)
+    # Use /tmp directory which is writable on App Engine
+    os.makedirs('/tmp/results', exist_ok=True)
 
 @app.route('/api/login', methods=['POST'])
 def login():
