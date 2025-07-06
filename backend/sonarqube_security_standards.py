@@ -7,6 +7,8 @@ This module provides security categorization, vulnerability probability scoring,
 and compliance mapping for SQL injection vulnerabilities.
 """
 
+
+
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Union
 from enum import Enum
