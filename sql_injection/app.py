@@ -12,9 +12,14 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
 import sqlite3
 from sql_injection_detector import SQLInjectionDetector
+from enhanced_sql_injection_detector import EnhancedSQLInjectionDetector
+from sonarqube_security_standards import SecurityStandards, SQCategory, VulnerabilityProbability
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps
+import json
+import tempfile
+import zipfile
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
@@ -25,12 +30,18 @@ CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"],
      methods=["GET", "POST", "OPTIONS"], 
      allow_headers=["Content-Type", "Authorization"])
 
-# Initialize the advanced SQL injection detector
+# Initialize both detectors
 ast_detector = SQLInjectionDetector()
+enhanced_detector = EnhancedSQLInjectionDetector()
 
 # Authentication configuration
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "a"
+
+# Based on SonarQube's actual SecurityStandards.java
+SQL_INJECTION = ("sql-injection", VulnerabilityProbability.HIGH)
+# Maps to CWE-89, CWE-564, CWE-943
+# Maps to OWASP A03:2021-Injection
 
 def token_required(f):
     @wraps(f)
@@ -819,6 +830,229 @@ def generate_word_report(current_user):
         
     except Exception as e:
         return jsonify({'error': f"Failed to generate report: {str(e)}"}), 500
+
+@app.route('/api/enhanced-scan', methods=['POST'])
+@token_required
+def enhanced_api_scan(current_user):
+    """Enhanced API endpoint for scanning with SonarQube security standards"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Get scan parameters
+        scan_type = data.get('scan_type', 'code')  # 'code', 'file', 'url'
+        code_content = data.get('code', '')
+        file_content = data.get('file_content', '')
+        url = data.get('url', '')
+        
+        results = {}
+        
+        if scan_type == 'code' and code_content:
+            # Scan provided code
+            results = _scan_code_content_enhanced(code_content, 'user_input.py')
+        elif scan_type == 'file' and file_content:
+            # Scan uploaded file content
+            results = _scan_code_content_enhanced(file_content, 'uploaded_file.py')
+        elif scan_type == 'url' and url:
+            # Scan GitHub URL
+            if is_github_py_url(url):
+                raw_url = github_raw_url(url)
+                try:
+                    response = requests.get(raw_url, timeout=10)
+                    if response.status_code == 200:
+                        results = _scan_code_content_enhanced(response.text, url)
+                    else:
+                        return jsonify({'error': f'Failed to fetch URL: {response.status_code}'}), 400
+                except Exception as e:
+                    return jsonify({'error': f'Error fetching URL: {str(e)}'}), 400
+            else:
+                return jsonify({'error': 'Invalid GitHub Python file URL'}), 400
+        else:
+            return jsonify({'error': 'Invalid scan parameters'}), 400
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        return jsonify({'error': f'Error during enhanced scan: {str(e)}'}), 500
+
+@app.route('/api/sonarqube-export', methods=['POST'])
+@token_required
+def sonarqube_export(current_user):
+    """Export vulnerabilities in SonarQube format"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        vulnerabilities = data.get('vulnerabilities', [])
+        if not vulnerabilities:
+            return jsonify({'error': 'No vulnerabilities provided'}), 400
+        
+        # Convert to SonarQube format
+        sonar_issues = []
+        for vuln in vulnerabilities:
+            sonar_issue = {
+                "engineId": "python-security-scanner",
+                "ruleId": vuln.get('rule_key', 'python:S2077'),
+                "severity": vuln.get('severity', 'MAJOR'),
+                "type": "VULNERABILITY",
+                "primaryLocation": {
+                    "message": vuln.get('description', 'SQL Injection vulnerability'),
+                    "filePath": vuln.get('file_path', 'unknown'),
+                    "textRange": {
+                        "startLine": vuln.get('line_number', 1),
+                        "endLine": vuln.get('line_number', 1)
+                    }
+                },
+                "cwe": vuln.get('cwe_references', []),
+                "owasp": vuln.get('owasp_references', []),
+                "confidence": vuln.get('confidence', 0.5)
+            }
+            sonar_issues.append(sonar_issue)
+        
+        # Create temporary file
+        temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
+        json.dump({"issues": sonar_issues}, temp_file, indent=2)
+        temp_file.close()
+        
+        return send_file(
+            temp_file.name,
+            as_attachment=True,
+            download_name=f'sonarqube_issues_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
+            mimetype='application/json'
+        )
+        
+    except Exception as e:
+        return jsonify({'error': f'Error exporting SonarQube format: {str(e)}'}), 500
+
+@app.route('/api/security-standards', methods=['GET'])
+@token_required
+def get_security_standards(current_user):
+    """Get available security standards and categories"""
+    try:
+        standards = {
+            "sq_categories": [
+                {
+                    "key": category.key,
+                    "name": category.name.replace('_', ' ').title(),
+                    "vulnerability_probability": category.vulnerability.name
+                }
+                for category in SQCategory
+            ],
+            "vulnerability_probabilities": [
+                {
+                    "name": prob.name,
+                    "score": prob.value
+                }
+                for prob in VulnerabilityProbability
+            ],
+            "cwe_mappings": {
+                "sql_injection": ["89", "564", "943"],
+                "nosql_injection": ["89", "943"],
+                "command_injection": ["77", "78", "88", "214"]
+            },
+            "owasp_top10_2021": [
+                "A01:2021-Broken Access Control",
+                "A02:2021-Cryptographic Failures",
+                "A03:2021-Injection",
+                "A04:2021-Insecure Design",
+                "A05:2021-Security Misconfiguration",
+                "A06:2021-Vulnerable and Outdated Components",
+                "A07:2021-Identification and Authentication Failures",
+                "A08:2021-Software and Data Integrity Failures",
+                "A09:2021-Security Logging and Monitoring Failures",
+                "A10:2021-Server-Side Request Forgery"
+            ]
+        }
+        
+        return jsonify(standards)
+        
+    except Exception as e:
+        return jsonify({'error': f'Error getting security standards: {str(e)}'}), 500
+
+def _scan_code_content_enhanced(code_content: str, source_name: str) -> dict:
+    """Enhanced scanning of code content with SonarQube security standards"""
+    try:
+        # Create temporary file for scanning
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
+        temp_file.write(code_content)
+        temp_file.close()
+        
+        # Create a fresh detector instance for each scan to avoid cached vulnerabilities
+        fresh_detector = EnhancedSQLInjectionDetector()
+        vulnerabilities = fresh_detector.scan_file(temp_file.name)
+        
+        # Clean up temporary file
+        os.unlink(temp_file.name)
+        
+        # Generate enhanced report
+        report = fresh_detector.get_enhanced_report()
+        summary = report.get('summary', {})
+        
+        # Generate highlighted code for React frontend
+        highlighted_code = None
+        original_code = code_content
+        file_name = source_name
+        
+        if vulnerabilities:
+            # Use existing highlight function to highlight vulnerable patterns
+            highlighted_code = highlight_sql_injection_web(code_content)
+            
+            # Escape HTML entities in the original code for safe display
+            original_code = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            # Extract filename from source
+            if '/' in source_name:
+                file_name = source_name.split('/')[-1]
+            elif source_name.startswith('http'):
+                file_name = source_name.split('/')[-1] if '/' in source_name else 'scanned_code.py'
+        
+        # Format results with both enhanced and UI-compatible formats
+        results = {
+            'source': source_name,
+            'scan_type': 'enhanced',
+            'summary': summary,
+            'compliance': report.get('compliance', {}),
+            'vulnerabilities': [vuln.to_dict() for vuln in vulnerabilities],
+            'total_vulnerabilities': len(vulnerabilities),
+            'scan_timestamp': datetime.now().isoformat(),
+            
+            # Additional UI-compatible fields
+            'total_issues': len(vulnerabilities),
+            'high_severity': summary.get('high_severity', 0),
+            'medium_severity': summary.get('medium_severity', 0),
+            'low_severity': summary.get('low_severity', 0),
+            'high_count': summary.get('high', 0),
+            'medium_count': summary.get('medium', 0),
+            'low_count': summary.get('low', 0),
+            
+            # Code highlighting fields for React frontend
+            'highlighted_code': highlighted_code,
+            'original_code': original_code,
+            'file_name': file_name
+        }
+        
+        return results
+        
+    except Exception as e:
+        return {
+            'error': f'Error during enhanced scan: {str(e)}',
+            'source': source_name,
+            'scan_type': 'enhanced',
+            'vulnerabilities': [],
+            'total_vulnerabilities': 0,
+            'total_issues': 0,
+            'high_severity': 0,
+            'medium_severity': 0,
+            'low_severity': 0,
+            'high_count': 0,
+            'medium_count': 0,
+            'low_count': 0,
+            'highlighted_code': None,
+            'original_code': '',
+            'file_name': source_name
+        }
 
 @app.route('/download/<filename>')
 def download_file(filename):

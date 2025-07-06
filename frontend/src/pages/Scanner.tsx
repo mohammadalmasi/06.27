@@ -104,31 +104,38 @@ const Scanner: React.FC = () => {
     setIsScanning(true);
     
     try {
-      const formData = new FormData();
+      // Prepare JSON payload for enhanced API
+      const payload: any = {
+        scan_type: scanInput.type === 'url' ? 'url' : (scanInput.type === 'file' ? 'file' : 'code')
+      };
       
       if (scanInput.type === 'url') {
-        formData.append('url', scanInput.content);
+        payload.url = scanInput.content;
       } else if (scanInput.type === 'file') {
-        formData.append('code', scanInput.content);
+        payload.file_content = scanInput.content;
       } else {
-        formData.append('code', scanInput.content);
+        payload.code = scanInput.content;
       }
 
       // Get JWT token from localStorage
       const token = localStorage.getItem('token');
-      const headers: HeadersInit = {};
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/scan', {
+      // Use enhanced API endpoint with SonarQube integration
+      const response = await fetch('http://localhost:5001/api/enhanced-scan', {
         method: 'POST',
         headers,
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error('Scan failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Scan failed');
       }
 
       const results = await response.json();
@@ -137,12 +144,12 @@ const Scanner: React.FC = () => {
       localStorage.setItem('scanResults', JSON.stringify(results));
       localStorage.setItem('scanInput', JSON.stringify(scanInput));
       
-      toast.success('Scan completed successfully');
+      toast.success(`Scan completed! Found ${results.total_issues || 0} vulnerabilities`);
       navigate('/results');
       
     } catch (error) {
       console.error('Scan error:', error);
-      toast.error('Scan failed. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Scan failed. Please try again.');
     } finally {
       setIsScanning(false);
     }

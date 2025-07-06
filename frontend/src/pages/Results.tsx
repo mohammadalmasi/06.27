@@ -21,6 +21,10 @@ interface Vulnerability {
   code_snippet: string;
   remediation: string;
   confidence: number;
+  rule_key?: string;
+  cwe_references?: string[];
+  owasp_references?: string[];
+  sq_category?: string;
 }
 
 interface ScanResults {
@@ -30,8 +34,27 @@ interface ScanResults {
     high_severity: number;
     medium_severity: number;
     low_severity: number;
+    critical?: number;
+    high?: number;
+    medium?: number;
+    low?: number;
   };
+  // Enhanced API fields
+  total_issues: number;
+  high_severity: number;
+  medium_severity: number;
+  low_severity: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
   scan_timestamp: string;
+  source?: string;
+  scan_type?: string;
+  compliance?: {
+    cwe_distribution: Record<string, number>;
+    owasp_top10_distribution: Record<string, number>;
+  };
   file_name?: string;
   highlighted_code?: string;
   original_code?: string;
@@ -229,7 +252,7 @@ const Results: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Issues</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {results.summary.total_vulnerabilities}
+                  {results.total_issues || results.summary?.total_vulnerabilities || 0}
                 </p>
               </div>
             </div>
@@ -241,7 +264,7 @@ const Results: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">High Severity</p>
                 <p className="text-2xl font-bold text-danger-600">
-                  {results.summary.high_severity}
+                  {results.high_severity || results.summary?.high_severity || 0}
                 </p>
               </div>
             </div>
@@ -253,7 +276,7 @@ const Results: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Medium Severity</p>
                 <p className="text-2xl font-bold text-warning-600">
-                  {results.summary.medium_severity}
+                  {results.medium_severity || results.summary?.medium_severity || 0}
                 </p>
               </div>
             </div>
@@ -265,7 +288,7 @@ const Results: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Low Severity</p>
                 <p className="text-2xl font-bold text-success-600">
-                  {results.summary.low_severity}
+                  {results.low_severity || results.summary?.low_severity || 0}
                 </p>
               </div>
             </div>
@@ -277,24 +300,39 @@ const Results: React.FC = () => {
           <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-lg font-semibold text-gray-900">Filter by Severity:</h3>
             <div className="flex space-x-2">
-              {['all', 'high', 'medium', 'low'].map((severity) => (
-                <button
-                  key={severity}
-                  onClick={() => setFilterSeverity(severity)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                    filterSeverity === severity
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {severity.charAt(0).toUpperCase() + severity.slice(1)}
-                  {severity !== 'all' && (
-                    <span className="ml-1 text-xs">
-                      ({results.summary[`${severity}_severity` as keyof typeof results.summary]})
-                    </span>
-                  )}
-                </button>
-              ))}
+              {['all', 'high', 'medium', 'low'].map((severity) => {
+                const getCount = (sev: string) => {
+                  switch (sev) {
+                    case 'high':
+                      return results.high_severity || results.summary?.high_severity || 0;
+                    case 'medium':
+                      return results.medium_severity || results.summary?.medium_severity || 0;
+                    case 'low':
+                      return results.low_severity || results.summary?.low_severity || 0;
+                    default:
+                      return results.total_issues || results.summary?.total_vulnerabilities || 0;
+                  }
+                };
+                
+                return (
+                  <button
+                    key={severity}
+                    onClick={() => setFilterSeverity(severity)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                      filterSeverity === severity
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                    {severity !== 'all' && (
+                      <span className="ml-1 text-xs">
+                        ({getCount(severity)})
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -318,7 +356,7 @@ const Results: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <FileText className="h-4 w-4 text-gray-300" />
                     <span className="text-gray-200 text-sm font-medium">
-                      {scanInput?.filename || 'scanned_code.py'}
+                      {results.file_name || scanInput?.filename || 'scanned_code.py'}
                     </span>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
                       Python
@@ -360,6 +398,19 @@ const Results: React.FC = () => {
                           overflowWrap: 'normal'
                         }}
                       />
+                      <style>{`
+                        .code-content .vuln {
+                          background-color: #dc2626 !important;
+                          color: #ffffff !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .vuln:hover {
+                          background-color: #b91c1c !important;
+                        }
+                      `}</style>
                     </div>
                   </div>
                 </div>
@@ -369,7 +420,7 @@ const Results: React.FC = () => {
         )}
 
         {/* Vulnerabilities List */}
-        <div className="space-y-6">
+        {/* <div className="space-y-6">
           {filteredVulnerabilities.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <CheckCircle className="h-16 w-16 text-success-600 mx-auto mb-4" />
@@ -416,7 +467,7 @@ const Results: React.FC = () => {
               </div>
             ))
           )}
-        </div>
+        </div> */}
 
         {/* Bottom Actions */}
         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">

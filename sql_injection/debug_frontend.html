@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Frontend API</title>
+</head>
+<body>
+    <h1>Debug Frontend API</h1>
+    <button onclick="testAPI()">Test Enhanced API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                // Step 1: Login
+                console.log('🔐 Login...');
+                const loginResponse = await fetch('http://localhost:5001/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'a' })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.token;
+                console.log('✅ Login successful');
+                
+                // Step 2: Enhanced scan
+                console.log('🔍 Testing enhanced scan...');
+                const vulnerable_code = `
+import sqlite3
+def get_user(user_id):
+    conn = sqlite3.connect('db.sqlite')
+    cursor = conn.cursor()
+    query = "SELECT * FROM users WHERE id = " + str(user_id)
+    cursor.execute(query)
+    return cursor.fetchone()
+`;
+                
+                const scanResponse = await fetch('http://localhost:5001/api/enhanced-scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        scan_type: 'code',
+                        code: vulnerable_code
+                    })
+                });
+                
+                if (!scanResponse.ok) {
+                    throw new Error(`Scan failed: ${scanResponse.status}`);
+                }
+                
+                const scanData = await scanResponse.json();
+                console.log('✅ Scan successful');
+                console.log('📊 Scan data:', scanData);
+                
+                // Display results
+                resultsDiv.innerHTML = `
+                    <h2>✅ API Test Results:</h2>
+                    <p><strong>total_issues:</strong> ${scanData.total_issues || 'MISSING'}</p>
+                    <p><strong>high_severity:</strong> ${scanData.high_severity || 'MISSING'}</p>
+                    <p><strong>medium_severity:</strong> ${scanData.medium_severity || 'MISSING'}</p>
+                    <p><strong>low_severity:</strong> ${scanData.low_severity || 'MISSING'}</p>
+                    <p><strong>vulnerabilities count:</strong> ${scanData.vulnerabilities ? scanData.vulnerabilities.length : 'MISSING'}</p>
+                    <p><strong>highlighted_code present:</strong> ${scanData.highlighted_code ? 'YES' : 'NO'}</p>
+                    
+                    <h3>💾 Store in localStorage (like React does):</h3>
+                    <button onclick="localStorage.setItem('scanResults', JSON.stringify(${JSON.stringify(scanData).replace(/"/g, '&quot;')})); alert('Stored in localStorage!')">Store Results</button>
+                    <button onclick="const stored = localStorage.getItem('scanResults'); alert('Stored data: ' + (stored ? 'Found data with ' + JSON.parse(stored).total_issues + ' issues' : 'No data'))">Check Stored</button>
+                    <button onclick="localStorage.clear(); alert('localStorage cleared!')">Clear Storage</button>
+                `;
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                resultsDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html> 
