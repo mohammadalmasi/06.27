@@ -79,12 +79,35 @@ class XSSDetector:
                 'confidence': 0.8,
                 'remediation': 'Use safe template rendering with proper escaping or template files'
             },
+            # innerHTML patterns - both concatenation and direct assignment
             {
                 'pattern': r'(\.innerHTML\s*=\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
                 'description': 'Direct innerHTML manipulation with concatenated user input',
                 'severity': 'high',
                 'confidence': 0.9,
                 'remediation': 'Use textContent or properly escape HTML content'
+            },
+            {
+                'pattern': r'(\.innerHTML\s*=\s*(?![\'"]).+)',
+                'description': 'Direct innerHTML assignment with potentially unsafe content',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use textContent or properly escape HTML content before assignment'
+            },
+            {
+                'pattern': r'(document\.getElementById\([^)]+\)\.innerHTML\s*=\s*[^;]+)',
+                'description': 'Direct DOM manipulation via innerHTML - potential XSS vector',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use textContent or sanitize content before innerHTML assignment'
+            },
+            # URL parameter usage patterns
+            {
+                'pattern': r'(URLSearchParams|location\.search|params\.get|getParameter)',
+                'description': 'URL parameter access detected - ensure proper sanitization if used in DOM',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Sanitize URL parameters before using in DOM manipulation or HTML output'
             },
             {
                 'pattern': r'(document\.write\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
@@ -94,11 +117,55 @@ class XSSDetector:
                 'remediation': 'Avoid document.write() or properly escape user input'
             },
             {
+                'pattern': r'(document\.write\s*\([^)]*\w+[^)]*\))',
+                'description': 'document.write() with potentially unsafe content',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Avoid document.write() or properly escape user input'
+            },
+            {
                 'pattern': r'(eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
                 'description': 'eval() with user input can lead to code injection',
                 'severity': 'high',
                 'confidence': 0.9,
                 'remediation': 'Avoid eval() or use safe alternatives like JSON.parse()'
+            },
+            {
+                'pattern': r'(eval\s*\([^)]*\w+[^)]*\))',
+                'description': 'eval() with potentially unsafe content',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Avoid eval() completely or use safe alternatives like JSON.parse()'
+            },
+            # DOM manipulation patterns
+            {
+                'pattern': r'(\.outerHTML\s*=\s*[^;]+)',
+                'description': 'Direct outerHTML manipulation can lead to XSS',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use safer DOM manipulation methods or sanitize content'
+            },
+            {
+                'pattern': r'(\.insertAdjacentHTML\s*\([^)]*\))',
+                'description': 'insertAdjacentHTML with unsanitized content can lead to XSS',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Sanitize HTML content or use textContent/createElement instead'
+            },
+            # jQuery patterns
+            {
+                'pattern': r'(\$\([^)]*\)\.html\s*\([^)]*\w+[^)]*\))',
+                'description': 'jQuery .html() with potentially unsafe content',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use .text() or sanitize content before using .html()'
+            },
+            {
+                'pattern': r'(\$\([^)]*\)\.append\s*\([^)]*<[^>]*>[^)]*\))',
+                'description': 'jQuery .append() with HTML content - potential XSS',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Sanitize HTML content or use text-only methods'
             },
             # Flask/Jinja2 specific patterns
             {
@@ -115,6 +182,13 @@ class XSSDetector:
                 'confidence': 0.8,
                 'remediation': 'Use Markup() only with trusted content or properly escape user input'
             },
+            {
+                'pattern': r'(Markup\s*\([^)]*\w+[^)]*\))',
+                'description': 'Markup() with potentially unsafe content',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Ensure content is trusted and sanitized before using Markup()'
+            },
             # Direct output patterns
             {
                 'pattern': r'(print\s*\(\s*[\'"]<[^>]*>[\'\"]\s*\+\s*\w+)',
@@ -122,6 +196,22 @@ class XSSDetector:
                 'severity': 'medium',
                 'confidence': 0.6,
                 'remediation': 'Escape HTML content or use template engines'
+            },
+            # F-string patterns with HTML content
+            {
+                'pattern': r'(f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'description': 'F-string with HTML content and user input can lead to XSS',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use template engines or escape HTML characters before embedding in f-strings'
+            },
+            # Return statements with HTML f-strings
+            {
+                'pattern': r'(return\s+f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'description': 'Returning HTML f-string with user input can lead to XSS',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use template engines or escape HTML characters before returning'
             },
             {
                 'pattern': r'(response\.write\s*\(\s*[\'"]<[^>]*>[\'\"]\s*\+\s*\w+)',
@@ -167,6 +257,28 @@ class XSSDetector:
                 'severity': 'high',
                 'confidence': 0.9,
                 'remediation': 'Properly encode data for JavaScript context or use JSON'
+            },
+            {
+                'pattern': r'(<script[^>]*>.*innerHTML.*</script>)',
+                'description': 'innerHTML usage in script tags - potential XSS vector',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use textContent or properly sanitize content'
+            },
+            # Additional dangerous functions
+            {
+                'pattern': r'(setTimeout\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'setTimeout with string concatenation can lead to code injection',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use function references instead of string evaluation'
+            },
+            {
+                'pattern': r'(setInterval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'setInterval with string concatenation can lead to code injection',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use function references instead of string evaluation'
             }
         ]
         
@@ -251,16 +363,68 @@ class XSSASTVisitor(ast.NodeVisitor):
         
         self.generic_visit(node)
     
+    def visit_JoinedStr(self, node):
+        """Visit f-strings (JoinedStr nodes) for XSS patterns"""
+        # Check if f-string contains HTML-like content
+        html_pattern = False
+        has_user_input = False
+        
+        for value in node.values:
+            if isinstance(value, ast.Str):
+                if '<' in value.s and '>' in value.s:
+                    html_pattern = True
+            elif isinstance(value, ast.Constant) and isinstance(value.value, str):
+                if '<' in value.value and '>' in value.value:
+                    html_pattern = True
+            elif isinstance(value, ast.FormattedValue):
+                # Check if the formatted value contains user input
+                if self._contains_user_input(value.value):
+                    has_user_input = True
+        
+        if html_pattern and has_user_input:
+            vulnerability = XSSVulnerability(
+                line_number=getattr(node, 'lineno', 0),
+                vulnerability_type='xss',
+                description='F-string with HTML content and user input can lead to XSS',
+                severity='high',
+                code_snippet=self._get_code_snippet(node),
+                remediation='Use template engines or escape HTML characters before embedding in f-strings',
+                confidence=0.9,
+                file_path=self.filename
+            )
+            self.vulnerabilities.append(vulnerability)
+        
+        self.generic_visit(node)
+    
     def _contains_user_input(self, node):
         """Check if node contains patterns that might be user input"""
         if isinstance(node, ast.Attribute):
             if (hasattr(node, 'attr') and 
                 node.attr in ['args', 'form', 'cookies', 'headers', 'json']):
                 return True
+            # Check for request.args patterns
+            if (isinstance(node.value, ast.Attribute) and
+                hasattr(node.value, 'attr') and
+                node.value.attr == 'args' and
+                isinstance(node.value.value, ast.Name) and
+                node.value.value.id == 'request'):
+                return True
         elif isinstance(node, ast.Call):
             if (isinstance(node.func, ast.Attribute) and
                 hasattr(node.func, 'attr') and
                 node.func.attr in ['get', 'getlist']):
+                return True
+            # Check for request.args.get() patterns
+            if (isinstance(node.func, ast.Attribute) and
+                hasattr(node.func, 'attr') and
+                node.func.attr == 'get' and
+                isinstance(node.func.value, ast.Attribute) and
+                hasattr(node.func.value, 'attr') and
+                node.func.value.attr in ['args', 'form', 'cookies', 'headers', 'json']):
+                return True
+        elif isinstance(node, ast.Name):
+            # Check for variables that might contain user input
+            if hasattr(node, 'id') and node.id in ['name', 'username', 'input', 'data', 'param', 'value']:
                 return True
         return False
     
@@ -285,14 +449,24 @@ def highlight_xss_vulnerabilities(code):
     patterns = [
         r'(render_template_string\s*\([^)]*\))',
         r'(\.innerHTML\s*=\s*[^;]*)',
+        r'(document\.getElementById\([^)]+\)\.innerHTML\s*=\s*[^;]+)',
+        r'(\.outerHTML\s*=\s*[^;]+)',
+        r'(\.insertAdjacentHTML\s*\([^)]*\))',
         r'(document\.write\s*\([^)]*\))',
         r'(eval\s*\([^)]*\))',
+        r'(\$\([^)]*\)\.html\s*\([^)]*\))',
+        r'(\$\([^)]*\)\.append\s*\([^)]*<[^>]*>[^)]*\))',
         r'(\{\{\s*\w+\s*\|\s*safe\s*\}\})',
         r'(Markup\s*\([^)]*\))',
+        r'(URLSearchParams|location\.search|params\.get|getParameter)',
         r'(request\.args\.get\([^)]*\))',
         r'(request\.form\.get\([^)]*\))',
         r'(<script[^>]*>[^<]*</script>)',
-        r'([\'"]<[^>]*>.*\{\}.*[\'\"]\s*\.format\s*\([^)]*\))'
+        r'([\'"]<[^>]*>.*\{\}.*[\'\"]\s*\.format\s*\([^)]*\))',
+        r'(f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'(return\s+f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'(setTimeout\s*\([^)]*\))',
+        r'(setInterval\s*\([^)]*\))'
     ]
     
     highlighted = code
@@ -306,14 +480,24 @@ def highlight_xss_vulnerabilities_word(code):
     patterns = [
         r'(render_template_string\s*\([^)]*\))',
         r'(\.innerHTML\s*=\s*[^;]*)',
+        r'(document\.getElementById\([^)]+\)\.innerHTML\s*=\s*[^;]+)',
+        r'(\.outerHTML\s*=\s*[^;]+)',
+        r'(\.insertAdjacentHTML\s*\([^)]*\))',
         r'(document\.write\s*\([^)]*\))',
         r'(eval\s*\([^)]*\))',
+        r'(\$\([^)]*\)\.html\s*\([^)]*\))',
+        r'(\$\([^)]*\)\.append\s*\([^)]*<[^>]*>[^)]*\))',
         r'(\{\{\s*\w+\s*\|\s*safe\s*\}\})',
         r'(Markup\s*\([^)]*\))',
+        r'(URLSearchParams|location\.search|params\.get|getParameter)',
         r'(request\.args\.get\([^)]*\))',
         r'(request\.form\.get\([^)]*\))',
         r'(<script[^>]*>[^<]*</script>)',
-        r'([\'"]<[^>]*>.*\{\}.*[\'\"]\s*\.format\s*\([^)]*\))'
+        r'([\'"]<[^>]*>.*\{\}.*[\'\"]\s*\.format\s*\([^)]*\))',
+        r'(f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'(return\s+f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'(setTimeout\s*\([^)]*\))',
+        r'(setInterval\s*\([^)]*\))'
     ]
     
     highlighted = code

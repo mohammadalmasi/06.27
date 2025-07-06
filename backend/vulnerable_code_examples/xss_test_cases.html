@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>XSS Demo</title>
+</head>
+<body>
+  <h1>Search Results</h1>
+  <p>You searched for: <span id="output"></span></p>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get("q");
+    // 🔴 This line is vulnerable to XSS
+    document.getElementById("output").innerHTML = query;
+  </script>
+</body>
+</html> 
