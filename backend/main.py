@@ -17,6 +17,13 @@ from sql_injection_scanner import (
     api_get_security_standards
 )
 
+# Import XSS scanner functions
+from xss_scanner import (
+    api_scan_xss,
+    api_generate_xss_report,
+    api_xss_sonarqube_export
+)
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
@@ -129,6 +136,25 @@ def get_security_standards(current_user):
     """Get available security standards and categories"""
     return api_get_security_standards(current_user)
 
+# XSS Scanner API endpoints
+@app.route('/api/scan-xss', methods=['POST'])
+@token_required
+def scan_xss(current_user):
+    """XSS vulnerability scanning endpoint"""
+    return api_scan_xss(current_user)
+
+@app.route('/api/generate-xss-report', methods=['POST'])
+@token_required
+def generate_xss_report(current_user):
+    """Generate Word report for XSS vulnerabilities"""
+    return api_generate_xss_report(current_user)
+
+@app.route('/api/xss-sonarqube-export', methods=['POST'])
+@token_required
+def xss_sonarqube_export(current_user):
+    """Export XSS vulnerabilities in SonarQube format"""
+    return api_xss_sonarqube_export(current_user)
+
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -136,7 +162,8 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'version': '1.0.0'
+        'version': '1.0.0',
+        'scanners': ['sql_injection', 'xss']
     })
 
 # Initialize directories on startup

@@ -9,7 +9,8 @@ import {
   FileText,
   Code,
   Shield,
-  AlertCircle
+  AlertCircle,
+  Bug
 } from 'lucide-react';
 import config from '../config';
 
@@ -52,6 +53,7 @@ interface ScanResults {
   scan_timestamp: string;
   source?: string;
   scan_type?: string;
+  scannerType?: 'sql' | 'xss';
   compliance?: {
     cwe_distribution: Record<string, number>;
     owasp_top10_distribution: Record<string, number>;
@@ -111,6 +113,18 @@ const Results: React.FC = () => {
     }
   };
 
+  const getScannerTitle = () => {
+    return results?.scannerType === 'xss' 
+      ? 'XSS Security Scan Results' 
+      : 'SQL Injection Security Scan Results';
+  };
+
+  const getScannerIcon = () => {
+    return results?.scannerType === 'xss' 
+      ? <Shield className="h-8 w-8 text-primary-600 mr-3" />
+      : <Bug className="h-8 w-8 text-primary-600 mr-3" />;
+  };
+
   const filteredVulnerabilities = results?.vulnerabilities.filter(vuln => {
     if (filterSeverity === 'all') return true;
     return vuln.severity.toLowerCase() === filterSeverity.toLowerCase();
@@ -126,7 +140,8 @@ const Results: React.FC = () => {
         scan_info: {
           scan_timestamp: new Date().toISOString(),
           input_type: scanInput?.type || 'unknown',
-          file_name: scanInput?.filename || scanInput?.type || 'N/A'
+          file_name: scanInput?.filename || scanInput?.type || 'N/A',
+          scanner_type: results.scannerType || 'sql'
         },
         original_code: results.original_code || ''
       };
@@ -140,7 +155,12 @@ const Results: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${config.API_BASE_URL}/api/generate-report`, {
+      // Choose the appropriate report endpoint based on scanner type
+      const endpoint = results.scannerType === 'xss' 
+        ? '/api/generate-xss-report' 
+        : '/api/generate-report';
+
+      const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(reportData),
@@ -158,7 +178,9 @@ const Results: React.FC = () => {
       
       // Extract filename from response headers or use default
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'security-scan-report.docx';
+      const scanType = results.scannerType === 'xss' ? 'xss' : 'sql-injection';
+      let filename = `${scanType}-security-report.docx`;
+      
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/);
         if (match) {
@@ -167,7 +189,7 @@ const Results: React.FC = () => {
       } else {
         // Generate filename with timestamp
         const timestamp = new Date().toISOString().split('T')[0];
-        filename = `security-scan-report-${timestamp}.docx`;
+        filename = `${scanType}-security-report-${timestamp}.docx`;
       }
       
       a.download = filename;
@@ -182,15 +204,17 @@ const Results: React.FC = () => {
         scan_timestamp: new Date().toISOString(),
         input_type: scanInput?.type || 'unknown',
         file_name: scanInput?.filename || 'N/A',
-        summary: results.summary,
-        vulnerabilities: results.vulnerabilities
+        scanner_type: results?.scannerType || 'sql',
+        summary: results?.summary,
+        vulnerabilities: results?.vulnerabilities
       };
 
       const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `security-scan-report-${new Date().toISOString().split('T')[0]}.json`;
+      const scanType = results?.scannerType === 'xss' ? 'xss' : 'sql-injection';
+      a.download = `${scanType}-security-report-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -225,7 +249,7 @@ const Results: React.FC = () => {
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Security Scan Results
+                {getScannerTitle()}
               </h1>
             </div>
             
@@ -234,13 +258,14 @@ const Results: React.FC = () => {
               className="btn-primary flex items-center"
             >
               <Download className="h-4 w-4 mr-2" />
-              Download Word Report
+              Download Report
             </button>
           </div>
           
           <div className="mt-4 text-sm text-gray-600">
             <p>
               <strong>Source:</strong> {scanInput?.filename || scanInput?.type || 'N/A'} •
+              <strong className="ml-2">Scanner Type:</strong> {results.scannerType === 'xss' ? 'XSS' : 'SQL Injection'} •
               <strong className="ml-2">Scanned:</strong> {new Date().toLocaleString()}
             </p>
           </div>
@@ -250,7 +275,7 @@ const Results: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <Shield className="h-8 w-8 text-primary-600 mr-3" />
+              {getScannerIcon()}
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Issues</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -348,7 +373,11 @@ const Results: React.FC = () => {
                 Source Code Analysis
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Vulnerable code sections are highlighted in red. Hover over highlighted areas for vulnerability details.
+                Vulnerable code sections are highlighted in red. 
+                {results.scannerType === 'xss' 
+                  ? ' XSS vulnerabilities are marked for review.'
+                  : ' SQL injection vulnerabilities are marked for review.'
+                }
               </p>
             </div>
             <div className="p-6">
@@ -361,7 +390,7 @@ const Results: React.FC = () => {
                       {results.file_name || scanInput?.filename || 'scanned_code.py'}
                     </span>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
-                      Python
+                      {results.scannerType === 'xss' ? 'XSS Analysis' : 'SQL Injection Analysis'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -412,6 +441,17 @@ const Results: React.FC = () => {
                         .code-content .vuln:hover {
                           background-color: #b91c1c !important;
                         }
+                        .code-content .xss-vuln {
+                          background-color: #dc2626 !important;
+                          color: #ffffff !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .xss-vuln:hover {
+                          background-color: #b91c1c !important;
+                        }
                       `}</style>
                     </div>
                   </div>
@@ -422,7 +462,7 @@ const Results: React.FC = () => {
         )}
 
         {/* Vulnerabilities List */}
-        {/* <div className="space-y-6">
+        <div className="space-y-6">
           {filteredVulnerabilities.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <CheckCircle className="h-16 w-16 text-success-600 mx-auto mb-4" />
@@ -431,7 +471,7 @@ const Results: React.FC = () => {
               </h3>
               <p className="text-gray-600">
                 {filterSeverity === 'all' 
-                  ? 'Great! Your code appears to be secure from SQL injection vulnerabilities.'
+                  ? `Great! Your code appears to be secure from ${results.scannerType === 'xss' ? 'XSS' : 'SQL injection'} vulnerabilities.`
                   : `There are no ${filterSeverity} severity vulnerabilities in your code.`
                 }
               </p>
@@ -447,47 +487,72 @@ const Results: React.FC = () => {
                       {getSeverityIcon(vulnerability.severity)}
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {vulnerability.vulnerability_type.replace(/_/g, ' ')}
+                          {results.scannerType === 'xss' ? 'XSS Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
                         </h3>
-                        <p className="text-gray-600 mb-2">{vulnerability.description}</p>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span className="flex items-center">
-                            <FileText className="h-4 w-4 mr-1" />
-                            Line {vulnerability.line_number}
-                          </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getSeverityColor(vulnerability.severity)}`}>
-                            {vulnerability.severity.toUpperCase()}
-                          </span>
-                          <span>
-                            Confidence: {Math.round(vulnerability.confidence * 100)}%
-                          </span>
+                        <p className="text-gray-600 mb-4">
+                          {vulnerability.description}
+                        </p>
+                        
+                        {/* Vulnerability Details */}
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Vulnerable Code:</h4>
+                            <div className="bg-gray-100 rounded p-3">
+                              <code className="text-sm font-mono text-gray-800">
+                                {vulnerability.code_snippet}
+                              </code>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Remediation:</h4>
+                            <p className="text-sm text-gray-600">
+                              {vulnerability.remediation}
+                            </p>
+                          </div>
+                          
+                          {vulnerability.cwe_references && vulnerability.cwe_references.length > 0 && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2">CWE References:</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {vulnerability.cwe_references.map((cwe, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                    CWE-{cwe}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {vulnerability.owasp_references && vulnerability.owasp_references.length > 0 && (
+                            <div>
+                              <h4 className="font-medium text-gray-900 mb-2">OWASP References:</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {vulnerability.owasp_references.map((owasp, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                    {owasp}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(vulnerability.severity)}`}>
+                        {vulnerability.severity.toUpperCase()}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {Math.round(vulnerability.confidence * 100)}% confidence
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
             ))
           )}
-        </div> */}
-
-        {/* Bottom Actions */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            to="/scanner"
-            className="btn-primary flex items-center justify-center"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Scan Another File
-          </Link>
-          
-          <button
-            onClick={downloadReport}
-            className="btn-secondary flex items-center justify-center"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download Word Report
-          </button>
         </div>
       </div>
     </div>

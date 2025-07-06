@@ -9,7 +9,9 @@ import {
   CheckCircle, 
   Loader2,
   FileText,
-  X
+  X,
+  Shield,
+  Bug
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import config from '../config';
@@ -20,9 +22,12 @@ interface ScanInput {
   filename?: string;
 }
 
+type ScannerType = 'sql' | 'xss';
+
 const Scanner: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'url' | 'file' | 'code'>('url');
+  const [scannerType, setScannerType] = useState<ScannerType>('sql');
   const [isScanning, setIsScanning] = useState(false);
   const [scanInput, setScanInput] = useState<ScanInput>({
     type: 'url',
@@ -105,15 +110,13 @@ const Scanner: React.FC = () => {
     setIsScanning(true);
     
     try {
-      // Prepare JSON payload for enhanced API
-      const payload: any = {
-        scan_type: scanInput.type === 'url' ? 'url' : (scanInput.type === 'file' ? 'file' : 'code')
-      };
+      // Prepare JSON payload for the appropriate API endpoint
+      const payload: any = {};
       
       if (scanInput.type === 'url') {
         payload.url = scanInput.content;
       } else if (scanInput.type === 'file') {
-        payload.file_content = scanInput.content;
+        payload.code = scanInput.content;
       } else {
         payload.code = scanInput.content;
       }
@@ -127,8 +130,10 @@ const Scanner: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      // Use enhanced API endpoint with SonarQube integration
-      const response = await fetch(`${config.API_BASE_URL}/api/enhanced-scan`, {
+      // Choose the appropriate API endpoint based on scanner type
+      const endpoint = scannerType === 'sql' ? '/api/enhanced-scan' : '/api/scan-xss';
+      
+      const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -142,10 +147,11 @@ const Scanner: React.FC = () => {
       const results = await response.json();
       
       // Store results in localStorage for the Results page
-      localStorage.setItem('scanResults', JSON.stringify(results));
+      localStorage.setItem('scanResults', JSON.stringify({...results, scannerType}));
       localStorage.setItem('scanInput', JSON.stringify(scanInput));
       
-      toast.success(`Scan completed! Found ${results.total_issues || 0} vulnerabilities`);
+      const vulnerabilityType = scannerType === 'sql' ? 'SQL injection vulnerabilities' : 'XSS vulnerabilities';
+      toast.success(`Scan completed! Found ${results.total_issues || 0} ${vulnerabilityType}`);
       navigate('/results');
       
     } catch (error) {
@@ -180,17 +186,109 @@ const Scanner: React.FC = () => {
     }
   };
 
+  const getScannerTitle = () => {
+    return scannerType === 'sql' 
+      ? 'SQL Injection Vulnerability Scanner' 
+      : 'Cross-Site Scripting (XSS) Scanner';
+  };
+
+  const getScannerDescription = () => {
+    return scannerType === 'sql'
+      ? 'Upload your code, paste it directly, or scan GitHub files for SQL injection vulnerabilities'
+      : 'Upload your code, paste it directly, or scan GitHub files for XSS vulnerabilities';
+  };
+
+  const getDetectionCapabilities = () => {
+    if (scannerType === 'sql') {
+      return [
+        'String concatenation vulnerabilities',
+        'Dynamic query construction',
+        'Parameterized query validation',
+        'NoSQL injection patterns',
+        'Framework-specific vulnerabilities'
+      ];
+    } else {
+      return [
+        'Reflected XSS vulnerabilities',
+        'Stored XSS patterns',
+        'DOM-based XSS detection',
+        'Template injection risks',
+        'Unsafe HTML rendering'
+      ];
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            SQL Injection Vulnerability Scanner
+            {getScannerTitle()}
           </h1>
           <p className="text-lg text-gray-600">
-            Upload your code, paste it directly, or scan GitHub files for SQL injection vulnerabilities
+            {getScannerDescription()}
           </p>
+        </div>
+
+        {/* Scanner Type Selector */}
+        <div className="bg-white rounded-lg shadow-lg mb-6 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Scanner Type</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={() => setScannerType('sql')}
+              className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                scannerType === 'sql'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <Bug className={`h-6 w-6 mr-3 ${
+                  scannerType === 'sql' ? 'text-primary-600' : 'text-gray-600'
+                }`} />
+                <div className="text-left">
+                  <h4 className={`font-medium ${
+                    scannerType === 'sql' ? 'text-primary-900' : 'text-gray-900'
+                  }`}>
+                    SQL Injection Scanner
+                  </h4>
+                  <p className={`text-sm ${
+                    scannerType === 'sql' ? 'text-primary-600' : 'text-gray-600'
+                  }`}>
+                    Detect database injection vulnerabilities
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setScannerType('xss')}
+              className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                scannerType === 'xss'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <Shield className={`h-6 w-6 mr-3 ${
+                  scannerType === 'xss' ? 'text-primary-600' : 'text-gray-600'
+                }`} />
+                <div className="text-left">
+                  <h4 className={`font-medium ${
+                    scannerType === 'xss' ? 'text-primary-900' : 'text-gray-900'
+                  }`}>
+                    XSS Scanner
+                  </h4>
+                  <p className={`text-sm ${
+                    scannerType === 'xss' ? 'text-primary-600' : 'text-gray-600'
+                  }`}>
+                    Detect cross-site scripting vulnerabilities
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Main Scanner Interface */}
@@ -320,7 +418,10 @@ const Scanner: React.FC = () => {
                   <textarea
                     value={scanInput.content}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder="# Paste your Python code here..."
+                    placeholder={scannerType === 'sql' 
+                      ? "# Paste your Python code here..." 
+                      : "# Paste your code here (Python, JavaScript, etc.)..."
+                    }
                     rows={12}
                     className="textarea-field font-mono text-sm"
                   />
@@ -349,8 +450,12 @@ const Scanner: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Start Security Scan
+                    {scannerType === 'sql' ? (
+                      <Bug className="h-5 w-5 mr-2" />
+                    ) : (
+                      <Shield className="h-5 w-5 mr-2" />
+                    )}
+                    Start {scannerType === 'sql' ? 'SQL Injection' : 'XSS'} Scan
                   </>
                 )}
               </button>
@@ -369,6 +474,22 @@ const Scanner: React.FC = () => {
                 <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
                 Python (.py)
               </li>
+              {scannerType === 'xss' && (
+                <>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    JavaScript (.js, .jsx, .ts, .tsx)
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    PHP (.php)
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                    Java (.java)
+                  </li>
+                </>
+              )}
             </ul>
           </div>
 
@@ -377,26 +498,12 @@ const Scanner: React.FC = () => {
               Detection Capabilities
             </h3>
             <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                String concatenation vulnerabilities
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                Dynamic query construction
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                Parameterized query validation
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                NoSQL injection patterns
-              </li>
-              <li className="flex items-center">
-                <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                Framework-specific vulnerabilities
-              </li>
+              {getDetectionCapabilities().map((capability, index) => (
+                <li key={index} className="flex items-center">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
+                  {capability}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
