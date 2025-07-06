@@ -476,18 +476,10 @@ const Scanner: React.FC = () => {
               </li>
               {scannerType === 'xss' && (
                 <>
-                  <li className="flex items-center">
+                  {/* <li className="flex items-center">
                     <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
                     JavaScript (.js, .jsx, .ts, .tsx)
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    PHP (.php)
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Java (.java)
-                  </li>
+                  </li> */}
                 </>
               )}
             </ul>

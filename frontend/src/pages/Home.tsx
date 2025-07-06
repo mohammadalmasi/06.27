@@ -83,12 +83,12 @@ const Home: React.FC = () => {
             </div>
             
             <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
-              SQL Injection Scanner
+              Vulnerability Scanner
             </h1>
             
             <p className="text-xl md:text-2xl mb-8 text-primary-100 max-w-3xl mx-auto animate-fade-in">
               Advanced vulnerability detection tool for secure code development. 
-              Identify and fix SQL injection vulnerabilities before they become security risks.
+              Identify and fix vulnerabilities before they become security risks.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">

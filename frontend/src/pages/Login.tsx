@@ -58,7 +58,7 @@ const Login: React.FC = () => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('username', data.username);
         
-        toast.success('Welcome to SQL Injection Scanner!');
+        toast.success('Welcome to Vulnerability Scanner!');
         navigate(redirectTo);
       } else {
         setError(data.error || 'Login failed');
@@ -87,7 +87,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           <h2 className="text-3xl font-bold text-white">
-            Scanner
+          Vulnerability Scanner
           </h2>
         </div>
 
