@@ -11,6 +11,7 @@ import {
   Shield,
   AlertCircle
 } from 'lucide-react';
+import config from '../config';
 
 interface Vulnerability {
   file_path: string;
@@ -139,7 +140,7 @@ const Results: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/generate-report', {
+      const response = await fetch(`${config.API_BASE_URL}/api/generate-report`, {
         method: 'POST',
         headers,
         body: JSON.stringify(reportData),
@@ -149,30 +150,31 @@ const Results: React.FC = () => {
         throw new Error('Failed to generate report');
       }
 
-      const result = await response.json();
+      // The API now returns the file directly
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
       
-      if (result.success && result.filename) {
-        // Download the generated Word document
-        const downloadResponse = await fetch(`http://localhost:5001/download/${result.filename}`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        
-        if (downloadResponse.ok) {
-          const blob = await downloadResponse.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = result.filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        } else {
-          throw new Error('Failed to download report');
+      // Extract filename from response headers or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'security-scan-report.docx';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) {
+          filename = match[1];
         }
       } else {
-        throw new Error(result.error || 'Failed to generate report');
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().split('T')[0];
+        filename = `security-scan-report-${timestamp}.docx`;
       }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
       // Fallback to JSON if Word generation fails

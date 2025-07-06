@@ -23,10 +23,10 @@ import zipfile
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
-app.config['JWT_SECRET_KEY'] = 'sql-injection-scanner-secret-key-2024'  # Change this in production
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
 
-# Enable CORS for React frontend
-CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+# Enable CORS for all origins (production and development)
+CORS(app, origins=["*"], 
      methods=["GET", "POST", "OPTIONS"], 
      allow_headers=["Content-Type", "Authorization"])
 
@@ -816,17 +816,22 @@ def generate_word_report(current_user):
                 run.font.size = Pt(8)
                 i += 1
         
-        # Save document
+        # Save document to temporary file
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'security_scan_report_{timestamp}.docx'
-        filepath = os.path.join('results', filename)
-        doc.save(filepath)
         
-        return jsonify({
-            'success': True,
-            'filename': filename,
-            'message': 'Report generated successfully'
-        })
+        # Create temporary file for download
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+        doc.save(temp_file.name)
+        temp_file.close()
+        
+        # Return file directly for download
+        return send_file(
+            temp_file.name,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
         
     except Exception as e:
         return jsonify({'error': f"Failed to generate report: {str(e)}"}), 500
@@ -1076,5 +1081,6 @@ def get_user():
     return cursor.fetchall()
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001) 
-    # http://127.0.0.1:5001/
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    app.run(host='0.0.0.0', port=port, debug=debug)

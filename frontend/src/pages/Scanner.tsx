@@ -12,6 +12,7 @@ import {
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import config from '../config';
 
 interface ScanInput {
   type: 'url' | 'file' | 'code';
@@ -127,7 +128,7 @@ const Scanner: React.FC = () => {
       }
 
       // Use enhanced API endpoint with SonarQube integration
-      const response = await fetch('http://localhost:5001/api/enhanced-scan', {
+      const response = await fetch(`${config.API_BASE_URL}/api/enhanced-scan`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),

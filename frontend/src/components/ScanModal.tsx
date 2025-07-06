@@ -10,6 +10,7 @@ import {
   FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import config from '../config';
 
 interface ScanModalProps {
   isOpen: boolean;
@@ -124,7 +125,7 @@ const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/scan', {
+      const response = await fetch(`${config.API_BASE_URL}/api/scan`, {
         method: 'POST',
         headers,
         body: formData,

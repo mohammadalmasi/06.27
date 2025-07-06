@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Shield, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import config from '../config';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5001/api/login', {
+      const response = await fetch(`${config.API_BASE_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

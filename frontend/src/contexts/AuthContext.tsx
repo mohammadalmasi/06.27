@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import toast from 'react-hot-toast';
+import config from '../config';
 
 interface User {
   username: string;
@@ -41,7 +42,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token && username) {
         // Verify token with backend
         try {
-          const response = await fetch('http://localhost:5001/api/verify-token', {
+          const response = await fetch(`${config.API_BASE_URL}/api/verify-token`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -79,7 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Notify backend of logout
       const token = localStorage.getItem('token');
       if (token) {
-        await fetch('http://localhost:5001/api/logout', {
+        await fetch(`${config.API_BASE_URL}/api/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
