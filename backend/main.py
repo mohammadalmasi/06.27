@@ -72,131 +72,6 @@ def token_required(f):
     
     return decorated
 
-INDEX_HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>SQL Injection Web Scanner</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 600px; margin: auto; }
-        input[type=text], input[type=file], textarea { width: 80%; padding: 8px; }
-        textarea { height: 120px; }
-        input[type=submit] { padding: 8px 16px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>SQL Injection Web Scanner</h2>
-        <form method="post" action="/scan" enctype="multipart/form-data">
-            <label for="url">Enter GitHub Python file URL (or leave blank to upload or paste):</label><br>
-            <input type="text" id="url" name="url" placeholder="https://github.com/user/repo/blob/main/file.py"><br><br>
-            <label for="file">Or upload a Python source file:</label><br>
-            <input type="file" id="file" name="file"><br><br>
-            <label for="code">Or paste Python source code:</label><br>
-            <textarea id="code" name="code" placeholder="# Paste your Python code here..."></textarea><br><br>
-            <input type="submit" value="Scan">
-        </form>
-    </div>
-</body>
-</html>
-'''
-
-RESULTS_HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Scan Results</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
-        .container { max-width: 1200px; margin: auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .vuln { color: #d32f2f; font-weight: bold; background-color: #ffebee; padding: 2px 4px; border-radius: 3px; }
-        pre { background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #007bff; overflow-x: auto; font-size: 14px; line-height: 1.4; }
-        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        h3 { color: #34495e; margin-top: 25px; margin-bottom: 15px; }
-        h4 { color: #e74c3c; margin-top: 20px; margin-bottom: 10px; }
-        .download-link { display: inline-block; background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
-        .download-link:hover { background-color: #218838; }
-        .file-summary { background-color: #e9ecef; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .error { color: #dc3545; background-color: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>Scan Results for {{ url or filename or 'Uploaded File' }}</h2>
-        {% if results %}
-            {% for page, code in results.items() %}
-                <h3>{{ page }}</h3>
-                {% if page == 'Word Document' %}
-                    {{ code|safe }}
-                {% elif page == 'File Summary' %}
-                    <div class="file-summary">{{ code|safe }}</div>
-                {% elif page == 'Error' %}
-                    <div class="error">{{ code|safe }}</div>
-                {% else %}
-                    <pre>{{ code|safe }}</pre>
-                {% endif %}
-            {% endfor %}
-        {% else %}
-            <p>No vulnerabilities found or no code detected.</p>
-        {% endif %}
-        <a href="/" style="display: inline-block; margin-top: 20px; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">&#8592; New Scan</a>
-    </div>
-</body>
-</html>
-'''
-
-def crawl_site(start_url, max_pages=10):
-    """Crawl the site starting from start_url, return {url: html} for each page."""
-    visited = set()
-    to_visit = [start_url]
-    results = {}
-    domain = urlparse(start_url).netloc
-    
-    while to_visit and len(visited) < max_pages:
-        url = to_visit.pop(0)
-        if url in visited:
-            continue
-        try:
-            resp = requests.get(url, timeout=5)
-            if resp.status_code != 200:
-                continue
-            html = resp.text
-            results[url] = html
-            visited.add(url)
-            soup = BeautifulSoup(html, 'html.parser')
-            for link in soup.find_all('a', href=True):
-                next_url = urljoin(url, link['href'])
-                next_domain = urlparse(next_url).netloc
-                if next_domain == domain and next_url not in visited and next_url not in to_visit:
-                    to_visit.append(next_url)
-        except Exception as e:
-            continue
-    return results
-
-def extract_code_blocks(html):
-    """Extract <script> tags and form actions from HTML."""
-    soup = BeautifulSoup(html, 'html.parser')
-    code_blocks = []
-    # Extract <script> tags
-    for script in soup.find_all('script'):
-        if script.string:
-            code_blocks.append(('JavaScript', script.string.strip()))
-    # Extract form actions and inline event handlers
-    for form in soup.find_all('form'):
-        if form.get('action'):
-            code_blocks.append(('Form action', form['action']))
-        # Inline event handlers
-        for attr in form.attrs:
-            if attr.startswith('on') and form[attr]:
-                code_blocks.append((f'Form {attr}', form[attr]))
-    # Extract inline event handlers from all elements
-    for tag in soup.find_all(True):
-        for attr in tag.attrs:
-            if attr.startswith('on') and tag[attr]:
-                code_blocks.append((f'{tag.name} {attr}', tag[attr]))
-    return code_blocks
-
 def highlight_sql_injection(code):
     """Highlight vulnerable SQL and NoSQL patterns in code (JS/Python-like)."""
     # More comprehensive patterns for SQL and NoSQL injection detection
@@ -292,35 +167,9 @@ def highlight_sql_injection_word(code):
 
 def ensure_dirs():
     os.makedirs('results', exist_ok=True)
-
-def save_code_block(page_idx, code_type, code):
     ensure_dirs()
     # No longer saving to sourcecodes directory
     return None
-
-def result_txt_to_docx(result_filename):
-    if not result_filename.endswith('.py') and not result_filename.endswith('.txt'):
-        return
-    docx_filename = result_filename.rsplit('.', 1)[0] + '.docx'
-    with open(result_filename, 'r', encoding='utf-8') as f:
-        code = f.read()
-    doc = Document()
-    para = doc.add_paragraph()
-    i = 0
-    while i < len(code):
-        if code.startswith('[VULNERABLE:', i):
-            end = code.find(']', i)
-            if end != -1:
-                vuln_text = code[i+12:end]
-                run = para.add_run(vuln_text)
-                run.font.color.rgb = RGBColor(255, 0, 0)
-                run.bold = True
-                i = end + 1
-                continue
-        para.add_run(code[i])
-        i += 1
-    doc.save(docx_filename)
-    return docx_filename
 
 def scan_code_file_ast(filename):
     """Scan code file using AST-based SQL injection detector"""
@@ -472,7 +321,7 @@ def login():
             # Create JWT token
             token = jwt.encode({
                 'username': username,
-                'exp': datetime.utcnow() + timedelta(hours=24)  # Token expires in 24 hours
+                'exp': datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hours
             }, app.config['JWT_SECRET_KEY'], algorithm='HS256')
             
             return jsonify({
@@ -1058,27 +907,6 @@ def _scan_code_content_enhanced(code_content: str, source_name: str) -> dict:
             'original_code': '',
             'file_name': source_name
         }
-
-@app.route('/download/<filename>')
-def download_file(filename):
-    """Route to download generated Word documents"""
-    try:
-        file_path = os.path.join('results', filename)
-        if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True)
-        else:
-            return "File not found", 404
-    except Exception as e:
-        return f"Error downloading file: {e}", 500
-
-@app.route('/user')
-def get_user():
-    user_id = request.args.get('id')  # <-- Source
-    conn = sqlite3.connect('db.sqlite')
-    cursor = conn.cursor()
-    query = "SELECT * FROM users WHERE id = " + user_id  # <-- Sink
-    cursor.execute(query)
-    return cursor.fetchall()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
