@@ -25,10 +25,10 @@ interface ScanInput {
 
 const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'url' | 'file' | 'code'>('url');
+  const [activeTab, setActiveTab] = useState<'url' | 'file' | 'code'>('code');
   const [isScanning, setIsScanning] = useState(false);
   const [scanInput, setScanInput] = useState<ScanInput>({
-    type: 'url',
+    type: 'code',
     content: '',
     filename: ''
   });
@@ -200,15 +200,15 @@ const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
           {/* Tab Navigation */}
           <div className="flex border-b border-gray-200">
             <button
-              onClick={() => handleTabChange('url')}
+              onClick={() => handleTabChange('code')}
               className={`flex-1 py-4 px-6 text-center font-medium transition-colors duration-200 ${
-                activeTab === 'url'
+                activeTab === 'code'
                   ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
-              <LinkIcon className="h-5 w-5 mx-auto mb-1" />
-              GitHub URL
+              <Code className="h-5 w-5 mx-auto mb-1" />
+              Paste Code
             </button>
             <button
               onClick={() => handleTabChange('file')}
@@ -222,15 +222,15 @@ const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
               Upload File
             </button>
             <button
-              onClick={() => handleTabChange('code')}
+              onClick={() => handleTabChange('url')}
               className={`flex-1 py-4 px-6 text-center font-medium transition-colors duration-200 ${
-                activeTab === 'code'
+                activeTab === 'url'
                   ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
-              <Code className="h-5 w-5 mx-auto mb-1" />
-              Paste Code
+              <LinkIcon className="h-5 w-5 mx-auto mb-1" />
+              GitHub URL
             </button>
           </div>
 
