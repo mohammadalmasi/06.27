@@ -1,1 +1,1 @@
-# This file makes the sql_injection directory a Python package 
+# SQL Injection Scanner package 

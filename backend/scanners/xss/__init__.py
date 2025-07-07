@@ -1,1 +1,1 @@
-# This file makes the xss directory a Python package 
+# XSS Scanner package 
