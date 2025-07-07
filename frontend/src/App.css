@@ -36,3 +36,37 @@
     transform: rotate(360deg);
   }
 }
+
+/* Vulnerability highlighting styles */
+.sql-injection-vuln-high, .xss-vuln-high {
+  background-color: #ff4444;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.sql-injection-vuln-medium, .xss-vuln-medium {
+  background-color: #ffdd44;
+  color: black;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.sql-injection-vuln-low, .xss-vuln-low {
+  background-color: #44ff44;
+  color: black;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+/* Legacy vulnerability styles for backward compatibility */
+.sql-injection-vuln, .xss-vuln {
+  background-color: #ff4444;
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}

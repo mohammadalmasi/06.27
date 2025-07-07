@@ -158,7 +158,7 @@ const Results: React.FC = () => {
       // Choose the appropriate report endpoint based on scanner type
       const endpoint = results.scannerType === 'xss' 
         ? '/api/generate-xss-report' 
-        : '/api/generate-report';
+        : '/api/generate-sql-injection-report';
 
       const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
         method: 'POST',

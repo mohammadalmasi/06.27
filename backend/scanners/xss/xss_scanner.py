@@ -63,7 +63,36 @@ class XSSDetector:
         self._scan_for_patterns(code, filename)
         self._scan_with_ast(code, filename)
         
+        # Remove duplicates
+        self.vulnerabilities = self._deduplicate_vulnerabilities(self.vulnerabilities)
+        
         return self.vulnerabilities
+    
+    def _deduplicate_vulnerabilities(self, vulnerabilities):
+        """Remove duplicate vulnerabilities based on line number and similarity"""
+        if not vulnerabilities:
+            return vulnerabilities
+        
+        # Group vulnerabilities by line number
+        by_line = {}
+        for vuln in vulnerabilities:
+            line_key = vuln.line_number
+            if line_key not in by_line:
+                by_line[line_key] = []
+            by_line[line_key].append(vuln)
+        
+        # For each line, keep only the best vulnerability
+        deduplicated = []
+        for line_num, line_vulns in by_line.items():
+            if len(line_vulns) == 1:
+                deduplicated.extend(line_vulns)
+            else:
+                # Multiple vulnerabilities on the same line - keep the best one
+                # Sort by confidence (highest first), then by description length (longest first)
+                best_vuln = max(line_vulns, key=lambda v: (v.confidence, len(v.description)))
+                deduplicated.append(best_vuln)
+        
+        return deduplicated
     
     def _scan_for_patterns(self, code, filename):
         """Scan for XSS vulnerability patterns using regex"""
@@ -279,6 +308,31 @@ class XSSDetector:
                 'severity': 'high',
                 'confidence': 0.8,
                 'remediation': 'Use function references instead of string evaluation'
+            },
+            # LOW SEVERITY PATTERNS
+            # Simple string concatenation without HTML tags
+            {
+                'pattern': r'(\w+\s*\+\s*[\'"][^<>]*[\'"])',
+                'description': 'Simple string concatenation - potential low-risk XSS',
+                'severity': 'low',
+                'confidence': 0.3,
+                'remediation': 'Validate input if used in HTML context'
+            },
+            # URL parameter access (flagged for awareness)
+            {
+                'pattern': r'(URLSearchParams|location\.search|params\.get|getParameter)',
+                'description': 'URL parameter access detected - ensure proper sanitization if used in DOM',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Sanitize URL parameters before using in DOM manipulation or HTML output'
+            },
+            # Template string building
+            {
+                'pattern': r'(\w+\s*=\s*[\'"][^<>]*[\'\"]\s*\+\s*\w+)',
+                'description': 'String template building - low risk if not output to HTML',
+                'severity': 'low',
+                'confidence': 0.4,
+                'remediation': 'Ensure proper escaping if used in HTML context'
             }
         ]
         
@@ -444,36 +498,67 @@ class XSSASTVisitor(ast.NodeVisitor):
             # Fallback for Python < 3.9
             return f'Line {getattr(node, "lineno", "unknown")}'
 
-def highlight_xss_vulnerabilities(code):
-    """Highlight XSS vulnerability patterns in code"""
-    patterns = [
-        r'(render_template_string\s*\([^)]*\))',
-        r'(\.innerHTML\s*=\s*[^;]*)',
-        r'(document\.getElementById\([^)]+\)\.innerHTML\s*=\s*[^;]+)',
-        r'(\.outerHTML\s*=\s*[^;]+)',
-        r'(\.insertAdjacentHTML\s*\([^)]*\))',
-        r'(document\.write\s*\([^)]*\))',
-        r'(eval\s*\([^)]*\))',
-        r'(\$\([^)]*\)\.html\s*\([^)]*\))',
-        r'(\$\([^)]*\)\.append\s*\([^)]*<[^>]*>[^)]*\))',
-        r'(\{\{\s*\w+\s*\|\s*safe\s*\}\})',
-        r'(Markup\s*\([^)]*\))',
-        r'(URLSearchParams|location\.search|params\.get|getParameter)',
-        r'(request\.args\.get\([^)]*\))',
-        r'(request\.form\.get\([^)]*\))',
-        r'(<script[^>]*>[^<]*</script>)',
-        r'([\'"]<[^>]*>.*\{\}.*[\'\"]\s*\.format\s*\([^)]*\))',
-        r'(f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'(return\s+f[\'"]<[^>]*>[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'(setTimeout\s*\([^)]*\))',
-        r'(setInterval\s*\([^)]*\))'
-    ]
+def highlight_xss_vulnerabilities(code, vulnerabilities=None):
+    """Highlight XSS vulnerability patterns in code with severity-based colors"""
+    if not vulnerabilities:
+        return code
     
-    highlighted = code
-    for pattern in patterns:
-        highlighted = re.sub(pattern, lambda m: f'<span class="xss-vuln">{m.group(0)}</span>', highlighted, flags=re.IGNORECASE)
+    # Split code into lines for line-by-line highlighting
+    lines = code.split('\n')
+    highlighted_lines = []
     
-    return highlighted
+    # Group vulnerabilities by line number
+    vuln_by_line = {}
+    for vuln in vulnerabilities:
+        line_num = vuln.line_number
+        if line_num not in vuln_by_line:
+            vuln_by_line[line_num] = []
+        vuln_by_line[line_num].append(vuln)
+    
+    # Process each line
+    for line_num, line in enumerate(lines, 1):
+        if line_num in vuln_by_line:
+            # Find the highest severity for this line
+            line_vulns = vuln_by_line[line_num]
+            severities = [v.severity for v in line_vulns]
+            
+            # Determine CSS class based on highest severity
+            if 'high' in severities:
+                css_class = 'xss-vuln-high'
+            elif 'medium' in severities:
+                css_class = 'xss-vuln-medium'
+            else:
+                css_class = 'xss-vuln-low'
+            
+            # Create detailed patterns for this line based on actual vulnerabilities
+            patterns = []
+            for vuln in line_vulns:
+                # Create pattern from the vulnerable code snippet
+                snippet = vuln.code_snippet.strip()
+                if snippet:
+                    # Escape special regex characters and create a flexible pattern
+                    escaped_snippet = re.escape(snippet)
+                    # Make it more flexible to catch variations
+                    flexible_pattern = escaped_snippet.replace(r'\ ', r'\s*').replace(r'\"', r'["\']').replace(r'\'', r'["\']')
+                    patterns.append(flexible_pattern)
+            
+            # Apply highlighting to this line
+            highlighted_line = line
+            for pattern in patterns:
+                try:
+                    highlighted_line = re.sub(f'({pattern})', 
+                                            lambda m: f'<span class="{css_class}">{m.group(0)}</span>', 
+                                            highlighted_line, flags=re.IGNORECASE)
+                except re.error:
+                    # If regex fails, highlight the whole line
+                    highlighted_line = f'<span class="{css_class}">{line}</span>'
+                    break
+            
+            highlighted_lines.append(highlighted_line)
+        else:
+            highlighted_lines.append(line)
+    
+    return '\n'.join(highlighted_lines)
 
 def highlight_xss_vulnerabilities_word(code):
     """Highlight XSS vulnerability patterns for Word documents"""
@@ -527,7 +612,7 @@ def scan_code_content_for_xss(code_content: str, source_name: str) -> dict:
         file_name = source_name
         
         if vulnerabilities:
-            highlighted_code = highlight_xss_vulnerabilities(code_content)
+            highlighted_code = highlight_xss_vulnerabilities(code_content, vulnerabilities)
             original_code = code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             
             if '/' in source_name:

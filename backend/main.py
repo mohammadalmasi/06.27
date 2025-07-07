@@ -8,20 +8,18 @@ from functools import wraps
 import tempfile
 import zipfile
 
-# Import SQL injection scanner functions
-from sql_injection_scanner import (
-    api_scan_code, 
-    api_enhanced_scan, 
-    api_generate_report, 
-    api_sonarqube_export, 
-    api_get_security_standards
-)
-
 # Import XSS scanner functions
-from xss_scanner import (
+from scanners.xss.xss_scanner import (
     api_scan_xss,
     api_generate_xss_report,
     api_xss_sonarqube_export
+)
+
+# Import SQL injection scanner functions  
+from scanners.sql_injection.sql_injection_scanner import (
+    api_scan_sql_injection,
+    api_generate_sql_injection_report,
+    api_sql_injection_sonarqube_export
 )
 
 app = Flask(__name__)
@@ -106,37 +104,6 @@ def verify_token(current_user):
         'username': current_user
     })
 
-# SQL Injection Scanner API endpoints
-@app.route('/api/scan', methods=['POST'])
-@token_required
-def api_scan(current_user):
-    """Main SQL injection scanning endpoint"""
-    return api_scan_code(current_user)
-
-@app.route('/api/enhanced-scan', methods=['POST'])
-@token_required
-def enhanced_api_scan(current_user):
-    """Enhanced SQL injection scanning endpoint"""
-    return api_enhanced_scan(current_user)
-
-@app.route('/api/generate-report', methods=['POST'])
-@token_required
-def generate_word_report(current_user):
-    """Generate Word report for SQL injection vulnerabilities"""
-    return api_generate_report(current_user)
-
-@app.route('/api/sonarqube-export', methods=['POST'])
-@token_required
-def sonarqube_export(current_user):
-    """Export vulnerabilities in SonarQube format"""
-    return api_sonarqube_export(current_user)
-
-@app.route('/api/security-standards', methods=['GET'])
-@token_required
-def get_security_standards(current_user):
-    """Get available security standards and categories"""
-    return api_get_security_standards(current_user)
-
 # XSS Scanner API endpoints
 @app.route('/api/scan-xss', methods=['POST'])
 @token_required
@@ -156,6 +123,25 @@ def xss_sonarqube_export(current_user):
     """Export XSS vulnerabilities in SonarQube format"""
     return api_xss_sonarqube_export(current_user)
 
+# SQL Injection Scanner API endpoints
+@app.route('/api/scan-sql-injection', methods=['POST'])
+@token_required
+def scan_sql_injection(current_user):
+    """SQL injection vulnerability scanning endpoint"""
+    return api_scan_sql_injection(current_user)
+
+@app.route('/api/generate-sql-injection-report', methods=['POST'])
+@token_required
+def generate_sql_injection_report(current_user):
+    """Generate Word report for SQL injection vulnerabilities"""
+    return api_generate_sql_injection_report(current_user)
+
+@app.route('/api/sql-injection-sonarqube-export', methods=['POST'])
+@token_required
+def sql_injection_sonarqube_export(current_user):
+    """Export SQL injection vulnerabilities in SonarQube format"""
+    return api_sql_injection_sonarqube_export(current_user)
+
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -164,7 +150,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'version': '1.0.0',
-        'scanners': ['sql_injection', 'xss']
+        'scanners': ['xss', 'sql_injection']
     })
 
 # Initialize directories on startup

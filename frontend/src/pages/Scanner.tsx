@@ -131,7 +131,7 @@ const Scanner: React.FC = () => {
       }
 
       // Choose the appropriate API endpoint based on scanner type
-      const endpoint = scannerType === 'sql' ? '/api/enhanced-scan' : '/api/scan-xss';
+      const endpoint = scannerType === 'sql' ? '/api/scan-sql-injection' : '/api/scan-xss';
       
       const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
         method: 'POST',
