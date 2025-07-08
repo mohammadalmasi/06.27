@@ -53,8 +53,9 @@ class SQLInjectionVulnerability:
         }
 
 class SQLInjectionDetector:
-    def __init__(self):
+    def __init__(self, debug=False):
         self.vulnerabilities = []
+        self.debug = debug
         
     def scan_file(self, filename):
         """Scan a Python file for SQL injection vulnerabilities"""
@@ -365,6 +366,28 @@ class SQLInjectionDetector:
                 'severity': 'high',
                 'confidence': 0.9,
                 'remediation': 'Use parameterized queries instead of f-strings'
+            },
+            # More specific SQLAlchemy text() patterns
+            {
+                'pattern': r'(\w+\s*=\s*text\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'description': 'SQLAlchemy text() assignment with f-string - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.95,
+                'remediation': 'Use parameterized queries instead of f-strings: text("SELECT * FROM users WHERE id = :user_id", user_id=user_id)'
+            },
+            {
+                'pattern': r'(return\s+text\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'description': 'SQLAlchemy text() return with f-string - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.95,
+                'remediation': 'Use parameterized queries instead of f-strings'
+            },
+            {
+                'pattern': r'(text\s*\(\s*[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'description': 'SQLAlchemy text() with string formatting - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use parameterized queries instead of string formatting'
             },
             # WHERE clause patterns
             {
@@ -691,6 +714,23 @@ class SQLInjectionASTVisitor(ast.NodeVisitor):
                                 file_path=self.filename
                             )
                         self.vulnerabilities.append(vulnerability)
+        
+        # Check for SQLAlchemy text() function calls
+        elif isinstance(node.func, ast.Name) and hasattr(node.func, 'id') and node.func.id == 'text':
+            # Check if arguments contain SQL injection patterns
+            for arg in node.args:
+                if self._contains_sql_injection_pattern(arg):
+                    vulnerability = SQLInjectionVulnerability(
+                        line_number=getattr(node, 'lineno', 0),
+                        vulnerability_type='sql_injection',
+                        description='SQLAlchemy text() function with dynamic SQL - SQL injection risk',
+                        severity='high',
+                        code_snippet=self._get_code_snippet(node),
+                        remediation='Use parameterized queries: text("SELECT * FROM users WHERE id = :user_id", user_id=user_id)',
+                        confidence=0.9,
+                        file_path=self.filename
+                    )
+                    self.vulnerabilities.append(vulnerability)
         
         self.generic_visit(node)
     
@@ -1312,4 +1352,82 @@ def api_sql_injection_sonarqube_export(current_user):
         )
         
     except Exception as e:
-        return jsonify({'error': f'Error exporting SQL injection SonarQube format: {str(e)}'}), 500 
+        return jsonify({'error': f'Error exporting SQL injection SonarQube format: {str(e)}'}), 500
+
+
+def test_sql_injection_scanner():
+    """Test function to verify the SQL injection scanner is working"""
+    test_cases = [
+        # SQLAlchemy text() cases
+        'query = text(f"SELECT * FROM users WHERE id = {user_id}")',
+        'result = text(f"SELECT * FROM products WHERE category = {category}")',
+        'sql = text("SELECT * FROM users WHERE id = " + str(user_id))',
+        
+        # F-string cases
+        'sql = f"SELECT * FROM users WHERE name = {username}"',
+        'query = f"INSERT INTO logs VALUES ({user_id}, {message})"',
+        
+        # String concatenation cases
+        'query = "SELECT * FROM users WHERE id = " + user_id',
+        'sql = "DELETE FROM users WHERE name = " + username',
+        
+        # cursor.execute cases
+        'cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")',
+        'cursor.execute("SELECT * FROM users WHERE id = " + str(user_id))',
+        
+        # Django ORM raw cases
+        'User.objects.raw(f"SELECT * FROM users WHERE id = {user_id}")',
+        'results = MyModel.objects.raw("SELECT * FROM table WHERE id = " + user_id)',
+        
+        # NoSQL injection cases
+        'collection.find({"name": request.form["username"]})',
+        'db.eval(f"this.name == {username}")',
+        
+        # Safe cases (should NOT be detected)
+        'query = text("SELECT * FROM users WHERE id = :user_id", user_id=user_id)',
+        'cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))',
+        'safe_query = "SELECT * FROM users"',
+    ]
+    
+    print("Testing SQL Injection Scanner...")
+    print("=" * 50)
+    
+    for i, test_case in enumerate(test_cases, 1):
+        print(f"\nTest {i}: {test_case}")
+        
+        # Create temporary file with test case
+        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
+        temp_file.write(test_case)
+        temp_file.close()
+        
+        # Scan the test case
+        detector = SQLInjectionDetector()
+        vulnerabilities = detector.scan_file(temp_file.name)
+        
+        # Clean up
+        os.unlink(temp_file.name)
+        
+        # Report results
+        if vulnerabilities:
+            print(f"  ✓ DETECTED: {len(vulnerabilities)} vulnerability(ies)")
+            for vuln in vulnerabilities:
+                print(f"    - {vuln.description}")
+        else:
+            # Check if this is a safe case that should NOT be detected
+            if any(safe_pattern in test_case for safe_pattern in [':user_id', '%s', '(user_id,)', 'SELECT * FROM users"']):
+                print(f"  ✓ SAFE: No vulnerabilities detected (expected)")
+            else:
+                print(f"  ✗ MISSED: No vulnerabilities detected (unexpected)")
+    
+    print("\n" + "=" * 50)
+    print("Test completed. If you see any 'MISSED' results, there may be an issue with the scanner.")
+    
+    
+# Test the scanner if run directly
+if __name__ == "__main__":
+    test_sql_injection_scanner() 
+
+
+# cd /Users/mohammen.almasi/thesis/06.27 && source venv/bin/activate && cd backend && python main.py
+
+# cd thesis/06.27/frontend && npm start
