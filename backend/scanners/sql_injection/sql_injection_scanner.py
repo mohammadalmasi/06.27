@@ -8,13 +8,21 @@ from docx.shared import RGBColor, Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
-from sonarqube_security_standards import SecurityStandards, SQCategory, VulnerabilityProbability
+try:
+    from sonarqube_security_standards import SecurityStandards, SQCategory, VulnerabilityProbability
+    # Based on SonarQube's SecurityStandards.java
+    SQL_INJECTION_VULNERABILITY = ("sql_injection", VulnerabilityProbability.HIGH)
+    NOSQL_INJECTION_VULNERABILITY = ("nosql_injection", VulnerabilityProbability.HIGH)
+except ImportError:
+    # Fallback if sonarqube_security_standards is not available
+    class VulnerabilityProbability:
+        HIGH = "HIGH"
+    SQL_INJECTION_VULNERABILITY = ("sql_injection", VulnerabilityProbability.HIGH)
+    NOSQL_INJECTION_VULNERABILITY = ("nosql_injection", VulnerabilityProbability.HIGH)
+    
 from datetime import datetime
 import json
 import tempfile
-
-# Based on SonarQube's SecurityStandards.java
-SQL_INJECTION_VULNERABILITY = ("sql_injection", VulnerabilityProbability.HIGH)
 # Maps to CWE-89, CWE-564, CWE-943
 # Maps to OWASP A03:2021-Injection
 
@@ -98,6 +106,107 @@ class SQLInjectionDetector:
         """Scan for SQL injection vulnerability patterns using regex"""
         lines = code.split('\n')
         
+        # Pre-process code to handle line continuations for multi-line patterns
+        processed_code = self._preprocess_multiline_code(code)
+        
+        # Also scan the original line-by-line for single-line patterns
+        self._scan_lines_for_patterns(lines, filename)
+        
+        # Scan processed code for multi-line patterns
+        self._scan_multiline_patterns(processed_code, filename)
+    
+    def _preprocess_multiline_code(self, code):
+        """Pre-process code to handle line continuations and create single-line equivalents"""
+        lines = code.split('\n')
+        processed_lines = []
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i].rstrip()
+            
+            # Check if line ends with backslash (continuation)
+            if line.endswith('\\'):
+                # Start building a multi-line statement
+                multiline_parts = [line[:-1].rstrip()]  # Remove backslash
+                original_line_num = i + 1
+                i += 1
+                
+                # Continue collecting lines until we find one without backslash
+                while i < len(lines):
+                    next_line = lines[i].strip()
+                    if next_line.endswith('\\'):
+                        multiline_parts.append(next_line[:-1].rstrip())
+                        i += 1
+                    else:
+                        multiline_parts.append(next_line)
+                        break
+                
+                # Join the multiline statement
+                multiline_statement = ' '.join(multiline_parts)
+                processed_lines.append((original_line_num, multiline_statement))
+            else:
+                processed_lines.append((i + 1, line))
+            
+            i += 1
+        
+        return processed_lines
+    
+    def _scan_multiline_patterns(self, processed_lines, filename):
+        """Scan for multi-line SQL injection patterns"""
+        multiline_patterns = [
+            # Multi-line string concatenation with SQL keywords
+            {
+                'pattern': r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*[\'\"]\s*\+.*?\+\s*\w+)',
+                'description': 'Multi-line SQL query with string concatenation - potential SQL injection',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use parameterized queries instead of string concatenation'
+            },
+            # Multi-line concatenation with user input variables
+            {
+                'pattern': r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'\"]\s*\+.*?\+\s*(?:search_term|user_id|category|username|email|input|param|data)\s*\+)',
+                'description': 'Multi-line SQL concatenation with user input variables - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.85,
+                'remediation': 'Use parameterized queries to prevent SQL injection'
+            },
+            # Multi-line WHERE clause concatenation
+            {
+                'pattern': r'([\'\"]\s*WHERE[^\'\"]*[\'\"]\s*\+.*?\+\s*\w+)',
+                'description': 'Multi-line WHERE clause with concatenation - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use parameterized WHERE clauses'
+            },
+            # Multi-line LIKE clause concatenation
+            {
+                'pattern': r'([\'\"]\s*(?:LIKE|=)[^\'\"]*[\'\"]\s*\+.*?\+\s*\w+)',
+                'description': 'Multi-line LIKE/comparison with concatenation - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use parameterized queries for LIKE clauses'
+            }
+        ]
+        
+        for line_num, line_content in processed_lines:
+            for pattern_info in multiline_patterns:
+                matches = re.finditer(pattern_info['pattern'], line_content, re.IGNORECASE | re.DOTALL)
+                for match in matches:
+                    vulnerability = SQLInjectionVulnerability(
+                        line_number=line_num,
+                        vulnerability_type='sql_injection',
+                        description=pattern_info['description'],
+                        severity=pattern_info['severity'],
+                        code_snippet=line_content.strip(),
+                        remediation=pattern_info['remediation'],
+                        confidence=pattern_info['confidence'],
+                        file_path=filename
+                    )
+                    self.vulnerabilities.append(vulnerability)
+    
+    def _scan_lines_for_patterns(self, lines, filename):
+        """Scan individual lines for single-line SQL injection patterns"""
+        
         # SQL injection vulnerability patterns
         patterns = [
             # MEDIUM SEVERITY PATTERNS (Check these first for specificity)
@@ -150,7 +259,7 @@ class SQLInjectionDetector:
             # HIGH SEVERITY PATTERNS (More general)
             # General string concatenation with SQL keywords
             {
-                'pattern': r'([\'"].*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
+                'pattern': r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
                 'description': 'SQL query with string concatenation - potential SQL injection',
                 'severity': 'high',
                 'confidence': 0.9,
@@ -181,7 +290,7 @@ class SQLInjectionDetector:
             },
             # F-string patterns with SQL
             {
-                'pattern': r'(f[\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'pattern': r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*[\'"])',
                 'description': 'F-string with SQL query and user input - potential SQL injection',
                 'severity': 'high',
                 'confidence': 0.95,
@@ -189,7 +298,7 @@ class SQLInjectionDetector:
             },
             # Format string patterns
             {
-                'pattern': r'([\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*\{\}[^\'\"]*[\'\"]\s*\.format\s*\([^)]*\))',
+                'pattern': r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
                 'description': 'Format string with SQL query - potential SQL injection',
                 'severity': 'high',
                 'confidence': 0.9,
@@ -197,7 +306,7 @@ class SQLInjectionDetector:
             },
             # % string formatting
             {
-                'pattern': r'([\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*%[sd][^\'\"]*[\'\"]\s*%\s*\w+)',
+                'pattern': r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
                 'description': 'String formatting with SQL query - potential SQL injection',
                 'severity': 'high',
                 'confidence': 0.9,
@@ -288,9 +397,24 @@ class SQLInjectionDetector:
                 'confidence': 0.8,
                 'remediation': 'Sanitize and validate form data before using in SQL'
             },
+            # Request parameter usage with bracket notation
+            {
+                'pattern': r'(request\.args\[[^]]*\])',
+                'description': 'Request parameter accessed directly - potential injection risk',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Validate and sanitize request parameters before use'
+            },
+            {
+                'pattern': r'(request\.form\[[^]]*\])',
+                'description': 'Form data accessed directly - potential injection risk',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Validate and sanitize form data before use'
+            },
             # Unsafe SQL construction
             {
-                'pattern': r'([\'"](?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'"]\s*%\s*\([^)]*\))',
+                'pattern': r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'"]\s*%\s*\([^)]*\))',
                 'description': 'SQL query with dictionary formatting - potential injection',
                 'severity': 'high',
                 'confidence': 0.8,
@@ -298,7 +422,7 @@ class SQLInjectionDetector:
             },
             # Dynamic table/column names
             {
-                'pattern': r'([\'"](?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*FROM\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
+                'pattern': r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*FROM\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
                 'description': 'Dynamic table name construction - SQL injection risk',
                 'severity': 'high',
                 'confidence': 0.8,
@@ -311,6 +435,35 @@ class SQLInjectionDetector:
                 'severity': 'high',
                 'confidence': 0.9,
                 'remediation': 'Use parameterized queries and input validation'
+            },
+            # Raw SQL injection patterns (without Python syntax)
+            {
+                'pattern': r'(SELECT\s+[^{]*\{[^}]*(?:user_input|username|input|param|data|request|form|args)\}[^}]*UNION\s+SELECT)',
+                'description': 'Raw SQL with placeholder and UNION SELECT - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.95,
+                'remediation': 'Use parameterized queries instead of placeholder injection'
+            },
+            {
+                'pattern': r'((?:SELECT|INSERT|UPDATE|DELETE)\s+[^{]*\{[^}]*(?:user_input|username|input|param|data|request|form|args)\})',
+                'description': 'Raw SQL with user input placeholders - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use parameterized queries instead of placeholder injection'
+            },
+            {
+                'pattern': r'((?:SELECT|INSERT|UPDATE|DELETE)[^U]*UNION\s+SELECT)',
+                'description': 'Raw SQL with UNION SELECT - potential SQL injection',
+                'severity': 'high',
+                'confidence': 0.85,
+                'remediation': 'Validate and sanitize all user inputs to prevent UNION-based attacks'
+            },
+            {
+                'pattern': r'(WHERE\s+[^{]*\{[^}]*(?:user_input|username|input|param|data|request|form|args)\})',
+                'description': 'Raw SQL WHERE clause with user input placeholders - SQL injection risk',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Use parameterized WHERE clauses instead of placeholder injection'
             },
             # Stored procedure calls
             {
@@ -352,6 +505,94 @@ class SQLInjectionDetector:
                 'severity': 'low',
                 'confidence': 0.4,
                 'remediation': 'Use whitelist validation for column/table names'
+            },
+            
+            # ============================================================================
+            # NOSQL INJECTION PATTERNS (MongoDB, etc.)
+            # ============================================================================
+            
+            # MongoDB collection.find() with user input
+            {
+                'pattern': r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+                'description': 'MongoDB find() with user input - NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.85,
+                'remediation': 'Validate and sanitize user input before MongoDB queries'
+            },
+            {
+                'pattern': r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+                'description': 'MongoDB find() with user input - NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.85,
+                'remediation': 'Validate and sanitize user input before MongoDB queries'
+            },
+            
+            # MongoDB db.eval() - extremely dangerous
+            {
+                'pattern': r'(db\.eval\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+                'description': 'MongoDB eval() with f-string - critical NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.95,
+                'remediation': 'Never use db.eval() with user input - consider aggregation pipeline instead'
+            },
+            {
+                'pattern': r'(db\.eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'MongoDB eval() with string concatenation - critical NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.95,
+                'remediation': 'Never use db.eval() with user input - consider aggregation pipeline instead'
+            },
+            {
+                'pattern': r'(db\.eval\s*\([^)]*(?:request\.|username|user_input|\w+_input))',
+                'description': 'MongoDB eval() with user input - critical NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.9,
+                'remediation': 'Never use db.eval() with user input - extremely dangerous'
+            },
+            
+            # MongoDB other methods with user input
+            {
+                'pattern': r'(\.(?:find_one|update|delete|remove|insert)\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
+                'description': 'MongoDB operation with user input - NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Validate and sanitize user input before MongoDB operations'
+            },
+            
+            # Direct user input in MongoDB query dictionary
+            {
+                'pattern': r'(\{[^}]*[\'"]:\s*request\.(?:form|args|json)\[[^]]*\][^}]*\})',
+                'description': 'Direct request parameter in MongoDB query - NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.85,
+                'remediation': 'Validate request parameters before using in MongoDB queries'
+            },
+            
+            # MongoDB query with format string
+            {
+                'pattern': r'(\{[^}]*[\'"]:\s*[\'"][^\'\"]*\{\}[^\'\"]*[\'\"]\s*\.format\s*\([^)]*\))',
+                'description': 'MongoDB query with format string - NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.8,
+                'remediation': 'Use proper MongoDB query parameters instead of format strings'
+            },
+            
+            # MongoDB aggregation pipeline with user input
+            {
+                'pattern': r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
+                'description': 'MongoDB aggregation with user input - NoSQL injection risk',
+                'severity': 'medium',
+                'confidence': 0.7,
+                'remediation': 'Validate user input in aggregation pipelines'
+            },
+            
+            # Generic NoSQL client patterns
+            {
+                'pattern': r'(pymongo\.MongoClient[^;]*find\s*\([^)]*(?:request\.|username|user_input))',
+                'description': 'PyMongo query with user input - NoSQL injection risk',
+                'severity': 'high',
+                'confidence': 0.75,
+                'remediation': 'Sanitize user input before MongoDB queries'
             }
         ]
         
@@ -390,6 +631,12 @@ class SQLInjectionASTVisitor(ast.NodeVisitor):
             'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER',
             'EXEC', 'EXECUTE', 'WHERE', 'FROM', 'JOIN', 'UNION', 'ORDER', 'GROUP'
         }
+        
+        # NoSQL method names that can be vulnerable
+        self.nosql_methods = {
+            'find', 'find_one', 'update', 'delete', 'remove', 'insert', 'eval',
+            'aggregate', 'count', 'distinct', 'find_and_modify'
+        }
     
     def visit_Call(self, node):
         """Visit function calls to detect SQL injection patterns"""
@@ -411,6 +658,38 @@ class SQLInjectionASTVisitor(ast.NodeVisitor):
                             confidence=0.8,
                             file_path=self.filename
                         )
+                        self.vulnerabilities.append(vulnerability)
+            
+            # Check for NoSQL methods (MongoDB, etc.)
+            elif (hasattr(node.func, 'attr') and 
+                  node.func.attr in self.nosql_methods):
+                
+                # Check if arguments contain NoSQL injection patterns
+                for arg in node.args:
+                    if self._contains_nosql_injection_pattern(arg):
+                        # Special handling for db.eval() - extremely dangerous
+                        if node.func.attr == 'eval':
+                            vulnerability = SQLInjectionVulnerability(
+                                line_number=getattr(node, 'lineno', 0),
+                                vulnerability_type='nosql_injection',
+                                description=f'Critical MongoDB eval() with user input - allows arbitrary code execution',
+                                severity='high',
+                                code_snippet=self._get_code_snippet(node),
+                                remediation='Never use db.eval() with user input - use aggregation pipeline instead',
+                                confidence=0.95,
+                                file_path=self.filename
+                            )
+                        else:
+                            vulnerability = SQLInjectionVulnerability(
+                                line_number=getattr(node, 'lineno', 0),
+                                vulnerability_type='nosql_injection',
+                                description=f'MongoDB {node.func.attr}() with user input - NoSQL injection risk',
+                                severity='high',
+                                code_snippet=self._get_code_snippet(node),
+                                remediation='Validate and sanitize user input before NoSQL queries',
+                                confidence=0.8,
+                                file_path=self.filename
+                            )
                         self.vulnerabilities.append(vulnerability)
         
         self.generic_visit(node)
@@ -494,6 +773,32 @@ class SQLInjectionASTVisitor(ast.NodeVisitor):
         
         return False
     
+    def _contains_nosql_injection_pattern(self, node):
+        """Check if node contains NoSQL injection patterns"""
+        # Check for dictionary with user input values
+        if isinstance(node, ast.Dict):
+            for value in node.values:
+                if self._contains_user_input(value):
+                    return True
+        
+        # Check for f-strings with user input
+        elif isinstance(node, ast.JoinedStr):
+            for value in node.values:
+                if isinstance(value, ast.FormattedValue):
+                    if self._contains_user_input(value.value):
+                        return True
+        
+        # Check for string concatenation with user input
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            if self._contains_user_input(node.left) or self._contains_user_input(node.right):
+                return True
+        
+        # Check for direct user input
+        elif self._contains_user_input(node):
+            return True
+            
+        return False
+    
     def _contains_sql_keywords(self, text):
         """Check if text contains SQL keywords"""
         if not text:
@@ -528,7 +833,9 @@ class SQLInjectionASTVisitor(ast.NodeVisitor):
                 'name', 'email', 'id', 'query', 'search', 'filter', 'sort', 'order',
                 'limit', 'offset', 'page', 'user', 'login', 'auth', 'token', 'key',
                 'text', 'content', 'message', 'comment', 'description', 'title',
-                'field', 'column', 'table', 'where', 'condition', 'criteria'
+                'field', 'column', 'table', 'where', 'condition', 'criteria',
+                # NoSQL specific variables
+                'user_query', 'category', 'criteria'
             ]
             if hasattr(node, 'id') and node.id in user_input_vars:
                 return True
@@ -561,11 +868,40 @@ def highlight_sql_injection_vulnerabilities(code, vulnerabilities=None):
     
     # Group vulnerabilities by line number
     vuln_by_line = {}
+    multiline_vulns = []
+    
     for vuln in vulnerabilities:
         line_num = vuln.line_number
-        if line_num not in vuln_by_line:
-            vuln_by_line[line_num] = []
-        vuln_by_line[line_num].append(vuln)
+        # Check if this is a multi-line vulnerability
+        if ('Multi-line' in vuln.description or 
+            '\\' in vuln.code_snippet or 
+            len(vuln.code_snippet.split()) > 20):  # Heuristic for multi-line
+            multiline_vulns.append(vuln)
+        else:
+            if line_num not in vuln_by_line:
+                vuln_by_line[line_num] = []
+            vuln_by_line[line_num].append(vuln)
+    
+    # Handle multi-line vulnerabilities by marking all related lines
+    for vuln in multiline_vulns:
+        start_line = vuln.line_number
+        # Find the range of lines that contain this vulnerability
+        end_line = start_line
+        
+        # Look for line continuation patterns starting from the vulnerability line
+        for i in range(start_line - 1, len(lines)):
+            if i >= 0 and lines[i].rstrip().endswith('\\'):
+                end_line = i + 2  # Continue to next line
+            elif i >= 0 and ('+' in lines[i] or 'query' in lines[i]):
+                end_line = max(end_line, i + 1)
+            else:
+                break
+        
+        # Mark all lines in the range
+        for line_num in range(start_line, min(end_line + 1, len(lines) + 1)):
+            if line_num not in vuln_by_line:
+                vuln_by_line[line_num] = []
+            vuln_by_line[line_num].append(vuln)
     
     # Process each line
     for line_num, line in enumerate(lines, 1):
@@ -582,29 +918,27 @@ def highlight_sql_injection_vulnerabilities(code, vulnerabilities=None):
             else:
                 css_class = 'sql-injection-vuln-low'
             
-            # Create detailed patterns for this line based on actual vulnerabilities
-            patterns = []
-            for vuln in line_vulns:
-                # Create pattern from the vulnerable code snippet
-                snippet = vuln.code_snippet.strip()
-                if snippet:
-                    # Escape special regex characters and create a flexible pattern
-                    escaped_snippet = re.escape(snippet)
-                    # Make it more flexible to catch variations
-                    flexible_pattern = escaped_snippet.replace(r'\ ', r'\s*').replace(r'\"', r'["\']').replace(r'\'', r'["\']')
-                    patterns.append(flexible_pattern)
-            
-            # Apply highlighting to this line
+            # For multi-line vulnerabilities, highlight the entire line
+            # For single-line vulnerabilities, try to highlight specific patterns
             highlighted_line = line
-            for pattern in patterns:
-                try:
-                    highlighted_line = re.sub(f'({pattern})', 
-                                            lambda m: f'<span class="{css_class}">{m.group(0)}</span>', 
-                                            highlighted_line, flags=re.IGNORECASE)
-                except re.error:
-                    # If regex fails, highlight the whole line
-                    highlighted_line = f'<span class="{css_class}">{line}</span>'
-                    break
+            has_multiline_vuln = any('Multi-line' in v.description for v in line_vulns)
+            
+            if has_multiline_vuln:
+                # For multi-line vulnerabilities, highlight the entire line
+                highlighted_line = f'<span class="{css_class}">{line}</span>'
+            else:
+                # For single-line vulnerabilities, use pattern-based highlighting
+                patterns = _create_highlighting_patterns(line_vulns)
+                
+                for pattern in patterns:
+                    try:
+                        highlighted_line = re.sub(f'({pattern})', 
+                                                lambda m: f'<span class="{css_class}">{m.group(0)}</span>', 
+                                                highlighted_line, flags=re.IGNORECASE)
+                    except re.error:
+                        # If regex fails, highlight the whole line
+                        highlighted_line = f'<span class="{css_class}">{line}</span>'
+                        break
             
             highlighted_lines.append(highlighted_line)
         else:
@@ -612,14 +946,53 @@ def highlight_sql_injection_vulnerabilities(code, vulnerabilities=None):
     
     return '\n'.join(highlighted_lines)
 
+def _create_highlighting_patterns(line_vulns):
+    """Create highlighting patterns for single-line vulnerabilities"""
+    patterns = []
+    
+    # Common SQL injection patterns for highlighting
+    common_patterns = [
+        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
+        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
+        r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*?[\'"])',
+        r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
+        r'(request\.(?:form|args)\[[^]]*\])',
+        r'(cursor\.execute\s*\([^)]*\))',
+        r'(\.execute\s*\([^)]*\))',
+        # NoSQL injection patterns
+        r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+        r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+        r'(db\.eval\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'(db\.eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+        r'(db\.eval\s*\([^)]*(?:request\.|username|user_input|\w+_input))',
+        r'(\.(?:find_one|update|delete|remove|insert)\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
+        r'(\{[^}]*[\'"]:\s*request\.(?:form|args|json)\[[^]]*\][^}]*\})',
+        r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))'
+    ]
+    
+    # Add vulnerability-specific patterns
+    for vuln in line_vulns:
+        snippet = vuln.code_snippet.strip()
+        if snippet and len(snippet) < 200:  # Only for reasonable-length snippets
+            # Create a flexible pattern from the snippet
+            if '.format(' in snippet:
+                patterns.append(r'[\'\"]\s*[^\'\"]*\{\}[^\'\"]*[\'\"]\s*\.format\s*\([^)]*\)')
+            elif ' % ' in snippet and ('SELECT' in snippet.upper() or 'UPDATE' in snippet.upper()):
+                patterns.append(r'[\'\"]\s*[^\'\"]*%[sd][^\'\"]*[\'\"]\s*%\s*[^;]+')
+            elif 'request.' in snippet:
+                patterns.append(r'request\.\w+\[[^]]*\]')
+    
+    return patterns + common_patterns
+
 def highlight_sql_injection_vulnerabilities_word(code):
     """Highlight SQL injection vulnerability patterns for Word documents"""
     patterns = [
-        r'((?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)\s+[^"\']*[\'"]\s*\+\s*\w+)',
-        r'(\w+\s*\+\s*[\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE))',
-        r'(f[\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'([\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*\{\}[^\'\"]*[\'\"]\s*\.format\s*\([^)]*\))',
-        r'([\'"](?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE)[^\'\"]*%[sd][^\'\"]*[\'\"]\s*%\s*\w+)',
+        # Updated patterns to match our fixes
+        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
+        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
+        r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*?[\'"])',
+        r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
+        r'(\w+\s*\+\s*[\'"].*(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM|JOIN|UNION).*[\'"])',
         r'(cursor\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
         r'(\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
         r'(cursor\.execute\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
@@ -631,12 +1004,26 @@ def highlight_sql_injection_vulnerabilities_word(code):
         r'([\'"]LIKE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
         r'([\'"]ORDER\s+BY\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
         r'(request\.args\.get\([^)]*\))',
-        r'(request\.form\.get\([^)]*\))'
+        r'(request\.form\.get\([^)]*\))',
+        r'(request\.(?:form|args)\[[^]]*\])',
+        # Multi-line concatenation patterns
+        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'\"]\s*\+[^+]*\+[^+]*\+)',
+        r'([\'\"]\s*WHERE[^\'\"]*[\'\"]\s*\+[^+]*\+)',
+        r'([\'\"]\s*FROM[^\'\"]*[\'\"]\s*\+[^+]*\+)',
+        # NoSQL injection patterns
+        r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+        r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+        r'(db\.eval\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'(db\.eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+        r'(db\.eval\s*\([^)]*(?:request\.|username|user_input|\w+_input))',
+        r'(\.(?:find_one|update|delete|remove|insert)\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
+        r'(\{[^}]*[\'"]:\s*request\.(?:form|args|json)\[[^]]*\][^}]*\})',
+        r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))'
     ]
     
     highlighted = code
     for pattern in patterns:
-        highlighted = re.sub(pattern, lambda m: f'[SQL-INJECTION-VULNERABLE:{m.group(0)}]', highlighted, flags=re.IGNORECASE)
+        highlighted = re.sub(pattern, lambda m: f'[SQL-INJECTION-VULNERABLE:{m.group(0)}]', highlighted, flags=re.IGNORECASE | re.DOTALL)
     
     return highlighted
 
