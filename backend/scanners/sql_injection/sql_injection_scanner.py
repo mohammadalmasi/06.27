@@ -970,11 +970,21 @@ def highlight_sql_injection_vulnerabilities(code, vulnerabilities=None):
                 # For single-line vulnerabilities, use pattern-based highlighting
                 patterns = _create_highlighting_patterns(line_vulns)
                 
+                # Track if we've already highlighted this line to prevent overlapping spans
+                already_highlighted = False
+                
                 for pattern in patterns:
                     try:
-                        highlighted_line = re.sub(f'({pattern})', 
-                                                lambda m: f'<span class="{css_class}">{m.group(0)}</span>', 
-                                                highlighted_line, flags=re.IGNORECASE)
+                        # Only apply highlighting if line hasn't been highlighted yet
+                        if not already_highlighted:
+                            new_line = re.sub(f'({pattern})', 
+                                            lambda m: f'<span class="{css_class}">{m.group(0)}</span>', 
+                                            highlighted_line, flags=re.IGNORECASE)
+                            # Check if highlighting was applied
+                            if new_line != highlighted_line:
+                                highlighted_line = new_line
+                                already_highlighted = True
+                                break
                     except re.error:
                         # If regex fails, highlight the whole line
                         highlighted_line = f'<span class="{css_class}">{line}</span>'
@@ -992,13 +1002,39 @@ def _create_highlighting_patterns(line_vulns):
     
     # Common SQL injection patterns for highlighting
     common_patterns = [
+        # High severity patterns
         r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
         r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
         r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*?[\'"])',
         r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
-        r'(request\.(?:form|args)\[[^]]*\])',
+        r'(\w+\s*\+\s*[\'"].*(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM|JOIN|UNION).*[\'"])',
         r'(cursor\.execute\s*\([^)]*\))',
         r'(\.execute\s*\([^)]*\))',
+        r'(text\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+        r'(text\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+        r'([\'"]WHERE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
+        r'([\'"]LIKE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
+        
+        # Medium severity patterns - ORDER BY and LIMIT
+        r'([\'"]ORDER\s+BY[^\'\"]*[\'"]\s*\+\s*\w+)',
+        r'([\'"]ORDER\s+BY\s*[\'"]\s*\+\s*\w+)',
+        r'([\'"]LIMIT[^\'\"]*[\'"]\s*\+\s*\w+)',
+        r'([\'"]LIMIT\s*[\'"]\s*\+\s*\w+)',
+        
+        # Medium severity patterns - SQL comments and blind injection
+        r'(\w+\s*\+\s*[\'"].*--.*[\'"])',
+        r'(\w+\s*\+\s*[\'"].*(?:AND|OR)\s+\d+\s*=\s*\d+)',
+        
+        # Medium severity patterns - Request parameters
+        r'(request\.(?:form|args)\[[^]]*\])',
+        r'(request\.args\.get\([^)]*\))',
+        r'(request\.form\.get\([^)]*\))',
+        
+        # Low severity patterns - Simple string concatenation
+        r'(\w+\s*\+\s*\w+\s*$)',
+        r'([\'"][\w_]+[\'\"]\s*\+\s*\w+)',
+        r'(\w+\s*=\s*[\'"][\w_]+[\'\"]\s*\+\s*\w+)',
+        
         # NoSQL injection patterns
         r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
         r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
@@ -1010,7 +1046,7 @@ def _create_highlighting_patterns(line_vulns):
         r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))'
     ]
     
-    # Add vulnerability-specific patterns
+    # Add vulnerability-specific patterns based on the actual vulnerabilities found
     for vuln in line_vulns:
         snippet = vuln.code_snippet.strip()
         if snippet and len(snippet) < 200:  # Only for reasonable-length snippets
@@ -1021,6 +1057,17 @@ def _create_highlighting_patterns(line_vulns):
                 patterns.append(r'[\'\"]\s*[^\'\"]*%[sd][^\'\"]*[\'\"]\s*%\s*[^;]+')
             elif 'request.' in snippet:
                 patterns.append(r'request\.\w+\[[^]]*\]')
+            elif 'ORDER BY' in snippet.upper() and ' + ' in snippet:
+                patterns.append(r'[\'"]ORDER\s+BY[^\'\"]*[\'"]\s*\+\s*\w+')
+            elif 'LIMIT' in snippet.upper() and ' + ' in snippet:
+                patterns.append(r'[\'"]LIMIT[^\'\"]*[\'"]\s*\+\s*\w+')
+            elif '--' in snippet and ' + ' in snippet:
+                patterns.append(r'\w+\s*\+\s*[\'"].*--.*[\'"]')
+            elif ('AND' in snippet.upper() or 'OR' in snippet.upper()) and '=' in snippet:
+                patterns.append(r'\w+\s*\+\s*[\'"].*(?:AND|OR)\s+\d+\s*=\s*\d+')
+            elif ' + ' in snippet and '"' in snippet:
+                # Generic string concatenation pattern
+                patterns.append(r'[\'"][^\'\"]*[\'"]\s*\+\s*\w+')
     
     return patterns + common_patterns
 

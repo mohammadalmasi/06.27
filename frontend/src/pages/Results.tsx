@@ -452,6 +452,80 @@ const Results: React.FC = () => {
                         .code-content .xss-vuln:hover {
                           background-color: #b91c1c !important;
                         }
+                        
+                        /* SQL Injection vulnerability highlighting */
+                        .code-content .sql-injection-vuln-high {
+                          background-color: #dc2626 !important;
+                          color: #ffffff !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .sql-injection-vuln-high:hover {
+                          background-color: #b91c1c !important;
+                        }
+                        
+                        .code-content .sql-injection-vuln-medium {
+                          background-color: #f59e0b !important;
+                          color: #000000 !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .sql-injection-vuln-medium:hover {
+                          background-color: #d97706 !important;
+                        }
+                        
+                        .code-content .sql-injection-vuln-low {
+                          background-color: #10b981 !important;
+                          color: #000000 !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .sql-injection-vuln-low:hover {
+                          background-color: #059669 !important;
+                        }
+                        
+                        /* XSS vulnerability highlighting */
+                        .code-content .xss-vuln-high {
+                          background-color: #dc2626 !important;
+                          color: #ffffff !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .xss-vuln-high:hover {
+                          background-color: #b91c1c !important;
+                        }
+                        
+                        .code-content .xss-vuln-medium {
+                          background-color: #f59e0b !important;
+                          color: #000000 !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .xss-vuln-medium:hover {
+                          background-color: #d97706 !important;
+                        }
+                        
+                        .code-content .xss-vuln-low {
+                          background-color: #10b981 !important;
+                          color: #000000 !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .xss-vuln-low:hover {
+                          background-color: #059669 !important;
+                        }
                       `}</style>
                     </div>
                   </div>
