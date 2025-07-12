@@ -22,6 +22,13 @@ from scanners.sql_injection.sql_injection_scanner import (
     api_sql_injection_sonarqube_export
 )
 
+# Import Command injection scanner functions
+from scanners.command_injection.command_injection_scanner import (
+    api_scan_command_injection,
+    api_generate_command_injection_report,
+    api_command_injection_sonarqube_export
+)
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
@@ -142,6 +149,25 @@ def sql_injection_sonarqube_export(current_user):
     """Export SQL injection vulnerabilities in SonarQube format"""
     return api_sql_injection_sonarqube_export(current_user)
 
+# Command Injection Scanner API endpoints
+@app.route('/api/scan-command-injection', methods=['POST'])
+@token_required
+def scan_command_injection(current_user):
+    """Command injection vulnerability scanning endpoint"""
+    return api_scan_command_injection(current_user)
+
+@app.route('/api/generate-command-injection-report', methods=['POST'])
+@token_required
+def generate_command_injection_report(current_user):
+    """Generate Word report for command injection vulnerabilities"""
+    return api_generate_command_injection_report(current_user)
+
+@app.route('/api/command-injection-sonarqube-export', methods=['POST'])
+@token_required
+def command_injection_sonarqube_export(current_user):
+    """Export command injection vulnerabilities in SonarQube format"""
+    return api_command_injection_sonarqube_export(current_user)
+
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -150,7 +176,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'version': '1.0.0',
-        'scanners': ['xss', 'sql_injection']
+        'scanners': ['xss', 'sql_injection', 'command_injection']
     })
 
 # Initialize directories on startup

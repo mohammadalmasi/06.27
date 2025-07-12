@@ -53,7 +53,7 @@ interface ScanResults {
   scan_timestamp: string;
   source?: string;
   scan_type?: string;
-  scannerType?: 'sql' | 'xss';
+  scannerType?: 'sql' | 'xss' | 'command';
   compliance?: {
     cwe_distribution: Record<string, number>;
     owasp_top10_distribution: Record<string, number>;
@@ -114,15 +114,21 @@ const Results: React.FC = () => {
   };
 
   const getScannerTitle = () => {
-    return results?.scannerType === 'xss' 
-      ? 'XSS Security Scan Results' 
-      : 'SQL Injection Security Scan Results';
+    if (results?.scannerType === 'xss') {
+      return 'XSS Security Scan Results';
+    } else if (results?.scannerType === 'command') {
+      return 'Command Injection Security Scan Results';
+    }
+    return 'SQL Injection Security Scan Results';
   };
 
   const getScannerIcon = () => {
-    return results?.scannerType === 'xss' 
-      ? <Shield className="h-8 w-8 text-primary-600 mr-3" />
-      : <Bug className="h-8 w-8 text-primary-600 mr-3" />;
+    if (results?.scannerType === 'xss') {
+      return <Shield className="h-8 w-8 text-primary-600 mr-3" />;
+    } else if (results?.scannerType === 'command') {
+      return <AlertTriangle className="h-8 w-8 text-primary-600 mr-3" />;
+    }
+    return <Bug className="h-8 w-8 text-primary-600 mr-3" />;
   };
 
   const filteredVulnerabilities = results?.vulnerabilities.filter(vuln => {
@@ -156,9 +162,14 @@ const Results: React.FC = () => {
       }
 
       // Choose the appropriate report endpoint based on scanner type
-      const endpoint = results.scannerType === 'xss' 
-        ? '/api/generate-xss-report' 
-        : '/api/generate-sql-injection-report';
+      let endpoint: string;
+      if (results.scannerType === 'xss') {
+        endpoint = '/api/generate-xss-report';
+      } else if (results.scannerType === 'command') {
+        endpoint = '/api/generate-command-injection-report';
+      } else {
+        endpoint = '/api/generate-sql-injection-report';
+      }
 
       const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -178,7 +189,14 @@ const Results: React.FC = () => {
       
       // Extract filename from response headers or use default
       const contentDisposition = response.headers.get('Content-Disposition');
-      const scanType = results.scannerType === 'xss' ? 'xss' : 'sql-injection';
+      let scanType: string;
+      if (results.scannerType === 'xss') {
+        scanType = 'xss';
+      } else if (results.scannerType === 'command') {
+        scanType = 'command-injection';
+      } else {
+        scanType = 'sql-injection';
+      }
       let filename = `${scanType}-security-report.docx`;
       
       if (contentDisposition) {
@@ -265,7 +283,10 @@ const Results: React.FC = () => {
           <div className="mt-4 text-sm text-gray-600">
             <p>
               <strong>Source:</strong> {scanInput?.filename || scanInput?.type || 'N/A'} •
-              <strong className="ml-2">Scanner Type:</strong> {results.scannerType === 'xss' ? 'XSS' : 'SQL Injection'} •
+                                <strong className="ml-2">Scanner Type:</strong> {
+                    results.scannerType === 'xss' ? 'XSS' : 
+                    results.scannerType === 'command' ? 'Command Injection' : 'SQL Injection'
+                  } •
               <strong className="ml-2">Scanned:</strong> {new Date().toLocaleString()}
             </p>
           </div>
@@ -376,6 +397,8 @@ const Results: React.FC = () => {
                 Vulnerable code sections are highlighted in red. 
                 {results.scannerType === 'xss' 
                   ? ' XSS vulnerabilities are marked for review.'
+                  : results.scannerType === 'command'
+                  ? ' Command injection vulnerabilities are marked for review.'
                   : ' SQL injection vulnerabilities are marked for review.'
                 }
               </p>
@@ -390,7 +413,8 @@ const Results: React.FC = () => {
                       {results.file_name || scanInput?.filename || 'scanned_code.py'}
                     </span>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
-                      {results.scannerType === 'xss' ? 'XSS Analysis' : 'SQL Injection Analysis'}
+                      {results.scannerType === 'xss' ? 'XSS Analysis' : 
+                       results.scannerType === 'command' ? 'Command Injection Analysis' : 'SQL Injection Analysis'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -545,7 +569,10 @@ const Results: React.FC = () => {
               </h3>
               <p className="text-gray-600">
                 {filterSeverity === 'all' 
-                  ? `Great! Your code appears to be secure from ${results.scannerType === 'xss' ? 'XSS' : 'SQL injection'} vulnerabilities.`
+                  ? `Great! Your code appears to be secure from ${
+                      results.scannerType === 'xss' ? 'XSS' : 
+                      results.scannerType === 'command' ? 'command injection' : 'SQL injection'
+                    } vulnerabilities.`
                   : `There are no ${filterSeverity} severity vulnerabilities in your code.`
                 }
               </p>
@@ -561,7 +588,8 @@ const Results: React.FC = () => {
                       {getSeverityIcon(vulnerability.severity)}
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {results.scannerType === 'xss' ? 'XSS Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
+                          {results.scannerType === 'xss' ? 'XSS Vulnerability' : 
+                           results.scannerType === 'command' ? 'Command Injection Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
                         </h3>
                         <p className="text-gray-600 mb-4">
                           {vulnerability.description}

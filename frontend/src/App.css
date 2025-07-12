@@ -38,7 +38,7 @@
 }
 
 /* Vulnerability highlighting styles */
-.sql-injection-vuln-high, .xss-vuln-high {
+.sql-injection-vuln-high, .xss-vuln-high, .command-vuln-high {
   background-color: #ff4444;
   color: white;
   padding: 2px 4px;
@@ -46,7 +46,7 @@
   font-weight: bold;
 }
 
-.sql-injection-vuln-medium, .xss-vuln-medium {
+.sql-injection-vuln-medium, .xss-vuln-medium, .command-vuln-medium {
   background-color: #ffdd44;
   color: black;
   padding: 2px 4px;
@@ -54,7 +54,7 @@
   font-weight: bold;
 }
 
-.sql-injection-vuln-low, .xss-vuln-low {
+.sql-injection-vuln-low, .xss-vuln-low, .command-vuln-low {
   background-color: #44ff44;
   color: black;
   padding: 2px 4px;
@@ -62,8 +62,10 @@
   font-weight: bold;
 }
 
+
+
 /* Legacy vulnerability styles for backward compatibility */
-.sql-injection-vuln, .xss-vuln {
+.sql-injection-vuln, .xss-vuln, .command-vuln {
   background-color: #ff4444;
   color: white;
   padding: 2px 4px;

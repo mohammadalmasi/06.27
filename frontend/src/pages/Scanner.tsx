@@ -22,7 +22,7 @@ interface ScanInput {
   filename?: string;
 }
 
-type ScannerType = 'sql' | 'xss';
+type ScannerType = 'sql' | 'xss' | 'command';
 
 const Scanner: React.FC = () => {
   const navigate = useNavigate();
@@ -131,7 +131,16 @@ const Scanner: React.FC = () => {
       }
 
       // Choose the appropriate API endpoint based on scanner type
-      const endpoint = scannerType === 'sql' ? '/api/scan-sql-injection' : '/api/scan-xss';
+      let endpoint: string;
+      if (scannerType === 'sql') {
+        endpoint = '/api/scan-sql-injection';
+      } else if (scannerType === 'xss') {
+        endpoint = '/api/scan-xss';
+      } else if (scannerType === 'command') {
+        endpoint = '/api/scan-command-injection';
+      } else {
+        throw new Error('Invalid scanner type');
+      }
       
       const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -150,7 +159,16 @@ const Scanner: React.FC = () => {
       localStorage.setItem('scanResults', JSON.stringify({...results, scannerType}));
       localStorage.setItem('scanInput', JSON.stringify(scanInput));
       
-      const vulnerabilityType = scannerType === 'sql' ? 'SQL injection vulnerabilities' : 'XSS vulnerabilities';
+      let vulnerabilityType: string;
+      if (scannerType === 'sql') {
+        vulnerabilityType = 'SQL injection vulnerabilities';
+      } else if (scannerType === 'xss') {
+        vulnerabilityType = 'XSS vulnerabilities';
+      } else if (scannerType === 'command') {
+        vulnerabilityType = 'Command injection vulnerabilities';
+      } else {
+        vulnerabilityType = 'vulnerabilities';
+      }
       toast.success(`Scan completed! Found ${results.total_issues || 0} ${vulnerabilityType}`);
       navigate('/results');
       
@@ -187,15 +205,25 @@ const Scanner: React.FC = () => {
   };
 
   const getScannerTitle = () => {
-    return scannerType === 'sql' 
-      ? 'SQL Injection Vulnerability Scanner' 
-      : 'Cross-Site Scripting (XSS) Scanner';
+    if (scannerType === 'sql') {
+      return 'SQL Injection Vulnerability Scanner';
+    } else if (scannerType === 'xss') {
+      return 'Cross-Site Scripting (XSS) Scanner';
+    } else if (scannerType === 'command') {
+      return 'Command Injection Vulnerability Scanner';
+    }
+    return 'Security Scanner';
   };
 
   const getScannerDescription = () => {
-    return scannerType === 'sql'
-      ? 'Upload your code, paste it directly, or scan GitHub files for SQL injection vulnerabilities'
-      : 'Upload your code, paste it directly, or scan GitHub files for XSS vulnerabilities';
+    if (scannerType === 'sql') {
+      return 'Upload your code, paste it directly, or scan GitHub files for SQL injection vulnerabilities';
+    } else if (scannerType === 'xss') {
+      return 'Upload your code, paste it directly, or scan GitHub files for XSS vulnerabilities';
+    } else if (scannerType === 'command') {
+      return 'Upload your code, paste it directly, or scan GitHub files for command injection vulnerabilities';
+    }
+    return 'Upload your code, paste it directly, or scan GitHub files for security vulnerabilities';
   };
 
   const getDetectionCapabilities = () => {
@@ -207,7 +235,7 @@ const Scanner: React.FC = () => {
         'NoSQL injection patterns',
         'Framework-specific vulnerabilities'
       ];
-    } else {
+    } else if (scannerType === 'xss') {
       return [
         'Reflected XSS vulnerabilities',
         'Stored XSS patterns',
@@ -215,7 +243,17 @@ const Scanner: React.FC = () => {
         'Template injection risks',
         'Unsafe HTML rendering'
       ];
+    } else if (scannerType === 'command') {
+      return [
+        'os.system() vulnerabilities',
+        'subprocess with shell=True',
+        'Command string construction',
+        'eval() and exec() misuse',
+        'Dynamic module imports',
+        'File operation injection'
+      ];
     }
+    return [];
   };
 
   return (
@@ -234,7 +272,7 @@ const Scanner: React.FC = () => {
         {/* Scanner Type Selector */}
         <div className="bg-white rounded-lg shadow-lg mb-6 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Scanner Type</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={() => setScannerType('sql')}
               className={`p-4 rounded-lg border-2 transition-all duration-200 ${
@@ -284,6 +322,33 @@ const Scanner: React.FC = () => {
                     scannerType === 'xss' ? 'text-primary-600' : 'text-gray-600'
                   }`}>
                     Detect cross-site scripting vulnerabilities
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setScannerType('command')}
+              className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                scannerType === 'command'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <AlertTriangle className={`h-6 w-6 mr-3 ${
+                  scannerType === 'command' ? 'text-primary-600' : 'text-gray-600'
+                }`} />
+                <div className="text-left">
+                  <h4 className={`font-medium ${
+                    scannerType === 'command' ? 'text-primary-900' : 'text-gray-900'
+                  }`}>
+                    Command Injection Scanner
+                  </h4>
+                  <p className={`text-sm ${
+                    scannerType === 'command' ? 'text-primary-600' : 'text-gray-600'
+                  }`}>
+                    Detect command injection vulnerabilities
                   </p>
                 </div>
               </div>
@@ -420,7 +485,9 @@ const Scanner: React.FC = () => {
                     onChange={(e) => handleInputChange(e.target.value)}
                     placeholder={scannerType === 'sql' 
                       ? "# Paste your Python code here..." 
-                      : "# Paste your code here (Python, JavaScript, etc.)..."
+                      : scannerType === 'xss'
+                      ? "# Paste your code here (Python, JavaScript, etc.)..."
+                      : "# Paste your Python code here for command injection analysis..."
                     }
                     rows={12}
                     className="textarea-field font-mono text-sm"
@@ -452,10 +519,13 @@ const Scanner: React.FC = () => {
                   <>
                     {scannerType === 'sql' ? (
                       <Bug className="h-5 w-5 mr-2" />
-                    ) : (
+                    ) : scannerType === 'xss' ? (
                       <Shield className="h-5 w-5 mr-2" />
+                    ) : (
+                      <AlertTriangle className="h-5 w-5 mr-2" />
                     )}
-                    Start {scannerType === 'sql' ? 'SQL Injection' : 'XSS'} Scan
+                    Start {scannerType === 'sql' ? 'SQL Injection' : 
+                      scannerType === 'xss' ? 'XSS' : 'Command Injection'} Scan
                   </>
                 )}
               </button>
