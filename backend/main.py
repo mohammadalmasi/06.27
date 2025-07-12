@@ -29,6 +29,13 @@ from scanners.command_injection.command_injection_scanner import (
     api_command_injection_sonarqube_export
 )
 
+# Import CSRF scanner functions
+from scanners.csrf.csrf_scanner import (
+    api_scan_csrf,
+    api_generate_csrf_report,
+    api_csrf_sonarqube_export
+)
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
@@ -168,6 +175,25 @@ def command_injection_sonarqube_export(current_user):
     """Export command injection vulnerabilities in SonarQube format"""
     return api_command_injection_sonarqube_export(current_user)
 
+# CSRF Scanner API endpoints
+@app.route('/api/scan-csrf', methods=['POST'])
+@token_required
+def scan_csrf(current_user):
+    """CSRF vulnerability scanning endpoint"""
+    return api_scan_csrf(current_user)
+
+@app.route('/api/generate-csrf-report', methods=['POST'])
+@token_required
+def generate_csrf_report(current_user):
+    """Generate Word report for CSRF vulnerabilities"""
+    return api_generate_csrf_report(current_user)
+
+@app.route('/api/csrf-sonarqube-export', methods=['POST'])
+@token_required
+def csrf_sonarqube_export(current_user):
+    """Export CSRF vulnerabilities in SonarQube format"""
+    return api_csrf_sonarqube_export(current_user)
+
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -176,7 +202,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'version': '1.0.0',
-        'scanners': ['xss', 'sql_injection', 'command_injection']
+        'scanners': ['xss', 'sql_injection', 'command_injection', 'csrf']
     })
 
 # Initialize directories on startup

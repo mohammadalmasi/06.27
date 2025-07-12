@@ -22,7 +22,7 @@ interface ScanInput {
   filename?: string;
 }
 
-type ScannerType = 'sql' | 'xss' | 'command';
+type ScannerType = 'sql' | 'xss' | 'command' | 'csrf';
 
 const Scanner: React.FC = () => {
   const navigate = useNavigate();
@@ -138,6 +138,8 @@ const Scanner: React.FC = () => {
         endpoint = '/api/scan-xss';
       } else if (scannerType === 'command') {
         endpoint = '/api/scan-command-injection';
+      } else if (scannerType === 'csrf') {
+        endpoint = '/api/scan-csrf';
       } else {
         throw new Error('Invalid scanner type');
       }
@@ -166,6 +168,8 @@ const Scanner: React.FC = () => {
         vulnerabilityType = 'XSS vulnerabilities';
       } else if (scannerType === 'command') {
         vulnerabilityType = 'Command injection vulnerabilities';
+      } else if (scannerType === 'csrf') {
+        vulnerabilityType = 'CSRF vulnerabilities';
       } else {
         vulnerabilityType = 'vulnerabilities';
       }
@@ -211,6 +215,8 @@ const Scanner: React.FC = () => {
       return 'Cross-Site Scripting (XSS) Scanner';
     } else if (scannerType === 'command') {
       return 'Command Injection Vulnerability Scanner';
+    } else if (scannerType === 'csrf') {
+      return 'CSRF (Cross-Site Request Forgery) Scanner';
     }
     return 'Security Scanner';
   };
@@ -222,6 +228,8 @@ const Scanner: React.FC = () => {
       return 'Upload your code, paste it directly, or scan GitHub files for XSS vulnerabilities';
     } else if (scannerType === 'command') {
       return 'Upload your code, paste it directly, or scan GitHub files for command injection vulnerabilities';
+    } else if (scannerType === 'csrf') {
+      return 'Upload your code, paste it directly, or scan GitHub files for CSRF vulnerabilities';
     }
     return 'Upload your code, paste it directly, or scan GitHub files for security vulnerabilities';
   };
@@ -252,6 +260,15 @@ const Scanner: React.FC = () => {
         'Dynamic module imports',
         'File operation injection'
       ];
+    } else if (scannerType === 'csrf') {
+      return [
+        'Missing CSRF tokens in forms',
+        'Flask routes without CSRF protection',
+        'Django views with CSRF exemption',
+        'AJAX requests without CSRF headers',
+        'Cookie security misconfigurations',
+        'Form validation bypasses'
+      ];
     }
     return [];
   };
@@ -272,7 +289,7 @@ const Scanner: React.FC = () => {
         {/* Scanner Type Selector */}
         <div className="bg-white rounded-lg shadow-lg mb-6 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Scanner Type</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
               onClick={() => setScannerType('sql')}
               className={`p-4 rounded-lg border-2 transition-all duration-200 ${
@@ -349,6 +366,33 @@ const Scanner: React.FC = () => {
                     scannerType === 'command' ? 'text-primary-600' : 'text-gray-600'
                   }`}>
                     Detect command injection vulnerabilities
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setScannerType('csrf')}
+              className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                scannerType === 'csrf'
+                  ? 'border-primary-500 bg-primary-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <Shield className={`h-6 w-6 mr-3 ${
+                  scannerType === 'csrf' ? 'text-primary-600' : 'text-gray-600'
+                }`} />
+                <div className="text-left">
+                  <h4 className={`font-medium ${
+                    scannerType === 'csrf' ? 'text-primary-900' : 'text-gray-900'
+                  }`}>
+                    CSRF Scanner
+                  </h4>
+                  <p className={`text-sm ${
+                    scannerType === 'csrf' ? 'text-primary-600' : 'text-gray-600'
+                  }`}>
+                    Detect cross-site request forgery vulnerabilities
                   </p>
                 </div>
               </div>
@@ -487,7 +531,9 @@ const Scanner: React.FC = () => {
                       ? "# Paste your Python code here..." 
                       : scannerType === 'xss'
                       ? "# Paste your code here (Python, JavaScript, etc.)..."
-                      : "# Paste your Python code here for command injection analysis..."
+                      : scannerType === 'command'
+                      ? "# Paste your Python code here for command injection analysis..."
+                      : "# Paste your code here (Python, HTML, JavaScript, etc.) for CSRF analysis..."
                     }
                     rows={12}
                     className="textarea-field font-mono text-sm"
@@ -521,11 +567,14 @@ const Scanner: React.FC = () => {
                       <Bug className="h-5 w-5 mr-2" />
                     ) : scannerType === 'xss' ? (
                       <Shield className="h-5 w-5 mr-2" />
-                    ) : (
+                    ) : scannerType === 'command' ? (
                       <AlertTriangle className="h-5 w-5 mr-2" />
+                    ) : (
+                      <Shield className="h-5 w-5 mr-2" />
                     )}
                     Start {scannerType === 'sql' ? 'SQL Injection' : 
-                      scannerType === 'xss' ? 'XSS' : 'Command Injection'} Scan
+                      scannerType === 'xss' ? 'XSS' : 
+                      scannerType === 'command' ? 'Command Injection' : 'CSRF'} Scan
                   </>
                 )}
               </button>

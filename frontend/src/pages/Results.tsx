@@ -53,7 +53,7 @@ interface ScanResults {
   scan_timestamp: string;
   source?: string;
   scan_type?: string;
-  scannerType?: 'sql' | 'xss' | 'command';
+  scannerType?: 'sql' | 'xss' | 'command' | 'csrf';
   compliance?: {
     cwe_distribution: Record<string, number>;
     owasp_top10_distribution: Record<string, number>;
@@ -118,6 +118,8 @@ const Results: React.FC = () => {
       return 'XSS Security Scan Results';
     } else if (results?.scannerType === 'command') {
       return 'Command Injection Security Scan Results';
+    } else if (results?.scannerType === 'csrf') {
+      return 'CSRF Security Scan Results';
     }
     return 'SQL Injection Security Scan Results';
   };
@@ -127,6 +129,8 @@ const Results: React.FC = () => {
       return <Shield className="h-8 w-8 text-primary-600 mr-3" />;
     } else if (results?.scannerType === 'command') {
       return <AlertTriangle className="h-8 w-8 text-primary-600 mr-3" />;
+    } else if (results?.scannerType === 'csrf') {
+      return <Shield className="h-8 w-8 text-primary-600 mr-3" />;
     }
     return <Bug className="h-8 w-8 text-primary-600 mr-3" />;
   };
@@ -167,6 +171,8 @@ const Results: React.FC = () => {
         endpoint = '/api/generate-xss-report';
       } else if (results.scannerType === 'command') {
         endpoint = '/api/generate-command-injection-report';
+      } else if (results.scannerType === 'csrf') {
+        endpoint = '/api/generate-csrf-report';
       } else {
         endpoint = '/api/generate-sql-injection-report';
       }
@@ -194,6 +200,8 @@ const Results: React.FC = () => {
         scanType = 'xss';
       } else if (results.scannerType === 'command') {
         scanType = 'command-injection';
+      } else if (results.scannerType === 'csrf') {
+        scanType = 'csrf';
       } else {
         scanType = 'sql-injection';
       }
