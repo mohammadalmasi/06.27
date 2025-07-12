@@ -75,6 +75,35 @@ def vulnerable_command_10():
     result = template.substitute(name=template_str)  # Template injection vulnerability
 
 # ============================================================================
+# COMMAND INJECTION VULNERABILITIES (LOW SEVERITY)
+# ============================================================================
+
+def vulnerable_command_low_1():
+    """Basic string concatenation with user input"""
+    user_input = request.form.get('input')
+    message = "Command: " + user_input  # Low severity - just string concatenation
+
+def vulnerable_command_low_2():
+    """Simple variable assignment with user input"""
+    filename = request.args.get('file')
+    command = "ls " + filename  # Low severity - command construction without execution
+
+def vulnerable_command_low_3():
+    """Path construction with user input"""
+    user_path = request.form.get('path')
+    full_path = "/home/user/" + user_path  # Low severity - path construction
+
+def vulnerable_command_low_4():
+    """Environment variable with user input"""
+    env_var = request.args.get('env')
+    os.environ['CUSTOM_VAR'] = env_var  # Low severity - environment variable setting
+
+def vulnerable_command_low_5():
+    """Configuration with user input"""
+    config_value = request.form.get('config')
+    config = {"setting": config_value}  # Low severity - configuration setting
+
+# ============================================================================
 # COMMAND INJECTION SAFE FUNCTIONS
 # ============================================================================
 
@@ -245,6 +274,26 @@ def vulnerable_command_10():
     template_str = request.form.get('template')
     template = Template("Hello $name")
     result = template.substitute(name=template_str)
+
+def vulnerable_command_low_1():
+    user_input = request.form.get('input')
+    message = "Command: " + user_input
+
+def vulnerable_command_low_2():
+    filename = request.args.get('file')
+    command = "ls " + filename
+
+def vulnerable_command_low_3():
+    user_path = request.form.get('path')
+    full_path = "/home/user/" + user_path
+
+def vulnerable_command_low_4():
+    env_var = request.args.get('env')
+    os.environ['CUSTOM_VAR'] = env_var
+
+def vulnerable_command_low_5():
+    config_value = request.form.get('config')
+    config = {"setting": config_value}
 '''
     
     command_result = scan_code_content_for_command_injection(command_injection_code, 'command_injection_test.py')
@@ -340,7 +389,7 @@ if __name__ == "__main__":
     test_all_vulnerabilities()
     print("\n" + "=" * 80)
     print("This comprehensive test file contains:")
-    print("- 10 Command Injection vulnerabilities (8 high, 2 medium)")
+    print("- 15 Command Injection vulnerabilities (8 high, 2 medium, 5 low)")
     print("- 6 SQL Injection vulnerabilities (2 high, 2 medium, 2 low)")
     print("- 7 XSS vulnerabilities (3 high, 2 medium, 2 low)")
     print("- 2 Safe command injection functions")

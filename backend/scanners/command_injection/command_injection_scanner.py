@@ -322,6 +322,49 @@ class CommandInjectionDetector:
                 'severity': 'high',
                 'confidence': 0.9,
                 'remediation': 'Use safer alternatives and validate all inputs'
+            },
+            # Low severity patterns - potential command injection vectors
+            {
+                'pattern': r'([\'"][^\'\"]*(?:Command|command|ls|cat|grep|find|echo)[^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'Command-like string construction with user input',
+                'severity': 'low',
+                'confidence': 0.5,
+                'remediation': 'Validate user input and avoid command-like string construction'
+            },
+            {
+                'pattern': r'(os\.environ\s*\[\s*[\'"][^\'\"]*[\'"]\s*\]\s*=\s*\w+)',
+                'description': 'Environment variable assignment with user input',
+                'severity': 'low',
+                'confidence': 0.4,
+                'remediation': 'Validate environment variable values before assignment'
+            },
+            {
+                'pattern': r'([\'"][^\'\"]*[\'"]\s*\+\s*\w+\s*\+\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'Multiple string concatenations with user input',
+                'severity': 'low',
+                'confidence': 0.4,
+                'remediation': 'Use safer string formatting methods'
+            },
+            {
+                'pattern': r'(\{\s*[\'"][^\'\"]*[\'"]\s*:\s*\w+\s*\})',
+                'description': 'Dictionary construction with user input',
+                'severity': 'low',
+                'confidence': 0.3,
+                'remediation': 'Validate dictionary values before assignment'
+            },
+            {
+                'pattern': r'([\'"][^\'\"]*\/[^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'Path construction with user input',
+                'severity': 'low',
+                'confidence': 0.4,
+                'remediation': 'Use os.path.join() for safe path construction'
+            },
+            {
+                'pattern': r'([\'"][^\'\"]*[\'"]\s*\+\s*\w+\s*\+\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+\s*\+\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+                'description': 'Complex string concatenation with multiple user inputs',
+                'severity': 'low',
+                'confidence': 0.3,
+                'remediation': 'Use safer string formatting methods and validate all inputs'
             }
         ]
         
