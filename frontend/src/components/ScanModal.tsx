@@ -10,7 +10,7 @@ import {
   FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import config from '../config';
+import config from '../config.js';
 
 interface ScanModalProps {
   isOpen: boolean;

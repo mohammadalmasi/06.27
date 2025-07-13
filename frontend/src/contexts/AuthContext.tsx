@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import toast from 'react-hot-toast';
-import config from '../config';
+import config from '../config.js';
 
 interface User {
   username: string;

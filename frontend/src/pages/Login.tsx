@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Shield, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import config from '../config';
+import config from '../config.js';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();

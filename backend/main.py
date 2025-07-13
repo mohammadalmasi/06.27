@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
 import sqlite3
+import json
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps
@@ -193,6 +194,18 @@ def generate_csrf_report(current_user):
 def csrf_sonarqube_export(current_user):
     """Export CSRF vulnerabilities in SonarQube format"""
     return api_csrf_sonarqube_export(current_user)
+
+# Configuration endpoint
+@app.route('/api/scanner-config', methods=['GET'])
+def get_scanner_config():
+    """Get scanner configuration"""
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'scanner_config.json')
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        return jsonify(config)
+    except Exception as e:
+        return jsonify({'error': f'Failed to load configuration: {str(e)}'}), 500
 
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
