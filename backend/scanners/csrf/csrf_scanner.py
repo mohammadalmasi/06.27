@@ -260,6 +260,12 @@ class CSRFScanner:
         # Check for CSRFProtect initialization
         if re.search(r'csrf\s*=\s*CSRFProtect\(', code_content):
             return True
+        # Check for Django CSRF protection import
+        if re.search(r'from django\.views\.decorators\.csrf import csrf_protect', code_content):
+            return True
+        # Check for Django CSRF protect decorator usage
+        if re.search(r'@csrf_protect', code_content):
+            return True
         return False
 
     def _check_module_csrf_protection(self, tree: ast.Module) -> bool:
@@ -269,6 +275,9 @@ class CSRFScanner:
             if isinstance(node, ast.ImportFrom):
                 if node.module == 'flask_wtf.csrf' and any(alias.name == 'CSRFProtect' for alias in node.names):
                     return True
+                # Check for Django CSRF protection import
+                if node.module == 'django.views.decorators.csrf' and any(alias.name == 'csrf_protect' for alias in node.names):
+                    return True
             
             # Check for CSRFProtect initialization
             if isinstance(node, ast.Assign):
@@ -277,6 +286,12 @@ class CSRFScanner:
                         if isinstance(node.value, ast.Call):
                             if (isinstance(node.value.func, ast.Name) and node.value.func.id == 'CSRFProtect'):
                                 return True
+            
+            # Check for Django CSRF protect decorator usage
+            if isinstance(node, ast.FunctionDef):
+                for decorator in node.decorator_list:
+                    if isinstance(decorator, ast.Name) and decorator.id == 'csrf_protect':
+                        return True
         
         return False
     
@@ -341,6 +356,8 @@ class CSRFScanner:
             return "Add CSRF protection using Flask-WTF: from flask_wtf.csrf import CSRFProtect; csrf = CSRFProtect(app); Add {{ csrf_token() }} to forms"
         elif 'Django view' in vuln.description:
             return "Remove @csrf_exempt decorator or implement proper CSRF validation using Django's built-in CSRF middleware"
+        elif 'POST method handling' in vuln.description:
+            return "Add Django CSRF protection: from django.views.decorators.csrf import csrf_protect; @csrf_protect def your_view(request): ..."
         elif 'HTML form' in vuln.description:
             return "Add CSRF token to form: <input type='hidden' name='csrf_token' value='{{ csrf_token() }}'>"
         elif 'AJAX' in vuln.description:
@@ -466,6 +483,11 @@ class CSRFASTVisitor(ast.NodeVisitor):
     
     def _has_csrf_protection(self, node: ast.FunctionDef) -> bool:
         """Check if function has CSRF protection."""
+        # Check for Django CSRF protect decorator
+        for decorator in node.decorator_list:
+            if isinstance(decorator, ast.Name) and decorator.id == 'csrf_protect':
+                return True
+        
         # Check for Flask-WTF CSRF protection
         # Look for CSRFProtect import and initialization
         for stmt in ast.walk(node):
