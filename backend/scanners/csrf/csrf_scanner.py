@@ -40,9 +40,25 @@ class CSRFScanner:
             (r'@csrf_exempt', 
              "Django view with CSRF exemption"),
             
-            # Direct form processing without CSRF validation (only the form access line)
+            # Direct form processing without CSRF validation - multiple patterns
             (r'request\.form\.get', 
              "Direct form processing without CSRF validation"),
+            
+            # Form data access without CSRF validation
+            (r'request\.form\[', 
+             "Direct form data access without CSRF validation"),
+            
+            # Form data assignment without CSRF validation
+            (r'form_data\s*=\s*request\.form', 
+             "Form data assignment without CSRF validation"),
+            
+            # Form data access via variable without CSRF validation
+            (r'form_data\.get\(', 
+             "Form data access without CSRF validation"),
+            
+            # POST method check without CSRF validation
+            (r'if\s+request\.method\s*==\s*[\'"]POST[\'"]\s*:', 
+             "POST method handling without CSRF validation"),
             
             # Missing CSRF token in form templates
             (r'<form.*method.*=.*post.*>.*\n(?!.*csrf_token).*</form>', 
@@ -112,6 +128,11 @@ class CSRFScanner:
             "Flask route with POST method without CSRF protection": "FLASK_ROUTE_POST",
             "Django view with CSRF exemption": "DJANGO_CSRF_EXEMPT",
             "Direct form processing without CSRF validation": "FORM_PROCESS_NO_CSRF",
+            "Direct form data access without CSRF validation": "FORM_DATA_ACCESS_NO_CSRF",
+            "Form data assignment without CSRF validation": "FORM_DATA_ASSIGN_NO_CSRF",
+            "Form data access without CSRF validation": "FORM_DATA_GET_NO_CSRF",
+            "POST method handling without CSRF validation": "POST_METHOD_NO_CSRF",
+            "POST method handling with form data access without CSRF protection": "POST_FORM_NO_CSRF",
             "HTML form with POST method missing CSRF token": "HTML_FORM_NO_TOKEN",
             "AJAX POST request without CSRF headers": "AJAX_NO_CSRF_HEADER",
             "Fetch API POST request without CSRF headers": "FETCH_NO_CSRF_HEADER",
@@ -155,6 +176,9 @@ class CSRFScanner:
         """Scan code using regex patterns."""
         lines = code_content.split('\n')
         
+        # Check if CSRF protection is enabled in the code
+        has_csrf_protection = self._check_regex_csrf_protection(code_content)
+        
         # Scan for high severity vulnerabilities
         for pattern, description in self.high_severity_patterns:
             rule_key = self.regex_rule_keys.get(description, "CSRF-GENERIC")
@@ -162,6 +186,11 @@ class CSRFScanner:
             for match in matches:
                 line_number = code_content[:match.start()].count('\n') + 1
                 code_snippet = self._extract_code_snippet(lines, line_number)
+                
+                # Skip if CSRF protection is enabled
+                if has_csrf_protection:
+                    continue
+                    
                 self.vulnerabilities.append(CSRFVulnerability(
                     line_number=line_number,
                     severity='high',
@@ -207,7 +236,12 @@ class CSRFScanner:
         """Scan code using AST analysis."""
         try:
             tree = ast.parse(code_content)
+            
+            # First, check if CSRF protection is enabled at module level
+            has_csrf_protection = self._check_module_csrf_protection(tree)
+            
             visitor = CSRFASTVisitor()
+            visitor.has_csrf_protection = has_csrf_protection  # Pass this info to visitor
             visitor.visit(tree)
             
             # Add AST-based vulnerabilities
@@ -217,6 +251,34 @@ class CSRFScanner:
         except SyntaxError:
             # If AST parsing fails, continue with regex-only scanning
             pass
+    
+    def _check_regex_csrf_protection(self, code_content: str) -> bool:
+        """Check if CSRF protection is enabled using regex patterns."""
+        # Check for Flask-WTF CSRF import
+        if re.search(r'from flask_wtf\.csrf import CSRFProtect', code_content):
+            return True
+        # Check for CSRFProtect initialization
+        if re.search(r'csrf\s*=\s*CSRFProtect\(', code_content):
+            return True
+        return False
+
+    def _check_module_csrf_protection(self, tree: ast.Module) -> bool:
+        """Check if the module has CSRF protection enabled."""
+        for node in ast.walk(tree):
+            # Check for Flask-WTF CSRF import
+            if isinstance(node, ast.ImportFrom):
+                if node.module == 'flask_wtf.csrf' and any(alias.name == 'CSRFProtect' for alias in node.names):
+                    return True
+            
+            # Check for CSRFProtect initialization
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == 'csrf':
+                        if isinstance(node.value, ast.Call):
+                            if (isinstance(node.value.func, ast.Name) and node.value.func.id == 'CSRFProtect'):
+                                return True
+        
+        return False
     
     def _remove_duplicates(self) -> None:
         """Remove duplicate vulnerabilities based on line number and description."""
@@ -307,6 +369,7 @@ class CSRFASTVisitor(ast.NodeVisitor):
     def __init__(self):
         self.vulnerabilities: List[CSRFVulnerability] = []
         self.current_line = 0
+        self.has_csrf_protection = False
     
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Visit function definitions to check for CSRF issues."""
@@ -314,7 +377,7 @@ class CSRFASTVisitor(ast.NodeVisitor):
         
         # Check for Flask routes with POST method
         if self._is_flask_route(node):
-            if self._has_post_method(node) and not self._has_csrf_protection(node):
+            if self._has_post_method(node) and not self.has_csrf_protection:
                 # Only highlight the decorator line, not the function definition
                 # Find the decorator line number
                 decorator_line = self._find_decorator_line(node)
@@ -343,6 +406,22 @@ class CSRFASTVisitor(ast.NodeVisitor):
                         rule_key="DJANGO_CSRF_EXEMPT"
                     ))
         
+        # Check for general POST method handling without CSRF protection
+        if self._handles_post(node) and not self.has_csrf_protection:
+            # Look for form data access within the function
+            if self._has_form_data_access(node):
+                # Find the actual POST method check line instead of the function definition
+                post_line = self._find_post_method_line(node)
+                if post_line:
+                    self.vulnerabilities.append(CSRFVulnerability(
+                        line_number=post_line,
+                        severity='high',
+                        description="POST method handling with form data access without CSRF protection",
+                        code_snippet=self._get_node_source(node),
+                        confidence=0.8,
+                        rule_key="POST_FORM_NO_CSRF"
+                    ))
+        
         self.generic_visit(node)
     
     def visit_Call(self, node: ast.Call) -> None:
@@ -350,7 +429,7 @@ class CSRFASTVisitor(ast.NodeVisitor):
         self.current_line = node.lineno
         
         # Check for form processing without CSRF validation
-        if self._is_form_processing_call(node):
+        if self._is_form_processing_call(node) and not self.has_csrf_protection:
             self.vulnerabilities.append(CSRFVulnerability(
                 line_number=node.lineno,
                 severity='high',
@@ -387,7 +466,22 @@ class CSRFASTVisitor(ast.NodeVisitor):
     
     def _has_csrf_protection(self, node: ast.FunctionDef) -> bool:
         """Check if function has CSRF protection."""
-        # This would need more sophisticated analysis in practice
+        # Check for Flask-WTF CSRF protection
+        # Look for CSRFProtect import and initialization
+        for stmt in ast.walk(node):
+            # Check for CSRFProtect import
+            if isinstance(stmt, ast.ImportFrom):
+                if stmt.module == 'flask_wtf.csrf' and any(alias.name == 'CSRFProtect' for alias in stmt.names):
+                    return True
+            
+            # Check for CSRFProtect initialization
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    if isinstance(target, ast.Name) and target.id == 'csrf':
+                        if isinstance(stmt.value, ast.Call):
+                            if (isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == 'CSRFProtect'):
+                                return True
+        
         return False
     
     def _is_django_view(self, node: ast.FunctionDef) -> bool:
@@ -414,9 +508,51 @@ class CSRFASTVisitor(ast.NodeVisitor):
                     return True
         return False
     
+    def _has_form_data_access(self, node: ast.FunctionDef) -> bool:
+        """Check if function accesses form data."""
+        for stmt in ast.walk(node):
+            # Check for request.form access
+            if isinstance(stmt, ast.Attribute) and stmt.attr == 'form':
+                if (isinstance(stmt.value, ast.Attribute) and 
+                    stmt.value.attr == 'request'):
+                    return True
+            
+            # Check for form_data variable assignment
+            if isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    if (isinstance(target, ast.Name) and 
+                        target.id in ['form_data', 'form', 'data']):
+                        return True
+            
+            # Check for form data access calls
+            if isinstance(stmt, ast.Call):
+                if self._is_form_processing_call(stmt):
+                    return True
+        
+        return False
+    
     def _is_form_processing_call(self, node: ast.Call) -> bool:
         """Check if call is form processing without CSRF validation."""
-        # Simplified check
+        # Check for request.form.get() calls
+        if (isinstance(node.func, ast.Attribute) and 
+            node.func.attr == 'get' and
+            isinstance(node.func.value, ast.Attribute) and
+            node.func.value.attr == 'form'):
+            return True
+        
+        # Check for form_data.get() calls
+        if (isinstance(node.func, ast.Attribute) and 
+            node.func.attr == 'get' and
+            isinstance(node.func.value, ast.Name) and
+            node.func.value.id in ['form_data', 'form', 'data']):
+            return True
+        
+        # Check for request.form access
+        if (isinstance(node.func, ast.Attribute) and
+            isinstance(node.func.value, ast.Attribute) and
+            node.func.value.attr == 'form'):
+            return True
+        
         return False
     
     def _get_node_source(self, node: ast.AST) -> str:
@@ -430,6 +566,17 @@ class CSRFASTVisitor(ast.NodeVisitor):
             # Return the line number of the first decorator
             return node.decorator_list[0].lineno
         return node.lineno
+    
+    def _find_post_method_line(self, node: ast.FunctionDef) -> int:
+        """Find the line number of the POST method check."""
+        for stmt in ast.walk(node):
+            if isinstance(stmt, ast.Compare):
+                if (isinstance(stmt.left, ast.Attribute) and 
+                    stmt.left.attr == 'method' and
+                    any(isinstance(comp, ast.Constant) and comp.value == 'POST' 
+                        for comp in stmt.comparators)):
+                    return stmt.lineno
+        return None
 
 
 def scan_code_content_for_csrf(code_content: str, filename: str = "unknown") -> Dict[str, Any]:
