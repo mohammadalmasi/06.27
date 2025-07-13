@@ -21,6 +21,7 @@ class CSRFVulnerability:
     code_snippet: str
     confidence: float = 0.8
     cwe_id: str = "CWE-352"
+    rule_key: str = "CSRF-GENERIC"
 
 
 class CSRFScanner:
@@ -31,16 +32,16 @@ class CSRFScanner:
         
         # High severity patterns - Missing CSRF protection
         self.high_severity_patterns = [
-            # Flask forms without CSRF tokens
-            (r'@app\.route.*methods=\[.*POST.*\].*def.*:.*\n.*return.*render_template.*\w+\.html', 
+            # Flask route decorator with POST method (only the decorator line)
+            (r'@app\.route.*methods=\[.*POST.*\]', 
              "Flask route with POST method without CSRF protection"),
             
-            # Django forms without CSRF tokens
-            (r'@csrf_exempt.*def.*:.*\n.*if.*request\.method.*==.*POST', 
-             "Django view with CSRF exemption and POST handling"),
+            # Django CSRF exempt decorator (only the decorator line)
+            (r'@csrf_exempt', 
+             "Django view with CSRF exemption"),
             
-            # Direct form processing without CSRF validation
-            (r'if.*request\.method.*==.*POST.*:.*\n.*form_data.*=.*request\.form', 
+            # Direct form processing without CSRF validation (only the form access line)
+            (r'request\.form\.get', 
              "Direct form processing without CSRF validation"),
             
             # Missing CSRF token in form templates
@@ -54,18 +55,6 @@ class CSRFScanner:
             # Fetch API without CSRF headers
             (r'fetch.*\w+.*\n.*method.*:.*POST.*\n(?!.*headers.*csrf).*', 
              "Fetch API POST request without CSRF headers"),
-            
-            # Flask route with POST method (simplified pattern)
-            (r'@app\.route.*methods=\[.*POST.*\]', 
-             "Flask route with POST method without CSRF protection"),
-            
-            # Django CSRF exempt decorator
-            (r'@csrf_exempt', 
-             "Django view with CSRF exemption"),
-            
-            # Form processing without validation
-            (r'request\.form\.get', 
-             "Direct form processing without CSRF validation"),
         ]
         
         # Medium severity patterns - Potential CSRF issues
@@ -118,6 +107,16 @@ class CSRFScanner:
              "Form without explicit action attribute"),
         ]
 
+        # Add this mapping at the top of CSRFScanner.__init__
+        self.regex_rule_keys = {
+            "Flask route with POST method without CSRF protection": "FLASK_ROUTE_POST",
+            "Django view with CSRF exemption": "DJANGO_CSRF_EXEMPT",
+            "Direct form processing without CSRF validation": "FORM_PROCESS_NO_CSRF",
+            "HTML form with POST method missing CSRF token": "HTML_FORM_NO_TOKEN",
+            "AJAX POST request without CSRF headers": "AJAX_NO_CSRF_HEADER",
+            "Fetch API POST request without CSRF headers": "FETCH_NO_CSRF_HEADER",
+        }
+
     def scan_code_content(self, code_content: str, filename: str = "unknown") -> Dict[str, Any]:
         """
         Scan code content for CSRF vulnerabilities.
@@ -158,6 +157,7 @@ class CSRFScanner:
         
         # Scan for high severity vulnerabilities
         for pattern, description in self.high_severity_patterns:
+            rule_key = self.regex_rule_keys.get(description, "CSRF-GENERIC")
             matches = re.finditer(pattern, code_content, re.IGNORECASE | re.MULTILINE | re.DOTALL)
             for match in matches:
                 line_number = code_content[:match.start()].count('\n') + 1
@@ -167,11 +167,13 @@ class CSRFScanner:
                     severity='high',
                     description=description,
                     code_snippet=code_snippet,
-                    confidence=0.9
+                    confidence=0.9,
+                    rule_key=rule_key
                 ))
         
         # Scan for medium severity vulnerabilities
         for pattern, description in self.medium_severity_patterns:
+            rule_key = self.regex_rule_keys.get(description, "CSRF-GENERIC")
             matches = re.finditer(pattern, code_content, re.IGNORECASE | re.MULTILINE | re.DOTALL)
             for match in matches:
                 line_number = code_content[:match.start()].count('\n') + 1
@@ -181,11 +183,13 @@ class CSRFScanner:
                     severity='medium',
                     description=description,
                     code_snippet=code_snippet,
-                    confidence=0.7
+                    confidence=0.7,
+                    rule_key=rule_key
                 ))
         
         # Scan for low severity vulnerabilities
         for pattern, description in self.low_severity_patterns:
+            rule_key = self.regex_rule_keys.get(description, "CSRF-GENERIC")
             matches = re.finditer(pattern, code_content, re.IGNORECASE | re.MULTILINE | re.DOTALL)
             for match in matches:
                 line_number = code_content[:match.start()].count('\n') + 1
@@ -195,7 +199,8 @@ class CSRFScanner:
                     severity='low',
                     description=description,
                     code_snippet=code_snippet,
-                    confidence=0.5
+                    confidence=0.5,
+                    rule_key=rule_key
                 ))
     
     def _scan_with_ast(self, code_content: str) -> None:
@@ -220,7 +225,7 @@ class CSRFScanner:
         
         for vuln in self.vulnerabilities:
             # Create a unique key based on line number and description
-            key = (vuln.line_number, vuln.description)
+            key = (vuln.line_number, vuln.severity, getattr(vuln, 'rule_key', vuln.description.split()[0]))
             
             if key not in seen:
                 seen.add(key)
@@ -264,7 +269,7 @@ class CSRFScanner:
             'remediation': self._get_remediation(vuln),
             'cwe_references': self._get_cwe_references(vuln),
             'owasp_references': self._get_owasp_references(vuln),
-            'rule_key': f'CSRF-{vuln.severity.upper()}',
+            'rule_key': vuln.rule_key,
             'sq_category': 'csrf'
         }
     
@@ -310,24 +315,33 @@ class CSRFASTVisitor(ast.NodeVisitor):
         # Check for Flask routes with POST method
         if self._is_flask_route(node):
             if self._has_post_method(node) and not self._has_csrf_protection(node):
-                self.vulnerabilities.append(CSRFVulnerability(
-                    line_number=node.lineno,
-                    severity='high',
-                    description="Flask route with POST method missing CSRF protection",
-                    code_snippet=self._get_node_source(node),
-                    confidence=0.85
-                ))
+                # Only highlight the decorator line, not the function definition
+                # Find the decorator line number
+                decorator_line = self._find_decorator_line(node)
+                if decorator_line:
+                    self.vulnerabilities.append(CSRFVulnerability(
+                        line_number=decorator_line,
+                        severity='high',
+                        description="Flask route with POST method missing CSRF protection",
+                        code_snippet=self._get_node_source(node),
+                        confidence=0.85,
+                        rule_key="FLASK_ROUTE_POST"
+                    ))
         
         # Check for Django views with CSRF exemption
         if self._is_django_view(node):
             if self._has_csrf_exempt(node) and self._handles_post(node):
-                self.vulnerabilities.append(CSRFVulnerability(
-                    line_number=node.lineno,
-                    severity='high',
-                    description="Django view with CSRF exemption handling POST requests",
-                    code_snippet=self._get_node_source(node),
-                    confidence=0.85
-                ))
+                # Only highlight the decorator line, not the function definition
+                decorator_line = self._find_decorator_line(node)
+                if decorator_line:
+                    self.vulnerabilities.append(CSRFVulnerability(
+                        line_number=decorator_line,
+                        severity='high',
+                        description="Django view with CSRF exemption handling POST requests",
+                        code_snippet=self._get_node_source(node),
+                        confidence=0.85,
+                        rule_key="DJANGO_CSRF_EXEMPT"
+                    ))
         
         self.generic_visit(node)
     
@@ -342,7 +356,8 @@ class CSRFASTVisitor(ast.NodeVisitor):
                 severity='high',
                 description="Form processing without CSRF validation",
                 code_snippet=self._get_node_source(node),
-                confidence=0.8
+                confidence=0.8,
+                rule_key="FORM_PROCESS_NO_CSRF"
             ))
         
         self.generic_visit(node)
@@ -408,6 +423,13 @@ class CSRFASTVisitor(ast.NodeVisitor):
         """Get source code for a node."""
         # This is a simplified implementation
         return f"Line {node.lineno}: {type(node).__name__}"
+    
+    def _find_decorator_line(self, node: ast.FunctionDef) -> int:
+        """Find the line number of the first decorator."""
+        if node.decorator_list:
+            # Return the line number of the first decorator
+            return node.decorator_list[0].lineno
+        return node.lineno
 
 
 def scan_code_content_for_csrf(code_content: str, filename: str = "unknown") -> Dict[str, Any]:
