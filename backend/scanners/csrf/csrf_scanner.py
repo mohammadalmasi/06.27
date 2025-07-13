@@ -19,6 +19,7 @@ class CSRFVulnerability:
     severity: str
     description: str
     code_snippet: str
+    confidence: float = 0.8
     cwe_id: str = "CWE-352"
 
 
@@ -162,7 +163,8 @@ class CSRFScanner:
                     line_number=line_number,
                     severity='high',
                     description=description,
-                    code_snippet=code_snippet
+                    code_snippet=code_snippet,
+                    confidence=0.9
                 ))
         
         # Scan for medium severity vulnerabilities
@@ -175,7 +177,8 @@ class CSRFScanner:
                     line_number=line_number,
                     severity='medium',
                     description=description,
-                    code_snippet=code_snippet
+                    code_snippet=code_snippet,
+                    confidence=0.7
                 ))
         
         # Scan for low severity vulnerabilities
@@ -188,7 +191,8 @@ class CSRFScanner:
                     line_number=line_number,
                     severity='low',
                     description=description,
-                    code_snippet=code_snippet
+                    code_snippet=code_snippet,
+                    confidence=0.5
                 ))
     
     def _scan_with_ast(self, code_content: str) -> None:
@@ -237,6 +241,7 @@ class CSRFScanner:
             'severity': vuln.severity,
             'description': vuln.description,
             'code_snippet': vuln.code_snippet,
+            'confidence': vuln.confidence,
             'cwe_id': vuln.cwe_id,
             'remediation': self._get_remediation(vuln),
             'cwe_references': self._get_cwe_references(vuln),
@@ -291,7 +296,8 @@ class CSRFASTVisitor(ast.NodeVisitor):
                     line_number=node.lineno,
                     severity='high',
                     description="Flask route with POST method missing CSRF protection",
-                    code_snippet=self._get_node_source(node)
+                    code_snippet=self._get_node_source(node),
+                    confidence=0.85
                 ))
         
         # Check for Django views with CSRF exemption
@@ -301,7 +307,8 @@ class CSRFASTVisitor(ast.NodeVisitor):
                     line_number=node.lineno,
                     severity='high',
                     description="Django view with CSRF exemption handling POST requests",
-                    code_snippet=self._get_node_source(node)
+                    code_snippet=self._get_node_source(node),
+                    confidence=0.85
                 ))
         
         self.generic_visit(node)
@@ -316,7 +323,8 @@ class CSRFASTVisitor(ast.NodeVisitor):
                 line_number=node.lineno,
                 severity='high',
                 description="Form processing without CSRF validation",
-                code_snippet=self._get_node_source(node)
+                code_snippet=self._get_node_source(node),
+                confidence=0.8
             ))
         
         self.generic_visit(node)
