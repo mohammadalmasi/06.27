@@ -137,6 +137,9 @@ class CSRFScanner:
         # Perform AST-based scanning
         self._scan_with_ast(code_content)
         
+        # Remove duplicates based on line number and description
+        self._remove_duplicates()
+        
         # Calculate statistics
         total_vulnerabilities = len(self.vulnerabilities)
         severity_breakdown = self._calculate_severity_breakdown()
@@ -209,6 +212,21 @@ class CSRFScanner:
         except SyntaxError:
             # If AST parsing fails, continue with regex-only scanning
             pass
+    
+    def _remove_duplicates(self) -> None:
+        """Remove duplicate vulnerabilities based on line number and description."""
+        seen = set()
+        unique_vulnerabilities = []
+        
+        for vuln in self.vulnerabilities:
+            # Create a unique key based on line number and description
+            key = (vuln.line_number, vuln.description)
+            
+            if key not in seen:
+                seen.add(key)
+                unique_vulnerabilities.append(vuln)
+        
+        self.vulnerabilities = unique_vulnerabilities
     
     def _extract_code_snippet(self, lines: List[str], line_number: int) -> str:
         """Extract a code snippet around the given line number."""

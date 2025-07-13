@@ -239,7 +239,9 @@ const Results: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const scanType = results?.scannerType === 'xss' ? 'xss' : 'sql-injection';
+      const scanType = results?.scannerType === 'xss' ? 'xss' : 
+                      results?.scannerType === 'command' ? 'command-injection' : 
+                      results?.scannerType === 'csrf' ? 'csrf' : 'sql-injection';
       a.download = `${scanType}-security-report-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
@@ -293,7 +295,8 @@ const Results: React.FC = () => {
               <strong>Source:</strong> {scanInput?.filename || scanInput?.type || 'N/A'} •
                                 <strong className="ml-2">Scanner Type:</strong> {
                     results.scannerType === 'xss' ? 'XSS' : 
-                    results.scannerType === 'command' ? 'Command Injection' : 'SQL Injection'
+                    results.scannerType === 'command' ? 'Command Injection' : 
+                    results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'
                   } •
               <strong className="ml-2">Scanned:</strong> {new Date().toLocaleString()}
             </p>
@@ -407,6 +410,8 @@ const Results: React.FC = () => {
                   ? ' XSS vulnerabilities are marked for review.'
                   : results.scannerType === 'command'
                   ? ' Command injection vulnerabilities are marked for review.'
+                  : results.scannerType === 'csrf'
+                  ? ' CSRF vulnerabilities are marked for review.'
                   : ' SQL injection vulnerabilities are marked for review.'
                 }
               </p>
@@ -422,7 +427,8 @@ const Results: React.FC = () => {
                     </span>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
                       {results.scannerType === 'xss' ? 'XSS Analysis' : 
-                       results.scannerType === 'command' ? 'Command Injection Analysis' : 'SQL Injection Analysis'}
+                       results.scannerType === 'command' ? 'Command Injection Analysis' : 
+                       results.scannerType === 'csrf' ? 'CSRF Analysis' : 'SQL Injection Analysis'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -579,7 +585,8 @@ const Results: React.FC = () => {
                 {filterSeverity === 'all' 
                   ? `Great! Your code appears to be secure from ${
                       results.scannerType === 'xss' ? 'XSS' : 
-                      results.scannerType === 'command' ? 'command injection' : 'SQL injection'
+                      results.scannerType === 'command' ? 'command injection' : 
+                      results.scannerType === 'csrf' ? 'CSRF' : 'SQL injection'
                     } vulnerabilities.`
                   : `There are no ${filterSeverity} severity vulnerabilities in your code.`
                 }
@@ -597,7 +604,8 @@ const Results: React.FC = () => {
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">
                           {results.scannerType === 'xss' ? 'XSS Vulnerability' : 
-                           results.scannerType === 'command' ? 'Command Injection Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
+                           results.scannerType === 'command' ? 'Command Injection Vulnerability' : 
+                           results.scannerType === 'csrf' ? 'CSRF Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
                         </h3>
                         <p className="text-gray-600 mb-4">
                           {vulnerability.description}
@@ -605,21 +613,6 @@ const Results: React.FC = () => {
                         
                         {/* Vulnerability Details */}
                         <div className="space-y-3">
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Vulnerable Code:</h4>
-                            <div className="bg-gray-100 rounded p-3">
-                              <code className="text-sm font-mono text-gray-800">
-                                {vulnerability.code_snippet}
-                              </code>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <h4 className="font-medium text-gray-900 mb-2">Remediation:</h4>
-                            <p className="text-sm text-gray-600">
-                              {vulnerability.remediation}
-                            </p>
-                          </div>
                           
                           {vulnerability.cwe_references && vulnerability.cwe_references.length > 0 && (
                             <div>
