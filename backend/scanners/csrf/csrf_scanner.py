@@ -6,6 +6,7 @@ This module scans Python code for potential CSRF vulnerabilities.
 
 import re
 import ast
+import html
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from flask import request, jsonify
@@ -52,6 +53,18 @@ class CSRFScanner:
             # Fetch API without CSRF headers
             (r'fetch.*\w+.*\n.*method.*:.*POST.*\n(?!.*headers.*csrf).*', 
              "Fetch API POST request without CSRF headers"),
+            
+            # Flask route with POST method (simplified pattern)
+            (r'@app\.route.*methods=\[.*POST.*\]', 
+             "Flask route with POST method without CSRF protection"),
+            
+            # Django CSRF exempt decorator
+            (r'@csrf_exempt', 
+             "Django view with CSRF exemption"),
+            
+            # Form processing without validation
+            (r'request\.form\.get', 
+             "Direct form processing without CSRF validation"),
         ]
         
         # Medium severity patterns - Potential CSRF issues
@@ -71,6 +84,14 @@ class CSRFScanner:
             # Form without proper validation
             (r'<form.*>.*\n.*<input.*type.*=.*submit.*>.*\n.*</form>', 
              "Form without proper input validation"),
+            
+            # GET method for state-changing operations
+            (r'method.*=.*get.*action.*=.*delete', 
+             "Form using GET method for state-changing operations"),
+            
+            # Cookie without security attributes
+            (r'response\.set_cookie.*\w+.*httponly.*=.*True', 
+             "Cookie set without Secure flag"),
         ]
         
         # Low severity patterns - Minor CSRF concerns
@@ -86,6 +107,14 @@ class CSRFScanner:
             # Basic form structure
             (r'<input.*type.*=.*text.*>', 
              "Text input without CSRF protection context"),
+            
+            # Form without explicit method attribute
+            (r'<form.*action.*=.*\w+.*>.*\n.*</form>', 
+             "Form without explicit method attribute"),
+            
+            # Form without explicit action attribute
+            (r'<form.*method.*=.*post.*>.*\n.*<input.*type.*=.*submit.*>.*\n.*</form>', 
+             "Form without explicit action attribute"),
         ]
 
     def scan_code_content(self, code_content: str, filename: str = "unknown") -> Dict[str, Any]:
@@ -179,13 +208,18 @@ class CSRFScanner:
     
     def _extract_code_snippet(self, lines: List[str], line_number: int) -> str:
         """Extract a code snippet around the given line number."""
-        start_line = max(0, line_number - 2)
-        end_line = min(len(lines), line_number + 2)
+        # Show more context - 5 lines before and after
+        start_line = max(0, line_number - 5)
+        end_line = min(len(lines), line_number + 5)
         
         snippet_lines = []
         for i in range(start_line, end_line):
             if i < len(lines):
-                snippet_lines.append(f"{i + 1:4d}: {lines[i]}")
+                # Highlight the vulnerable line
+                if i == line_number - 1:  # Convert to 0-based index
+                    snippet_lines.append(f"{i + 1:4d}: >>> {lines[i]} <<< VULNERABLE")
+                else:
+                    snippet_lines.append(f"{i + 1:4d}: {lines[i]}")
         
         return '\n'.join(snippet_lines)
     
@@ -399,6 +433,9 @@ def api_scan_csrf(current_user: str) -> Dict[str, Any]:
         # Add highlighted code for frontend display
         result['highlighted_code'] = _highlight_csrf_vulnerabilities(code_content, result['vulnerabilities'])
         
+        # Add original code for complete display
+        result['original_code'] = code_content
+        
         # Add summary statistics
         result['total_issues'] = result['total_vulnerabilities']
         result['high_severity'] = result['severity_breakdown']['high']
@@ -454,21 +491,22 @@ def _highlight_csrf_vulnerabilities(code_content: str, vulnerabilities: List[Dic
     
     for i, line in enumerate(lines):
         line_number = i + 1
+        escaped_line = html.escape(line)
         vulnerability_found = False
         
         for vuln in vulnerabilities:
             if vuln['line_number'] == line_number:
                 severity = vuln['severity']
                 if severity == 'high':
-                    highlighted_lines.append(f'<span class="vulnerability-high">{line}</span>')
+                    highlighted_lines.append(f'<span class="csrf-vuln-high" title="High severity CSRF vulnerability">{escaped_line}</span>')
                 elif severity == 'medium':
-                    highlighted_lines.append(f'<span class="vulnerability-medium">{line}</span>')
+                    highlighted_lines.append(f'<span class="csrf-vuln-medium" title="Medium severity CSRF vulnerability">{escaped_line}</span>')
                 elif severity == 'low':
-                    highlighted_lines.append(f'<span class="vulnerability-low">{line}</span>')
+                    highlighted_lines.append(f'<span class="csrf-vuln-low" title="Low severity CSRF vulnerability">{escaped_line}</span>')
                 vulnerability_found = True
                 break
         
         if not vulnerability_found:
-            highlighted_lines.append(line)
+            highlighted_lines.append(escaped_line)
     
     return '\n'.join(highlighted_lines) 

@@ -5,6 +5,8 @@ This file contains intentional security vulnerabilities for testing purposes.
 DO NOT use this code in production!
 """
 
+
+
 # ============================================================================
 # CSRF VULNERABILITIES (HIGH SEVERITY)
 # ============================================================================
