@@ -118,12 +118,7 @@ const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
         formData.append('code', scanInput.content);
       }
 
-      // Get JWT token from localStorage
-      const token = localStorage.getItem('token');
       const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const response = await fetch(`${config.API_BASE_URL}/api/scan`, {
         method: 'POST',

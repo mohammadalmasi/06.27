@@ -1,12 +1,12 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Shield, Menu, X, User, LogOut } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { Link, useLocation } from 'react-router-dom';
+import { Shield, Menu, X } from 'lucide-react';
+// import { useAuth } from '../contexts/AuthContext';
 
 const Header: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuth();
+  // const navigate = useNavigate();
+  // const { isAuthenticated, user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   const navigation = [
@@ -15,10 +15,10 @@ const Header: React.FC = () => {
     { name: 'About', href: '/about' },
   ];
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
+  // const handleLogout = async () => {
+  //   await logout();
+  //   navigate('/');
+  // };
 
   const isActiveRoute = (path: string) => {
     return location.pathname === path;
@@ -54,8 +54,8 @@ const Header: React.FC = () => {
               ))}
             </nav>
 
-            {/* Authentication Section */}
-            {isAuthenticated ? (
+            {/* Authentication Section - Commented out */}
+            {/* {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 text-gray-700">
                   <User className="h-4 w-4" />
@@ -77,7 +77,7 @@ const Header: React.FC = () => {
                 <User className="h-4 w-4" />
                 <span>Login</span>
               </Link>
-            )}
+            )} */}
           </div>
 
           {/* Mobile menu button */}
@@ -112,14 +112,14 @@ const Header: React.FC = () => {
                 </Link>
               ))}
               
-              {/* Mobile Authentication */}
-              <div className="border-t border-gray-200 pt-3 mt-3">
+              {/* Mobile Authentication - Commented out */}
+              {/* <div className="border-t border-gray-200 pt-3 mt-3">
                 {isAuthenticated ? (
                   <>
                     <div className="flex items-center px-3 py-2 text-gray-700">
                       <User className="h-4 w-4 mr-2" />
                       <span className="text-sm font-medium">{user?.username}</span>
-                    </div>
+                        </div>
                     <button
                       onClick={() => {
                         handleLogout();
@@ -141,7 +141,7 @@ const Header: React.FC = () => {
                     <span>Login</span>
                   </Link>
                 )}
-              </div>
+              </div> */}
             </div>
           </div>
         )}

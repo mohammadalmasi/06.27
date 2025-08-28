@@ -152,14 +152,10 @@ const Scanner: React.FC = () => {
         payload.code = scanInput.content;
       }
 
-      // Get JWT token from localStorage
-      const token = localStorage.getItem('token');
+      // Headers for API requests
       const headers: HeadersInit = {
         'Content-Type': 'application/json'
       };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       // Choose the appropriate API endpoint based on scanner type
       let endpoint: string;

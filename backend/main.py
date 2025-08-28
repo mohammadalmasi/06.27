@@ -4,8 +4,8 @@ import os
 import sqlite3
 import json
 from datetime import datetime, timedelta
-import jwt
-from functools import wraps
+# import jwt
+# from functools import wraps
 import tempfile
 import zipfile
 
@@ -39,7 +39,7 @@ from scanners.csrf.csrf_scanner import (
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
+# app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
 
 # Enable CORS for all origins (production and development)
 CORS(app, origins=["*"], 
@@ -47,153 +47,153 @@ CORS(app, origins=["*"],
      allow_headers=["Content-Type", "Authorization"])
 
 # Authentication configuration
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "a"
+# ADMIN_USERNAME = "admin"
+# ADMIN_PASSWORD = "a"
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        
-        # JWT is passed in the request header
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            try:
-                token = auth_header.split(" ")[1]  # Bearer <token>
-            except IndexError:
-                return jsonify({'error': 'Token is missing!'}), 401
-        
-        if not token:
-            return jsonify({'error': 'Token is missing!'}), 401
-        
-        try:
-            # Decode the token
-            data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
-            current_user = data['username']
-        except jwt.ExpiredSignatureError:
-            return jsonify({'error': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'error': 'Token is invalid!'}), 401
-        
-        return f(current_user, *args, **kwargs)
-    
-    return decorated
+# def token_required(f):
+#     @wraps(f)
+#     def decorated(*args, **kwargs):
+#         token = None
+#         
+#         # JWT is passed in the request header
+#         if 'Authorization' in request.headers:
+#             auth_header = request.headers['Authorization']
+#             try:
+#                 token = auth_header.split(" ")[1]  # Bearer <token>
+#             except IndexError:
+#                 return jsonify({'error': 'Token is missing!'}), 401
+#         
+#         if not token:
+#             return jsonify({'error': 'Token is missing!'}), 401
+#         
+#         try:
+#             # Decode the token
+#             data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
+#             current_user = data['username']
+#         except IndexError
+#             return jsonify({'error': 'Token has expired!'}), 401
+#         except jwt.InvalidTokenError:
+#             return jsonify({'error': 'Token is invalid!'}), 401
+#         
+#         return f(current_user, *args, **kwargs)
+#     
+#     return decorated
 
 def ensure_dirs():
     # Use /tmp directory which is writable on App Engine
     os.makedirs('/tmp/results', exist_ok=True)
 
-@app.route('/api/login', methods=['POST'])
-def login():
-    try:
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-        
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            # Generate JWT token with 1 hour expiration
-            token = jwt.encode({
-                'username': username,
-                'exp': datetime.utcnow() + timedelta(hours=1)
-            }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
-            
-            return jsonify({
-                'message': 'Login successful',
-                'token': token,
-                'username': username
-            })
-        else:
-            return jsonify({'error': 'Invalid credentials'}), 401
-    except Exception as e:
-        return jsonify({'error': f'Login error: {str(e)}'}), 500
+# @app.route('/api/login', methods=['POST'])
+# def login():
+#     try:
+#         data = request.get_json()
+#         username = data.get('username')
+#         password = data.get('password')
+#         
+#         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+#             # Generate JWT token with 1 hour expiration
+#             token = jwt.encode({
+#                 'username': username,
+#                 'exp': datetime.utcnow() + timedelta(hours=1)
+#             }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
+#             
+#             return jsonify({
+#                 'message': 'Login successful',
+#                 'token': token,
+#                 'username': username
+#             })
+#         else:
+#             return jsonify({'error': 'Invalid credentials'}), 401
+#     except Exception as e:
+#         return jsonify({'error': f'Login error: {str(e)}'}), 500
 
-@app.route('/api/logout', methods=['POST'])
-def logout():
-    return jsonify({'message': 'Logged out successfully'})
+# @app.route('/api/logout', methods=['POST'])
+# def logout():
+#     return jsonify({'message': 'Logged out successfully'})
 
-@app.route('/api/verify-token', methods=['POST'])
-@token_required
-def verify_token(current_user):
-    return jsonify({
-        'message': 'Token is valid',
-        'username': current_user
-    })
+# @app.route('/api/verify-token', methods=['POST'])
+# @token_required
+# def verify_token(current_user):
+#     return jsonify({
+#         'message': 'Token is valid',
+#         'username': current_user
+#     })
 
 # XSS Scanner API endpoints
 @app.route('/api/scan-xss', methods=['POST'])
-@token_required
-def scan_xss(current_user):
+# @token_required
+def scan_xss():
     """XSS vulnerability scanning endpoint"""
-    return api_scan_xss(current_user)
+    return api_scan_xss("anonymous")
 
 @app.route('/api/generate-xss-report', methods=['POST'])
-@token_required
-def generate_xss_report(current_user):
+# @token_required
+def generate_xss_report():
     """Generate Word report for XSS vulnerabilities"""
-    return api_generate_xss_report(current_user)
+    return api_generate_xss_report("anonymous")
 
 @app.route('/api/xss-sonarqube-export', methods=['POST'])
-@token_required
-def xss_sonarqube_export(current_user):
+# @token_required
+def xss_sonarqube_export():
     """Export XSS vulnerabilities in SonarQube format"""
-    return api_xss_sonarqube_export(current_user)
+    return api_xss_sonarqube_export("anonymous")
 
 # SQL Injection Scanner API endpoints
 @app.route('/api/scan-sql-injection', methods=['POST'])
-@token_required
-def scan_sql_injection(current_user):
+# @token_required
+def scan_sql_injection():
     """SQL injection vulnerability scanning endpoint"""
-    return api_scan_sql_injection(current_user)
+    return api_scan_sql_injection("anonymous")
 
 @app.route('/api/generate-sql-injection-report', methods=['POST'])
-@token_required
-def generate_sql_injection_report(current_user):
+# @token_required
+def generate_sql_injection_report():
     """Generate Word report for SQL injection vulnerabilities"""
-    return api_generate_sql_injection_report(current_user)
+    return api_generate_sql_injection_report("anonymous")
 
 @app.route('/api/sql-injection-sonarqube-export', methods=['POST'])
-@token_required
-def sql_injection_sonarqube_export(current_user):
+# @token_required
+def sql_injection_sonarqube_export():
     """Export SQL injection vulnerabilities in SonarQube format"""
-    return api_sql_injection_sonarqube_export(current_user)
+    return api_sql_injection_sonarqube_export("anonymous")
 
 # Command Injection Scanner API endpoints
 @app.route('/api/scan-command-injection', methods=['POST'])
-@token_required
-def scan_command_injection(current_user):
+# @token_required
+def scan_command_injection():
     """Command injection vulnerability scanning endpoint"""
-    return api_scan_command_injection(current_user)
+    return api_scan_command_injection("anonymous")
 
 @app.route('/api/generate-command-injection-report', methods=['POST'])
-@token_required
-def generate_command_injection_report(current_user):
+# @token_required
+def generate_command_injection_report():
     """Generate Word report for command injection vulnerabilities"""
-    return api_generate_command_injection_report(current_user)
+    return api_generate_command_injection_report("anonymous")
 
 @app.route('/api/command-injection-sonarqube-export', methods=['POST'])
-@token_required
-def command_injection_sonarqube_export(current_user):
+# @token_required
+def command_injection_sonarqube_export():
     """Export command injection vulnerabilities in SonarQube format"""
-    return api_command_injection_sonarqube_export(current_user)
+    return api_command_injection_sonarqube_export("anonymous")
 
 # CSRF Scanner API endpoints
 @app.route('/api/scan-csrf', methods=['POST'])
-@token_required
-def scan_csrf(current_user):
+# @token_required
+def scan_csrf():
     """CSRF vulnerability scanning endpoint"""
-    return api_scan_csrf(current_user)
+    return api_scan_csrf("anonymous")
 
 @app.route('/api/generate-csrf-report', methods=['POST'])
-@token_required
-def generate_csrf_report(current_user):
+# @token_required
+def generate_csrf_report():
     """Generate Word report for CSRF vulnerabilities"""
-    return api_generate_csrf_report(current_user)
+    return api_generate_csrf_report("anonymous")
 
 @app.route('/api/csrf-sonarqube-export', methods=['POST'])
-@token_required
-def csrf_sonarqube_export(current_user):
+# @token_required
+def csrf_sonarqube_export():
     """Export CSRF vulnerabilities in SonarQube format"""
-    return api_csrf_sonarqube_export(current_user)
+    return api_csrf_sonarqube_export("anonymous")
 
 # Configuration endpoint
 @app.route('/api/scanner-config', methods=['GET'])

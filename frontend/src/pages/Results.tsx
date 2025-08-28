@@ -157,13 +157,9 @@ const Results: React.FC = () => {
       };
 
       // Get JWT token from localStorage
-      const token = localStorage.getItem('token');
       const headers: HeadersInit = {
         'Content-Type': 'application/json'
       };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       // Choose the appropriate report endpoint based on scanner type
       let endpoint: string;
