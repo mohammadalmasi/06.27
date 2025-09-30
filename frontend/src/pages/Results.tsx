@@ -30,8 +30,8 @@ interface Vulnerability {
 }
 
 interface ScanResults {
-  vulnerabilities: Vulnerability[];
-  summary: {
+  vulnerabilities?: Vulnerability[];
+  summary?: {
     total_vulnerabilities: number;
     high_severity: number;
     medium_severity: number;
@@ -54,6 +54,10 @@ interface ScanResults {
   source?: string;
   scan_type?: string;
   scannerType?: 'sql' | 'xss' | 'command' | 'csrf';
+  analysisMode?: 'static' | 'ml';
+  image_url?: string;
+  upload_id?: string;
+  warning?: string;
   compliance?: {
     cwe_distribution: Record<string, number>;
     owasp_top10_distribution: Record<string, number>;
@@ -135,7 +139,7 @@ const Results: React.FC = () => {
     return <Bug className="h-8 w-8 text-primary-600 mr-3" />;
   };
 
-  const filteredVulnerabilities = results?.vulnerabilities.filter(vuln => {
+  const filteredVulnerabilities = results?.vulnerabilities?.filter(vuln => {
     if (filterSeverity === 'all') return true;
     return vuln.severity.toLowerCase() === filterSeverity.toLowerCase();
   }) || [];
@@ -293,107 +297,153 @@ const Results: React.FC = () => {
                     results.scannerType === 'xss' ? 'XSS' : 
                     results.scannerType === 'command' ? 'Command Injection' : 
                     results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'
-                  } •
+                  } • <strong className="ml-2">Mode:</strong> {results.analysisMode === 'ml' ? 'ML' : 'Static'} •
               <strong className="ml-2">Scanned:</strong> {new Date().toLocaleString()}
             </p>
           </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              {getScannerIcon()}
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Issues</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {results.total_issues || results.summary?.total_vulnerabilities || 0}
-                </p>
+        {results.analysisMode === 'ml' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                {getScannerIcon()}
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Analysis Type</p>
+                  <p className="text-2xl font-bold text-gray-900">ML Analysis</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <Code className="h-8 w-8 text-primary-600 mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Visualization</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {results.image_url ? 'Generated' : 'Not Available'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <AlertTriangle className="h-8 w-8 text-danger-600 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">High Severity</p>
-                <p className="text-2xl font-bold text-danger-600">
-                  {results.high_severity || results.summary?.high_severity || 0}
-                </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                {getScannerIcon()}
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Issues</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {results.total_issues || results.summary?.total_vulnerabilities || 0}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <AlertTriangle className="h-8 w-8 text-danger-600 mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">High Severity</p>
+                  <p className="text-2xl font-bold text-danger-600">
+                    {results.high_severity || results.summary?.high_severity || 0}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <AlertCircle className="h-8 w-8 text-warning-600 mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Medium Severity</p>
+                  <p className="text-2xl font-bold text-warning-600">
+                    {results.medium_severity || results.summary?.medium_severity || 0}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center">
+                <Info className="h-8 w-8 text-success-600 mr-3" />
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Low Severity</p>
+                  <p className="text-2xl font-bold text-success-600">
+                    {results.low_severity || results.summary?.low_severity || 0}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-warning-600 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Medium Severity</p>
-                <p className="text-2xl font-bold text-warning-600">
-                  {results.medium_severity || results.summary?.medium_severity || 0}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <Info className="h-8 w-8 text-success-600 mr-3" />
-              <div>
-                <p className="text-sm font-medium text-gray-600">Low Severity</p>
-                <p className="text-2xl font-bold text-success-600">
-                  {results.low_severity || results.summary?.low_severity || 0}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <div className="flex flex-wrap items-center gap-4">
-            <h3 className="text-lg font-semibold text-gray-900">Filter by Severity:</h3>
-            <div className="flex space-x-2">
-              {['all', 'high', 'medium', 'low'].map((severity) => {
-                const getCount = (sev: string) => {
-                  switch (sev) {
-                    case 'high':
-                      return results.high_severity || results.summary?.high_severity || 0;
-                    case 'medium':
-                      return results.medium_severity || results.summary?.medium_severity || 0;
-                    case 'low':
-                      return results.low_severity || results.summary?.low_severity || 0;
-                    default:
-                      return results.total_issues || results.summary?.total_vulnerabilities || 0;
-                  }
-                };
-                
-                return (
-                  <button
-                    key={severity}
-                    onClick={() => setFilterSeverity(severity)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                      filterSeverity === severity
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {severity.charAt(0).toUpperCase() + severity.slice(1)}
-                    {severity !== 'all' && (
-                      <span className="ml-1 text-xs">
-                        ({getCount(severity)})
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+        {/* Filters - Only show for static analysis */}
+        {results.analysisMode !== 'ml' && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <div className="flex flex-wrap items-center gap-4">
+              <h3 className="text-lg font-semibold text-gray-900">Filter by Severity:</h3>
+              <div className="flex space-x-2">
+                {['all', 'high', 'medium', 'low'].map((severity) => {
+                  const getCount = (sev: string) => {
+                    switch (sev) {
+                      case 'high':
+                        return results.high_severity || results.summary?.high_severity || 0;
+                      case 'medium':
+                        return results.medium_severity || results.summary?.medium_severity || 0;
+                      case 'low':
+                        return results.low_severity || results.summary?.low_severity || 0;
+                      default:
+                        return results.total_issues || results.summary?.total_vulnerabilities || 0;
+                    }
+                  };
+                  
+                  return (
+                    <button
+                      key={severity}
+                      onClick={() => setFilterSeverity(severity)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                        filterSeverity === severity
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                      {severity !== 'all' && (
+                        <span className="ml-1 text-xs">
+                          ({getCount(severity)})
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ML Visualization */}
+        {results.analysisMode === 'ml' && results.image_url && (
+          <div className="bg-white rounded-lg shadow mb-8">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Code className="h-5 w-5 mr-2" />
+                ML Visualization
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Generated by the LSTM-based analyzer from Atiqullah Ahmadzai’s project.
+              </p>
+            </div>
+            <div className="p-6">
+              <img src={`${config.API_BASE_URL}${results.image_url}`} alt="ML Visualization" className="w-full border rounded" />
+            </div>
+          </div>
+        )}
 
         {/* Highlighted Source Code */}
-        {results.highlighted_code && (
+        {results.analysisMode !== 'ml' && results.highlighted_code && (
           <div className="bg-white rounded-lg shadow mb-8">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -569,90 +619,113 @@ const Results: React.FC = () => {
           </div>
         )}
 
-        {/* Vulnerabilities List */}
-        <div className="space-y-6">
-          {filteredVulnerabilities.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <CheckCircle className="h-16 w-16 text-success-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {filterSeverity === 'all' ? 'No Vulnerabilities Found' : `No ${filterSeverity} Severity Issues`}
-              </h3>
-              <p className="text-gray-600">
-                {filterSeverity === 'all' 
-                  ? `Great! Your code appears to be secure from ${
-                      results.scannerType === 'xss' ? 'XSS' : 
-                      results.scannerType === 'command' ? 'command injection' : 
-                      results.scannerType === 'csrf' ? 'CSRF' : 'SQL injection'
-                    } vulnerabilities.`
-                  : `There are no ${filterSeverity} severity vulnerabilities in your code.`
-                }
-              </p>
-            </div>
-          ) : (
-            filteredVulnerabilities.map((vulnerability, index) => (
-              <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
-                <div 
-                  className={`p-6 border-l-4 ${getSeverityColor(vulnerability.severity).replace('bg-', 'border-').replace('-50', '-500')}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3">
-                      {getSeverityIcon(vulnerability.severity)}
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {results.scannerType === 'xss' ? 'XSS Vulnerability' : 
-                           results.scannerType === 'command' ? 'Command Injection Vulnerability' : 
-                           results.scannerType === 'csrf' ? 'CSRF Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
-                        </h3>
-                        <p className="text-gray-600 mb-4">
-                          {vulnerability.description}
-                        </p>
-                        
-                        {/* Vulnerability Details */}
-                        <div className="space-y-3">
+        {/* Vulnerabilities List - Only show for static analysis */}
+        {results.analysisMode !== 'ml' && (
+          <div className="space-y-6">
+            {filteredVulnerabilities.length === 0 ? (
+              <div className="bg-white rounded-lg shadow p-8 text-center">
+                <CheckCircle className="h-16 w-16 text-success-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {filterSeverity === 'all' ? 'No Vulnerabilities Found' : `No ${filterSeverity} Severity Issues`}
+                </h3>
+                <p className="text-gray-600">
+                  {filterSeverity === 'all' 
+                    ? `Great! Your code appears to be secure from ${
+                        results.scannerType === 'xss' ? 'XSS' : 
+                        results.scannerType === 'command' ? 'command injection' : 
+                        results.scannerType === 'csrf' ? 'CSRF' : 'SQL injection'
+                      } vulnerabilities.`
+                    : `There are no ${filterSeverity} severity vulnerabilities in your code.`
+                  }
+                </p>
+              </div>
+            ) : (
+              filteredVulnerabilities.map((vulnerability, index) => (
+                <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
+                  <div 
+                    className={`p-6 border-l-4 ${getSeverityColor(vulnerability.severity).replace('bg-', 'border-').replace('-50', '-500')}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-3">
+                        {getSeverityIcon(vulnerability.severity)}
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                            {results.scannerType === 'xss' ? 'XSS Vulnerability' : 
+                             results.scannerType === 'command' ? 'Command Injection Vulnerability' : 
+                             results.scannerType === 'csrf' ? 'CSRF Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
+                          </h3>
+                          <p className="text-gray-600 mb-4">
+                            {vulnerability.description}
+                          </p>
                           
-                          {vulnerability.cwe_references && vulnerability.cwe_references.length > 0 && (
-                            <div>
-                              <h4 className="font-medium text-gray-900 mb-2">CWE References:</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {vulnerability.cwe_references.map((cwe, idx) => (
-                                  <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                    CWE-{cwe}
-                                  </span>
-                                ))}
+                          {/* Vulnerability Details */}
+                          <div className="space-y-3">
+                            
+                            {vulnerability.cwe_references && vulnerability.cwe_references.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-gray-900 mb-2">CWE References:</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {vulnerability.cwe_references.map((cwe, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                      CWE-{cwe}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          
-                          {vulnerability.owasp_references && vulnerability.owasp_references.length > 0 && (
-                            <div>
-                              <h4 className="font-medium text-gray-900 mb-2">OWASP References:</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {vulnerability.owasp_references.map((owasp, idx) => (
-                                  <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                                    {owasp}
-                                  </span>
-                                ))}
+                            )}
+                            
+                            {vulnerability.owasp_references && vulnerability.owasp_references.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-gray-900 mb-2">OWASP References:</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {vulnerability.owasp_references.map((owasp, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                                      {owasp}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(vulnerability.severity)}`}>
-                        {vulnerability.severity.toUpperCase()}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {Math.round(vulnerability.confidence * 100)}% confidence
-                      </span>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(vulnerability.severity)}`}>
+                          {vulnerability.severity.toUpperCase()}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {Math.round(vulnerability.confidence * 100)}% confidence
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ML Analysis Info */}
+        {results.analysisMode === 'ml' && (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <Code className="h-16 w-16 text-primary-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Machine Learning Analysis Complete
+            </h3>
+            <p className="text-gray-600 mb-4">
+              The ML analysis has been performed using LSTM-based models from Atiqullah Ahmadzai's project.
+              {results.warning && (
+                <span className="block mt-2 text-yellow-600 font-medium">
+                  {results.warning}
+                </span>
+              )}
+            </p>
+            <p className="text-sm text-gray-500">
+              Check the visualization above for detailed analysis results.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

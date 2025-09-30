@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 # from functools import wraps
 import tempfile
 import zipfile
+import uuid
+import subprocess
+from pathlib import Path
 
 # Import XSS scanner functions
 from scanners.xss.xss_scanner import (
@@ -82,6 +85,9 @@ CORS(app, origins=["*"],
 def ensure_dirs():
     # Use /tmp directory which is writable on App Engine
     os.makedirs('/tmp/results', exist_ok=True)
+    # Ensure ML upload directory exists
+    ml_uploads = Path(__file__).parent / 'ml' / 'api' / 'uploads'
+    ml_uploads.mkdir(parents=True, exist_ok=True)
 
 # @app.route('/api/login', methods=['POST'])
 # def login():
@@ -206,6 +212,130 @@ def get_scanner_config():
         return jsonify(config)
     except Exception as e:
         return jsonify({'error': f'Failed to load configuration: {str(e)}'}), 500
+
+# ML-based analysis endpoint
+@app.route('/api/scan-ml', methods=['POST'])
+def scan_ml():
+    """Run machine learning based analysis using LSTM models (Atiqullah Ahmadzai’s project)."""
+    try:
+        data = request.get_json(force=True)
+        vuln_type = (data.get('type') or '').lower()
+        code = data.get('code', '')
+        filename = data.get('filename') or 'code.py'
+
+        if not code or not vuln_type:
+            return jsonify({'error': 'type and code are required'}), 400
+
+        # Map UI types to model modes
+        mode_map = {
+            'sql': 'sql',
+            'xss': 'xss',
+            'command': 'command_injection',
+            'csrf': 'xsrf'
+        }
+        if vuln_type not in mode_map:
+            return jsonify({'error': f'Unsupported type: {vuln_type}'}), 400
+        mode = mode_map[vuln_type]
+
+        # Prepare upload folder and file
+        uid = uuid.uuid4().hex
+        uploads_dir = Path(__file__).parent / 'ml' / 'api' / 'uploads' / uid
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        file_path = uploads_dir / filename
+        file_path.write_text(code)
+
+        # Choose python interpreter for ML
+        backend_root = Path(__file__).parent
+        ml_python_candidates = [
+            backend_root / 'mlvenv' / 'bin' / 'python',
+            Path(__file__).parent.parent / 'venv' / 'bin' / 'python',
+        ]
+        python_bin = None
+        for candidate in ml_python_candidates:
+            if candidate.exists():
+                python_bin = str(candidate)
+                break
+        if python_bin is None:
+            python_bin = 'python3'
+
+        # Call the REAL ML pipeline (Atiqullah Ahmadzai's demonstrate.py)
+        ml_api_cwd = backend_root / 'ml' / 'api'
+        log_id = uuid.uuid4().hex[:8]
+        output_dir = ml_api_cwd / 'uploads' / uid / 'output'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            completed = subprocess.run(
+                [python_bin, '../lib/demonstrate.py', mode, uid, filename, log_id],
+                cwd=str(ml_api_cwd),
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=300
+            )
+        except subprocess.CalledProcessError as e:
+            return jsonify({
+                'status': 'error',
+                'type': vuln_type,
+                'mode': mode,
+                'upload_id': uid,
+                'filename': filename,
+                'message': 'ML analysis failed',
+                'stderr': e.stderr[-1000:],
+                'stdout': e.stdout[-1000:]
+            }), 500
+        except subprocess.TimeoutExpired:
+            return jsonify({
+                'status': 'timeout',
+                'type': vuln_type,
+                'mode': mode,
+                'upload_id': uid,
+                'filename': filename,
+                'message': 'ML analysis timed out'
+            }), 504
+
+        # The demonstrate.py writes: ../api/uploads/<uid>/output/<log_id>_<filename>_<mode>.png
+        output_filename = f"{log_id}_{filename}_{mode}.png"
+        expected_path = output_dir / output_filename
+        if not expected_path.exists():
+            # Try to find any generated file for debugging
+            generated = sorted(output_dir.glob(f"*_{filename}_{mode}.png"))
+            alt = generated[-1].name if generated else None
+            return jsonify({
+                'status': 'error',
+                'type': vuln_type,
+                'mode': mode,
+                'upload_id': uid,
+                'filename': filename,
+                'message': 'ML image not found after run',
+                'expected': output_filename,
+                'found': alt
+            }), 500
+
+        image_url = f"/api/ml-output/{uid}/{output_filename}"
+        return jsonify({
+            'status': 'completed',
+            'type': vuln_type,
+            'mode': mode,
+            'upload_id': uid,
+            'filename': filename,
+            'image_url': image_url
+        })
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+@app.route('/api/ml-output/<string:uid>/<path:filename>', methods=['GET'])
+def get_ml_output(uid: str, filename: str):
+    """Serve generated ML visualization images from ml/api/uploads/<uid>/output."""
+    try:
+        backend_root = Path(__file__).parent
+        file_path = backend_root / 'ml' / 'api' / 'uploads' / uid / 'output' / filename
+        if not file_path.exists():
+            return jsonify({'error': 'File not found'}), 404
+        return send_file(str(file_path), mimetype='image/png')
+    except Exception as e:
+        return jsonify({'error': f'Failed to serve file: {str(e)}'}), 500
 
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])

@@ -30,6 +30,7 @@ const Scanner: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'url' | 'file' | 'code'>('code');
   const [scannerType, setScannerType] = useState<ScannerType>('sql');
   const [isScanning, setIsScanning] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<'static' | 'ml'>('static');
   const [scannerConfig, setScannerConfig] = useState<ScannerConfig | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [scanInput, setScanInput] = useState<ScanInput>({
@@ -157,35 +158,53 @@ const Scanner: React.FC = () => {
         'Content-Type': 'application/json'
       };
 
-      // Choose the appropriate API endpoint based on scanner type
-      let endpoint: string;
-      if (scannerType === 'sql') {
-        endpoint = '/api/scan-sql-injection';
-      } else if (scannerType === 'xss') {
-        endpoint = '/api/scan-xss';
-      } else if (scannerType === 'command') {
-        endpoint = '/api/scan-command-injection';
-      } else if (scannerType === 'csrf') {
-        endpoint = '/api/scan-csrf';
+      let results: any;
+      if (analysisMode === 'static') {
+        // Choose the appropriate API endpoint based on scanner type
+        let endpoint: string;
+        if (scannerType === 'sql') {
+          endpoint = '/api/scan-sql-injection';
+        } else if (scannerType === 'xss') {
+          endpoint = '/api/scan-xss';
+        } else if (scannerType === 'command') {
+          endpoint = '/api/scan-command-injection';
+        } else if (scannerType === 'csrf') {
+          endpoint = '/api/scan-csrf';
+        } else {
+          throw new Error('Invalid scanner type');
+        }
+        const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Scan failed');
+        }
+        results = await response.json();
       } else {
-        throw new Error('Invalid scanner type');
+        // ML analysis
+        const mlPayload: any = {
+          type: scannerType,
+          code: payload.code || payload.url,
+          filename: scanInput.filename || (scannerType + '.py')
+        };
+        const response = await fetch(`${config.API_BASE_URL}/api/scan-ml`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(mlPayload)
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'ML scan failed');
+        }
+        results = await response.json();
       }
-      
-      const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Scan failed');
-      }
-
-      const results = await response.json();
       
       // Store results in localStorage for the Results page
-      localStorage.setItem('scanResults', JSON.stringify({...results, scannerType}));
+      localStorage.setItem('scanResults', JSON.stringify({...results, scannerType, analysisMode}));
       localStorage.setItem('scanInput', JSON.stringify(scanInput));
       
       let vulnerabilityType: string;
@@ -200,7 +219,11 @@ const Scanner: React.FC = () => {
       } else {
         vulnerabilityType = 'vulnerabilities';
       }
-      toast.success(`Scan completed! Found ${results.total_issues || 0} ${vulnerabilityType}`);
+      if (analysisMode === 'static') {
+        toast.success(`Scan completed! Found ${results.total_issues || 0} ${vulnerabilityType}`);
+      } else {
+        toast.success('ML analysis completed');
+      }
       navigate('/results');
       
     } catch (error) {
@@ -470,6 +493,26 @@ const Scanner: React.FC = () => {
                 </div>
               </button>
             )}
+          </div>
+          {/* Analysis Mode Toggle */}
+          <div className="mt-6">
+            <h4 className="text-md font-medium text-gray-900 mb-2">Analysis Mode</h4>
+            <div className="inline-flex rounded-md shadow-sm" role="group">
+              <button
+                type="button"
+                onClick={() => setAnalysisMode('static')}
+                className={`px-4 py-2 text-sm font-medium border ${analysisMode === 'static' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+              >
+                Static Analysis
+              </button>
+              <button
+                type="button"
+                onClick={() => setAnalysisMode('ml')}
+                className={`px-4 py-2 text-sm font-medium border -ml-px ${analysisMode === 'ml' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+              >
+                ML Analysis
+              </button>
+            </div>
           </div>
         </div>
 
