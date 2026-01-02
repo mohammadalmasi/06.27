@@ -1,0 +1,15 @@
+services:
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: thesis-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      # Keep it simple for local comparisons; you can switch to an external DB later if needed.
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - ./.sonarqube/data:/opt/sonarqube/data
+      - ./.sonarqube/extensions:/opt/sonarqube/extensions
+      - ./.sonarqube/logs:/opt/sonarqube/logs
+

@@ -51,3 +51,11 @@ results/
 
 # Node modules (for frontend)
 node_modules/ 
+
+# Local tooling / runtime artifacts (do not commit)
+.sonarqube/
+.venv-semgrep/
+reports/
+frontend/.npm-cache/
+frontend/.npm-logs/
+backend/venv/
