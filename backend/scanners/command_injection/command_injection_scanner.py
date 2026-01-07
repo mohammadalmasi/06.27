@@ -8,13 +8,10 @@ from docx.shared import RGBColor, Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
-from sonarqube_security_standards import SecurityStandards, SQCategory, VulnerabilityProbability
 from datetime import datetime
 import json
 import tempfile
 
-# Based on SonarQube's SecurityStandards.java
-COMMAND_INJECTION_VULNERABILITY = ("command-injection", VulnerabilityProbability.HIGH)
 # Maps to CWE-77, CWE-78, CWE-88, CWE-214
 # Maps to OWASP A03:2021-Injection
 
@@ -41,7 +38,7 @@ class CommandInjectionVulnerability:
             'file_path': self.file_path,
             'cwe_references': ["77", "78", "88", "214"],
             'owasp_references': ["A03:2021-Injection"],
-            'rule_key': 'python:S2076'  # Command injection rule key similar to SonarQube
+            'rule_key': 'python:S2076'
         }
 
 class CommandInjectionDetector:
@@ -915,70 +912,3 @@ def api_generate_command_injection_report(current_user):
         
     except Exception as e:
         return jsonify({'error': f'Report generation failed: {str(e)}'}), 500
-
-def api_command_injection_sonarqube_export(current_user):
-    """Export command injection vulnerabilities in SonarQube format"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        scan_result = data.get('scan_result')
-        if not scan_result:
-            return jsonify({'error': 'Scan result is required'}), 400
-        
-        # Create SonarQube-compatible issue export
-        issues = []
-        
-        for vuln in scan_result.get('vulnerabilities', []):
-            issue = {
-                "engineId": "command-injection-scanner",
-                "ruleId": vuln.get('rule_key', 'python:S2076'),
-                "severity": vuln.get('severity', 'MEDIUM').upper(),
-                "type": "VULNERABILITY",
-                "primaryLocation": {
-                    "message": vuln.get('description', 'Command injection vulnerability detected'),
-                    "filePath": vuln.get('file_path', 'unknown'),
-                    "textRange": {
-                        "startLine": vuln.get('line_number', 1),
-                        "endLine": vuln.get('line_number', 1),
-                        "startColumn": 1,
-                        "endColumn": len(vuln.get('code_snippet', ''))
-                    }
-                },
-                "effortMinutes": 30,
-                "tags": ["command-injection", "security", "injection"],
-                "cwe": vuln.get('cwe_references', []),
-                "owaspTop10": vuln.get('owasp_references', []),
-                "cleanCodeAttribute": "TRUSTWORTHY",
-                "impacts": [
-                    {
-                        "softwareQuality": "SECURITY",
-                        "severity": "HIGH" if vuln.get('severity', 'medium').upper() in ['CRITICAL', 'HIGH'] else "MEDIUM"
-                    }
-                ]
-            }
-            issues.append(issue)
-        
-        # Create the export structure
-        export_data = {
-            "issues": issues,
-            "metadata": {
-                "toolName": "Command Injection Scanner",
-                "toolVersion": "1.0.0",
-                "scanDate": datetime.now().isoformat(),
-                "source": scan_result.get('source', 'Unknown'),
-                "totalIssues": len(issues),
-                "riskLevel": scan_result.get('risk_level', 'medium')
-            }
-        }
-        
-        # Save export file
-        export_filename = f'/tmp/results/command_injection_sonarqube_export_{current_user}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-        with open(export_filename, 'w') as f:
-            json.dump(export_data, f, indent=2)
-        
-        return send_file(export_filename, as_attachment=True, download_name='command_injection_sonarqube_export.json')
-        
-    except Exception as e:
-        return jsonify({'error': f'Export failed: {str(e)}'}), 500 

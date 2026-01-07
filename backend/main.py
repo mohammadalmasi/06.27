@@ -15,29 +15,25 @@ from pathlib import Path
 # Import XSS scanner functions
 from scanners.xss.xss_scanner import (
     api_scan_xss,
-    api_generate_xss_report,
-    api_xss_sonarqube_export
+    api_generate_xss_report
 )
 
 # Import SQL injection scanner functions  
 from scanners.sql_injection.sql_injection_scanner import (
     api_scan_sql_injection,
-    api_generate_sql_injection_report,
-    api_sql_injection_sonarqube_export
+    api_generate_sql_injection_report
 )
 
 # Import Command injection scanner functions
 from scanners.command_injection.command_injection_scanner import (
     api_scan_command_injection,
-    api_generate_command_injection_report,
-    api_command_injection_sonarqube_export
+    api_generate_command_injection_report
 )
 
 # Import CSRF scanner functions
 from scanners.csrf.csrf_scanner import (
     api_scan_csrf,
-    api_generate_csrf_report,
-    api_csrf_sonarqube_export
+    api_generate_csrf_report
 )
 
 app = Flask(__name__)
@@ -138,11 +134,6 @@ def generate_xss_report():
     """Generate Word report for XSS vulnerabilities"""
     return api_generate_xss_report("anonymous")
 
-@app.route('/api/xss-sonarqube-export', methods=['POST'])
-# @token_required
-def xss_sonarqube_export():
-    """Export XSS vulnerabilities in SonarQube format"""
-    return api_xss_sonarqube_export("anonymous")
 
 # SQL Injection Scanner API endpoints
 @app.route('/api/scan-sql-injection', methods=['POST'])
@@ -157,11 +148,6 @@ def generate_sql_injection_report():
     """Generate Word report for SQL injection vulnerabilities"""
     return api_generate_sql_injection_report("anonymous")
 
-@app.route('/api/sql-injection-sonarqube-export', methods=['POST'])
-# @token_required
-def sql_injection_sonarqube_export():
-    """Export SQL injection vulnerabilities in SonarQube format"""
-    return api_sql_injection_sonarqube_export("anonymous")
 
 # Command Injection Scanner API endpoints
 @app.route('/api/scan-command-injection', methods=['POST'])
@@ -176,11 +162,6 @@ def generate_command_injection_report():
     """Generate Word report for command injection vulnerabilities"""
     return api_generate_command_injection_report("anonymous")
 
-@app.route('/api/command-injection-sonarqube-export', methods=['POST'])
-# @token_required
-def command_injection_sonarqube_export():
-    """Export command injection vulnerabilities in SonarQube format"""
-    return api_command_injection_sonarqube_export("anonymous")
 
 # CSRF Scanner API endpoints
 @app.route('/api/scan-csrf', methods=['POST'])
@@ -195,11 +176,6 @@ def generate_csrf_report():
     """Generate Word report for CSRF vulnerabilities"""
     return api_generate_csrf_report("anonymous")
 
-@app.route('/api/csrf-sonarqube-export', methods=['POST'])
-# @token_required
-def csrf_sonarqube_export():
-    """Export CSRF vulnerabilities in SonarQube format"""
-    return api_csrf_sonarqube_export("anonymous")
 
 # Configuration endpoint
 @app.route('/api/scanner-config', methods=['GET'])

@@ -8,18 +8,6 @@ from docx.shared import RGBColor, Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
-try:
-    from sonarqube_security_standards import SecurityStandards, SQCategory, VulnerabilityProbability
-    # Based on SonarQube's SecurityStandards.java
-    SQL_INJECTION_VULNERABILITY = ("sql_injection", VulnerabilityProbability.HIGH)
-    NOSQL_INJECTION_VULNERABILITY = ("nosql_injection", VulnerabilityProbability.HIGH)
-except ImportError:
-    # Fallback if sonarqube_security_standards is not available
-    class VulnerabilityProbability:
-        HIGH = "HIGH"
-    SQL_INJECTION_VULNERABILITY = ("sql_injection", VulnerabilityProbability.HIGH)
-    NOSQL_INJECTION_VULNERABILITY = ("nosql_injection", VulnerabilityProbability.HIGH)
-    
 from datetime import datetime
 import json
 import tempfile
@@ -49,7 +37,7 @@ class SQLInjectionVulnerability:
             'file_path': self.file_path,
             'cwe_references': ["89", "564", "943"],
             'owasp_references': ["A03:2021-Injection"],
-            'rule_key': 'python:S2077'  # SQL injection rule key similar to SonarQube
+            'rule_key': 'python:S2077'
         }
 
 class SQLInjectionDetector:
@@ -1344,63 +1332,6 @@ These vulnerabilities should be addressed immediately to prevent potential attac
         
     except Exception as e:
         return jsonify({'error': f'Error generating SQL injection report: {str(e)}'}), 500
-
-def api_sql_injection_sonarqube_export(current_user):
-    """API endpoint for SQL injection SonarQube export"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        vulnerabilities = data.get('vulnerabilities', [])
-        if not vulnerabilities:
-            return jsonify({'error': 'No vulnerabilities provided'}), 400
-        
-        # Convert to SonarQube format
-        sonar_issues = []
-        for vuln in vulnerabilities:
-            # Map severity to SonarQube severity levels
-            severity_map = {
-                'high': 'CRITICAL',
-                'medium': 'MAJOR',
-                'low': 'MINOR'
-            }
-            sonar_severity = severity_map.get(vuln.get('severity', 'medium'), 'MAJOR')
-            
-            sonar_issue = {
-                "engineId": "python-sql-injection-scanner",
-                "ruleId": vuln.get('rule_key', 'python:S2077'),
-                "severity": sonar_severity,
-                "type": "VULNERABILITY",
-                "primaryLocation": {
-                    "message": vuln.get('description', 'SQL injection vulnerability'),
-                    "filePath": vuln.get('file_path', 'unknown'),
-                    "textRange": {
-                        "startLine": vuln.get('line_number', 1),
-                        "endLine": vuln.get('line_number', 1)
-                    }
-                },
-                "cwe": vuln.get('cwe_references', []),
-                "owasp": vuln.get('owasp_references', []),
-                "confidence": vuln.get('confidence', 0.5)
-            }
-            sonar_issues.append(sonar_issue)
-        
-        # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
-        json.dump({"issues": sonar_issues}, temp_file, indent=2)
-        temp_file.close()
-        
-        return send_file(
-            temp_file.name,
-            as_attachment=True,
-            download_name=f'sql_injection_sonarqube_issues_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
-            mimetype='application/json'
-        )
-        
-    except Exception as e:
-        return jsonify({'error': f'Error exporting SQL injection SonarQube format: {str(e)}'}), 500
-
 
 def test_sql_injection_scanner():
     """Test function to verify the SQL injection scanner is working"""

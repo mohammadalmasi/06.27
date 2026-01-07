@@ -8,13 +8,10 @@ from docx.shared import RGBColor, Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
-from sonarqube_security_standards import SecurityStandards, SQCategory, VulnerabilityProbability
 from datetime import datetime
 import json
 import tempfile
 
-# Based on SonarQube's SecurityStandards.java
-XSS_VULNERABILITY = ("xss", VulnerabilityProbability.HIGH)
 # Maps to CWE-79, CWE-80, CWE-81, CWE-82, CWE-83, CWE-84, CWE-85, CWE-86, CWE-87
 # Maps to OWASP A03:2021-Injection
 
@@ -41,7 +38,7 @@ class XSSVulnerability:
             'file_path': self.file_path,
             'cwe_references': ["79", "80", "81", "82", "83", "84", "85", "86", "87"],
             'owasp_references': ["A03:2021-Injection"],
-            'rule_key': 'python:S5131'  # XSS rule key similar to SonarQube
+            'rule_key': 'python:S5131'
         }
 
 class XSSDetector:
@@ -819,51 +816,3 @@ These vulnerabilities should be addressed immediately to prevent potential attac
         
     except Exception as e:
         return jsonify({'error': f'Error generating XSS report: {str(e)}'}), 500
-
-def api_xss_sonarqube_export(current_user):
-    """API endpoint for XSS SonarQube export"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        vulnerabilities = data.get('vulnerabilities', [])
-        if not vulnerabilities:
-            return jsonify({'error': 'No vulnerabilities provided'}), 400
-        
-        # Convert to SonarQube format
-        sonar_issues = []
-        for vuln in vulnerabilities:
-            sonar_issue = {
-                "engineId": "python-xss-scanner",
-                "ruleId": vuln.get('rule_key', 'python:S5131'),
-                "severity": vuln.get('severity', 'MAJOR').upper(),
-                "type": "VULNERABILITY",
-                "primaryLocation": {
-                    "message": vuln.get('description', 'Cross-Site Scripting (XSS) vulnerability'),
-                    "filePath": vuln.get('file_path', 'unknown'),
-                    "textRange": {
-                        "startLine": vuln.get('line_number', 1),
-                        "endLine": vuln.get('line_number', 1)
-                    }
-                },
-                "cwe": vuln.get('cwe_references', []),
-                "owasp": vuln.get('owasp_references', []),
-                "confidence": vuln.get('confidence', 0.5)
-            }
-            sonar_issues.append(sonar_issue)
-        
-        # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
-        json.dump({"issues": sonar_issues}, temp_file, indent=2)
-        temp_file.close()
-        
-        return send_file(
-            temp_file.name,
-            as_attachment=True,
-            download_name=f'xss_sonarqube_issues_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
-            mimetype='application/json'
-        )
-        
-    except Exception as e:
-        return jsonify({'error': f'Error exporting XSS SonarQube format: {str(e)}'}), 500 

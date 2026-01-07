@@ -346,8 +346,7 @@ class CSRFScanner:
             'remediation': self._get_remediation(vuln),
             'cwe_references': self._get_cwe_references(vuln),
             'owasp_references': self._get_owasp_references(vuln),
-            'rule_key': vuln.rule_key,
-            'sq_category': 'csrf'
+            'rule_key': vuln.rule_key
         }
     
     def _get_remediation(self, vuln: CSRFVulnerability) -> str:
@@ -685,20 +684,6 @@ def api_generate_csrf_report(current_user: str) -> Dict[str, Any]:
         
     except Exception as e:
         return jsonify({'error': f'CSRF report generation error: {str(e)}'}), 500
-
-
-def api_csrf_sonarqube_export(current_user: str) -> Dict[str, Any]:
-    """API function for CSRF SonarQube export"""
-    try:
-        # This would implement SonarQube format export
-        # For now, return a placeholder
-        return jsonify({
-            'message': 'CSRF SonarQube export not implemented yet',
-            'status': 'pending'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': f'CSRF SonarQube export error: {str(e)}'}), 500
 
 
 def _highlight_csrf_vulnerabilities(code_content: str, vulnerabilities: List[Dict[str, Any]]) -> str:
