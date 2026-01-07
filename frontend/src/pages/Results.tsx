@@ -443,15 +443,15 @@ const Results: React.FC = () => {
         )}
 
         {/* Highlighted Source Code */}
-        {results.analysisMode !== 'ml' && results.highlighted_code && (
+        {results.highlighted_code && (
           <div className="bg-white rounded-lg shadow mb-8">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <Code className="h-5 w-5 mr-2" />
-                Source Code Analysis
+                Source Code Analysis {results.analysisMode === 'ml' ? '(ML)' : ''}
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Vulnerable code sections are highlighted in red. 
+                Vulnerable code sections are highlighted in red.
                 {results.scannerType === 'xss' 
                   ? ' XSS vulnerabilities are marked for review.'
                   : results.scannerType === 'command'
@@ -619,8 +619,8 @@ const Results: React.FC = () => {
           </div>
         )}
 
-        {/* Vulnerabilities List - Only show for static analysis */}
-        {results.analysisMode !== 'ml' && (
+        {/* Vulnerabilities List */}
+        {results.vulnerabilities && (
           <div className="space-y-6">
             {filteredVulnerabilities.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -722,7 +722,9 @@ const Results: React.FC = () => {
               )}
             </p>
             <p className="text-sm text-gray-500">
-              Check the visualization above for detailed analysis results.
+              {results.highlighted_code
+                ? 'Check the highlighted code (and visualization if available) for detailed results.'
+                : 'Check the visualization above for detailed analysis results.'}
             </p>
           </div>
         )}

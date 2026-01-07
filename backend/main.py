@@ -234,15 +234,13 @@ def scan_ml():
         if python_bin is None:
             python_bin = 'python3'
 
-        # Call the REAL ML pipeline (Atiqullah Ahmadzai's demonstrate.py)
+        # Call ML pipeline in dedicated env (mlvenv) to avoid TF incompatibilities in main venv.
         ml_api_cwd = backend_root / 'ml' / 'api'
-        log_id = uuid.uuid4().hex[:8]
-        output_dir = ml_api_cwd / 'uploads' / uid / 'output'
-        output_dir.mkdir(parents=True, exist_ok=True)
+        analyzer_script = backend_root / 'ml' / 'lib' / 'analyze.py'
 
         try:
             completed = subprocess.run(
-                [python_bin, '../lib/demonstrate.py', mode, uid, filename, log_id],
+                [python_bin, str(analyzer_script), mode, uid, filename],
                 cwd=str(ml_api_cwd),
                 check=True,
                 stdout=subprocess.PIPE,
@@ -271,32 +269,42 @@ def scan_ml():
                 'message': 'ML analysis timed out'
             }), 504
 
-        # The demonstrate.py writes: ../api/uploads/<uid>/output/<log_id>_<filename>_<mode>.png
-        output_filename = f"{log_id}_{filename}_{mode}.png"
-        expected_path = output_dir / output_filename
-        if not expected_path.exists():
-            # Try to find any generated file for debugging
-            generated = sorted(output_dir.glob(f"*_{filename}_{mode}.png"))
-            alt = generated[-1].name if generated else None
+        try:
+            analyzer_result = json.loads((completed.stdout or '').strip() or '{}')
+        except json.JSONDecodeError:
+            analyzer_result = {
+                'status': 'error',
+                'message': 'Invalid ML analyzer output (expected JSON)',
+                'stdout': (completed.stdout or '')[-1000:],
+                'stderr': (completed.stderr or '')[-1000:]
+            }
+
+        if analyzer_result.get('status') != 'completed':
             return jsonify({
                 'status': 'error',
                 'type': vuln_type,
                 'mode': mode,
                 'upload_id': uid,
                 'filename': filename,
-                'message': 'ML image not found after run',
-                'expected': output_filename,
-                'found': alt
+                'message': analyzer_result.get('message') or 'ML analysis error',
+                'stderr': (completed.stderr or '')[-1000:],
+                'stdout': (completed.stdout or '')[-1000:]
             }), 500
 
-        image_url = f"/api/ml-output/{uid}/{output_filename}"
+        # Keep response compatible with existing UI fields and add static-like outputs for ML.
         return jsonify({
             'status': 'completed',
             'type': vuln_type,
             'mode': mode,
             'upload_id': uid,
             'filename': filename,
-            'image_url': image_url
+            'prediction': analyzer_result.get('prediction'),
+            'windows': analyzer_result.get('windows', []),
+            'vulnerabilities': analyzer_result.get('vulnerabilities', []),
+            'highlighted_code': analyzer_result.get('highlighted_code'),
+            'original_code': analyzer_result.get('original_code', code),
+            # image_url is optional now (older pipeline produced it)
+            'image_url': analyzer_result.get('image_url')
         })
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
