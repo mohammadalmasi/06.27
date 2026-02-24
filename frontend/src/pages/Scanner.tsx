@@ -453,23 +453,62 @@ const Scanner: React.FC = () => {
               </button>
             )}
           </div>
-          {/* Analysis Mode Toggle */}
-          <div className="mt-6">
-            <h4 className="text-md font-medium text-gray-900 mb-2">Analysis Mode</h4>
-            <div className="inline-flex rounded-md shadow-sm" role="group">
+
+          {/* Analysis + Scan Controls */}
+          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            {/* Analysis Mode Toggle (left) */}
+            <div>
+              <h4 className="text-md font-medium text-gray-900 mb-2">Analysis Mode</h4>
+              <div className="inline-flex rounded-md shadow-sm" role="group">
+                <button
+                  type="button"
+                  onClick={() => setAnalysisMode('static')}
+                  className={`px-4 py-2 text-sm font-medium border ${analysisMode === 'static' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  Static Analysis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAnalysisMode('ml')}
+                  className={`px-4 py-2 text-sm font-medium border -ml-px ${analysisMode === 'ml' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                >
+                  ML Analysis
+                </button>
+              </div>
+            </div>
+
+            {/* Start Scanning (right) */}
+            <div className="sm:min-w-[260px]">
               <button
-                type="button"
-                onClick={() => setAnalysisMode('static')}
-                className={`px-4 py-2 text-sm font-medium border ${analysisMode === 'static' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                onClick={handleScan}
+                disabled={!canScan()}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
+                  canScan()
+                    ? 'bg-primary-600 hover:bg-primary-700 text-white'
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                }`}
               >
-                Static Analysis
-              </button>
-              <button
-                type="button"
-                onClick={() => setAnalysisMode('ml')}
-                className={`px-4 py-2 text-sm font-medium border -ml-px ${analysisMode === 'ml' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-              >
-                ML Analysis
+                {isScanning ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    Scanning Code...
+                  </>
+                ) : (
+                  <>
+                    {scannerType === 'sql' ? (
+                      <Bug className="h-5 w-5 mr-2" />
+                    ) : scannerType === 'xss' ? (
+                      <Shield className="h-5 w-5 mr-2" />
+                    ) : scannerType === 'command' ? (
+                      <AlertTriangle className="h-5 w-5 mr-2" />
+                    ) : (
+                      <Shield className="h-5 w-5 mr-2" />
+                    )}
+                    Start {scannerType === 'sql' ? 'SQL Injection' : 
+                      scannerType === 'xss' ? 'XSS' : 
+                      scannerType === 'command' ? 'Command Injection' : 'CSRF'} Scan
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -613,47 +652,10 @@ const Scanner: React.FC = () => {
                     rows={12}
                     className="textarea-field font-mono text-sm"
                   />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Paste your source code directly for analysis
-                  </p>
                 </div>
               </div>
             )}
 
-            {/* Scan Button */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <button
-                onClick={handleScan}
-                disabled={!canScan()}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                  canScan()
-                    ? 'bg-primary-600 hover:bg-primary-700 text-white'
-                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isScanning ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Scanning Code...
-                  </>
-                ) : (
-                  <>
-                    {scannerType === 'sql' ? (
-                      <Bug className="h-5 w-5 mr-2" />
-                    ) : scannerType === 'xss' ? (
-                      <Shield className="h-5 w-5 mr-2" />
-                    ) : scannerType === 'command' ? (
-                      <AlertTriangle className="h-5 w-5 mr-2" />
-                    ) : (
-                      <Shield className="h-5 w-5 mr-2" />
-                    )}
-                    Start {scannerType === 'sql' ? 'SQL Injection' : 
-                      scannerType === 'xss' ? 'XSS' : 
-                      scannerType === 'command' ? 'Command Injection' : 'CSRF'} Scan
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
 
