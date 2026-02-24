@@ -10,7 +10,8 @@ import {
   FileText,
   X,
   Shield,
-  Bug
+  Bug,
+  CheckCircle2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import config from '../config.js';
@@ -23,6 +24,8 @@ interface ScanInput {
 }
 
 type ScannerType = 'sql' | 'xss' | 'command' | 'csrf';
+
+type IconComponent = React.ComponentType<{ className?: string }>;
 
 const Scanner: React.FC = () => {
   const navigate = useNavigate();
@@ -119,6 +122,15 @@ const Scanner: React.FC = () => {
 
   const handleInputChange = (value: string) => {
     setScanInput(prev => ({ ...prev, content: value }));
+  };
+
+  const handleScanKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (canScan()) {
+        handleScan();
+      }
+    }
   };
 
   const handleTabChange = (tab: 'url' | 'file' | 'code') => {
@@ -261,15 +273,56 @@ const Scanner: React.FC = () => {
 
   const getScannerTitle = () => {
     if (scannerType === 'sql') {
-      return '';
+      return 'SQL Injection Scanner';
     } else if (scannerType === 'xss') {
-      return '';
+      return 'XSS Scanner';
     } else if (scannerType === 'command') {
-      return '';
+      return 'Command Injection Scanner';
     } else if (scannerType === 'csrf') {
-      return '';
+      return 'CSRF Scanner';
     }
     return '';
+  };
+
+  const getScannerMeta = (type: ScannerType): { label: string; description: string; Icon: IconComponent } => {
+    switch (type) {
+      case 'sql':
+        return {
+          label: 'SQL Injection',
+          description: 'Find unsafe SQL query construction patterns and injection sinks.',
+          Icon: Bug,
+        };
+      case 'xss':
+        return {
+          label: 'XSS',
+          description: 'Detect potentially unsafe HTML/JS rendering and injection points.',
+          Icon: Shield,
+        };
+      case 'command':
+        return {
+          label: 'Command Injection',
+          description: 'Identify dangerous OS command execution patterns and tainted inputs.',
+          Icon: AlertTriangle,
+        };
+      case 'csrf':
+        return {
+          label: 'CSRF',
+          description: 'Spot missing CSRF defenses in state-changing requests and forms.',
+          Icon: Shield,
+        };
+      default:
+        return {
+          label: 'Scanner',
+          description: 'Run a security scan.',
+          Icon: Shield,
+        };
+    }
+  };
+
+  const getInputHeader = () => {
+    if (activeTab === 'code') return { title: 'Paste code', subtitle: 'Paste a snippet or a full file. Press Ctrl/⌘ + Enter to scan.' };
+    if (activeTab === 'file') return { title: 'Upload a file', subtitle: 'Upload a single source file (max 2MB). You can preview it before scanning.' };
+    return { title: 'Scan from GitHub URL', subtitle: 'Paste a direct link to a file on GitHub.' };
   };
 
   // Show loading state while fetching configuration
@@ -277,7 +330,7 @@ const Scanner: React.FC = () => {
     return (
       <div className="min-h-screen py-6">
         <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="card p-8 text-center">
             <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary-600" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Scanner Configuration</h2>
             <p className="text-gray-600">Please wait while we load the available scanners...</p>
@@ -292,7 +345,7 @@ const Scanner: React.FC = () => {
     return (
       <div className="min-h-screen py-6">
         <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="card p-8 text-center">
             <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">No Scanners Available</h2>
             <p className="text-gray-600 mb-4">
@@ -300,7 +353,7 @@ const Scanner: React.FC = () => {
             </p>
             <button
               onClick={() => navigate('/scanner')}
-              className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-lg transition-colors"
+              className="btn-primary"
             >
               Back to Scanner
             </button>
@@ -310,274 +363,359 @@ const Scanner: React.FC = () => {
     );
   }
 
+  const meta = getScannerMeta(scannerType);
+  const inputHeader = getInputHeader();
+  const isUrl = activeTab === 'url';
+  const urlValue = isUrl ? scanInput.content.trim() : '';
+  const urlIsValid = isUrl ? (urlValue.length > 0 && isValidUrl(urlValue)) : false;
+
   return (
     <div className="min-h-screen py-6">
       <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
-        {/* Header */}
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
-            {getScannerTitle()}
-          </h1>
-        </div>
-
-        {/* Scanner Type Selector */}
-        <div className="bg-white rounded-lg shadow-lg mb-4 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-wrap gap-2 sm:flex-1">
-              {isScannerEnabled(scannerConfig, 'sql') && (
-                <button
-                  onClick={() => setScannerType('sql')}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                    scannerType === 'sql'
-                      ? 'border-primary-500 bg-primary-50 text-primary-800'
-                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  <Bug className={`h-4 w-4 ${scannerType === 'sql' ? 'text-primary-700' : 'text-gray-600'}`} />
-                  SQL Injection
-                </button>
-              )}
-
-              {isScannerEnabled(scannerConfig, 'xss') && (
-                <button
-                  onClick={() => setScannerType('xss')}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                    scannerType === 'xss'
-                      ? 'border-primary-500 bg-primary-50 text-primary-800'
-                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  <Shield className={`h-4 w-4 ${scannerType === 'xss' ? 'text-primary-700' : 'text-gray-600'}`} />
-                  XSS
-                </button>
-              )}
-
-              {isScannerEnabled(scannerConfig, 'command') && (
-                <button
-                  onClick={() => setScannerType('command')}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                    scannerType === 'command'
-                      ? 'border-primary-500 bg-primary-50 text-primary-800'
-                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  <AlertTriangle className={`h-4 w-4 ${scannerType === 'command' ? 'text-primary-700' : 'text-gray-600'}`} />
-                  Command Injection
-                </button>
-              )}
-
-              {isScannerEnabled(scannerConfig, 'csrf') && (
-                <button
-                  onClick={() => setScannerType('csrf')}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                    scannerType === 'csrf'
-                      ? 'border-primary-500 bg-primary-50 text-primary-800'
-                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  <Shield className={`h-4 w-4 ${scannerType === 'csrf' ? 'text-primary-700' : 'text-gray-600'}`} />
-                  CSRF
-                </button>
-              )}
-            </div>
-
-            <div className="sm:flex-1 sm:flex sm:justify-center">
-              <div className="inline-flex rounded-md shadow-sm" role="group">
-                <button
-                  type="button"
-                  onClick={() => setAnalysisMode('static')}
-                  className={`px-3 py-2 text-sm font-medium border ${analysisMode === 'static' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                >
-                  Static
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAnalysisMode('ml')}
-                  className={`px-3 py-2 text-sm font-medium border -ml-px ${analysisMode === 'ml' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                >
-                  ML
-                </button>
+        <>
+          {/* Header */}
+          <div className="mb-4 flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 leading-tight">
+                  {getScannerTitle()}
+                </h1>
+                <p className="mt-1 text-sm md:text-base text-slate-600">
+                  {meta.description}
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="sm:flex-1 sm:flex sm:justify-end">
-              <button
-                onClick={handleScan}
-                disabled={!canScan()}
-                className={`whitespace-nowrap inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
-                  canScan()
-                    ? 'bg-primary-600 text-white hover:bg-primary-700'
-                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isScanning ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Scanning...
-                  </>
-                ) : (
-                  <>
-                    {scannerType === 'sql' ? (
-                      <Bug className="h-4 w-4" />
-                    ) : scannerType === 'xss' ? (
-                      <Shield className="h-4 w-4" />
-                    ) : scannerType === 'command' ? (
-                      <AlertTriangle className="h-4 w-4" />
-                    ) : (
-                      <Shield className="h-4 w-4" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            {/* Main input */}
+            <div className="order-1 lg:order-2 lg:col-span-8">
+              <div className="card">
+                <div className="card-header">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-900">{inputHeader.title}</h2>
+                      <p className="text-sm text-slate-600">{inputHeader.subtitle}</p>
+                    </div>
+                    {(activeTab === 'code' || activeTab === 'url') && scanInput.content.trim().length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setScanInput(prev => ({ ...prev, content: '' }))}
+                        className="btn-secondary py-2 px-3 text-sm"
+                        disabled={isScanning}
+                        title="Clear"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <X className="h-4 w-4" />
+                          Clear
+                        </span>
+                      </button>
                     )}
-                    Start Scan
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Scanner Interface */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Tab Navigation */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => handleTabChange('code')}
-              className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
-                activeTab === 'code'
-                  ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Code className="h-5 w-5 mx-auto mb-1" />
-              Paste Code
-            </button>
-            <button
-              onClick={() => handleTabChange('file')}
-              className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
-                activeTab === 'file'
-                  ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Upload className="h-5 w-5 mx-auto mb-1" />
-              File Upload
-            </button>
-            <button
-              onClick={() => handleTabChange('url')}
-              className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
-                activeTab === 'url'
-                  ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <LinkIcon className="h-5 w-5 mx-auto mb-1" />
-              GitHub URL
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="p-4">
-            {/* URL Tab */}
-            {activeTab === 'url' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    GitHub Python File URL
-                  </label>
-                  <input
-                    type="url"
-                    value={scanInput.content}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder="https://github.com/user/repo/blob/main/file.py"
-                    className="input-field"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Enter a direct link to a Python file on GitHub
-                  </p>
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* File Upload Tab */}
-            {activeTab === 'file' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload Source Code File
-                  </label>
-                  
-                  {uploadedFiles.length === 0 ? (
-                    <div
-                      {...getRootProps()}
-                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors duration-200 ${
-                        isDragActive
-                          ? 'border-primary-400 bg-primary-50'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      <input {...getInputProps()} />
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-lg font-medium text-gray-700 mb-2">
-                        {isDragActive
-                          ? 'Drop your file here'
-                          : 'Drag and drop your file here, or click to browse'}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Supports .py, .js, .php, .java, .cs, .ts files (max 2MB)
+                {/* Tabs */}
+                <div className="flex border-b border-slate-200/80 bg-white">
+                  <button
+                    onClick={() => handleTabChange('code')}
+                    className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
+                      activeTab === 'code'
+                        ? 'bg-primary-50 text-primary-700 border-b-2 border-primary-600'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                    type="button"
+                  >
+                    <Code className="h-5 w-5 mx-auto mb-1" />
+                    Paste Code
+                  </button>
+                  <button
+                    onClick={() => handleTabChange('file')}
+                    className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
+                      activeTab === 'file'
+                        ? 'bg-primary-50 text-primary-700 border-b-2 border-primary-600'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                    type="button"
+                  >
+                    <Upload className="h-5 w-5 mx-auto mb-1" />
+                    Upload File
+                  </button>
+                  <button
+                    onClick={() => handleTabChange('url')}
+                    className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
+                      activeTab === 'url'
+                        ? 'bg-primary-50 text-primary-700 border-b-2 border-primary-600'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                    type="button"
+                  >
+                    <LinkIcon className="h-5 w-5 mx-auto mb-1" />
+                    GitHub URL
+                  </button>
+                </div>
+
+                {/* Tab content */}
+                <div className="card-body space-y-4">
+                  {activeTab === 'url' && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-slate-700">
+                        GitHub file URL
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="url"
+                          value={scanInput.content}
+                          onChange={(e) => handleInputChange(e.target.value)}
+                          onKeyDown={handleScanKeyDown}
+                          placeholder="https://github.com/user/repo/blob/main/file.py"
+                          className={`input-field pr-10 ${urlValue.length > 0 && !urlIsValid ? 'ring-2 ring-danger-300 border-danger-300' : ''}`}
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          {urlValue.length === 0 ? null : urlIsValid ? (
+                            <CheckCircle2 className="h-5 w-5 text-success-600" />
+                          ) : (
+                            <AlertTriangle className="h-5 w-5 text-danger-600" />
+                          )}
+                        </div>
+                      </div>
+                      <p className={`text-sm ${urlValue.length === 0 ? 'text-slate-500' : urlIsValid ? 'text-success-700' : 'text-danger-700'}`}>
+                        {urlValue.length === 0
+                          ? 'Paste a direct link to a file (GitHub “blob” URL is OK).'
+                          : urlIsValid
+                          ? 'Looks good — ready to scan.'
+                          : 'This doesn’t look like a valid URL.'}
                       </p>
                     </div>
-                  ) : (
-                    <div className="border border-gray-300 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <FileText className="h-8 w-8 text-primary-600" />
+                  )}
+
+                  {activeTab === 'file' && (
+                    <div className="space-y-3">
+                      <label className="block text-sm font-medium text-slate-700">
+                        Upload source file
+                      </label>
+
+                      {uploadedFiles.length === 0 ? (
+                        <div
+                          {...getRootProps()}
+                          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors duration-200 ${
+                            isDragActive
+                              ? 'border-primary-400 bg-primary-50'
+                              : 'border-slate-300 hover:border-slate-400 bg-white'
+                          }`}
+                        >
+                          <input {...getInputProps()} />
+                          <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                          <p className="text-base font-medium text-slate-800 mb-1">
+                            {isDragActive
+                              ? 'Drop your file here'
+                              : 'Drag and drop your file here, or click to browse'}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            Supports .py, .js, .php, .java, .cs, .ts, .jsx, .tsx (max 2MB)
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-xl ring-1 ring-slate-200/70 bg-slate-50/60 px-4 py-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <FileText className="h-6 w-6 text-primary-700 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-medium text-slate-900 truncate">{uploadedFiles[0].name}</p>
+                                <p className="text-sm text-slate-500">
+                                  {(uploadedFiles[0].size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={removeFile}
+                              className="btn-secondary py-2 px-3"
+                              type="button"
+                              disabled={isScanning}
+                              title="Remove file"
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <X className="h-4 w-4" />
+                                Remove
+                              </span>
+                            </button>
+                          </div>
+
                           <div>
-                            <p className="font-medium text-gray-900">
-                              {uploadedFiles[0].name}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {(uploadedFiles[0].size / 1024).toFixed(1)} KB
-                            </p>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-slate-700">Preview</p>
+                              <p className="text-xs text-slate-500">Read-only</p>
+                            </div>
+                            <textarea
+                              value={scanInput.content}
+                              readOnly
+                              rows={14}
+                              className="textarea-field font-mono text-sm min-h-[320px] bg-slate-50/60"
+                            />
                           </div>
                         </div>
-                        <button
-                          onClick={removeFile}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
-                      </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'code' && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-slate-700">
+                        Source code
+                      </label>
+                      <textarea
+                        value={scanInput.content}
+                        onChange={(e) => handleInputChange(e.target.value)}
+                        onKeyDown={handleScanKeyDown}
+                        placeholder={scannerType === 'sql' 
+                          ? "# Paste your code here (SQL injection analysis)..."
+                          : scannerType === 'xss'
+                          ? "# Paste your code here (XSS analysis)..."
+                          : scannerType === 'command'
+                          ? "# Paste your code here (command injection analysis)..."
+                          : "# Paste your code here (CSRF analysis)..."
+                        }
+                        rows={18}
+                        className="textarea-field font-mono text-sm min-h-[420px]"
+                      />
                     </div>
                   )}
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Code Paste Tab */}
-            {activeTab === 'code' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Paste Source Code
-                  </label>
-                  <textarea
-                    value={scanInput.content}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    placeholder={scannerType === 'sql' 
-                      ? "# Paste your Python code here..." 
-                      : scannerType === 'xss'
-                      ? "# Paste your code here (Python, JavaScript, etc.)..."
-                      : scannerType === 'command'
-                      ? "# Paste your Python code here for command injection analysis..."
-                      : "# Paste your code here (Python, HTML, JavaScript, etc.) for CSRF analysis..."
-                    }
-                    rows={18}
-                    className="textarea-field font-mono text-sm min-h-[360px]"
-                  />
+            {/* Controls panel */}
+            <div className="order-2 lg:order-1 lg:col-span-4 space-y-4">
+              <div className="card">
+                <div className="card-header">
+                  <div className="flex items-center gap-2">
+                    <meta.Icon className="h-5 w-5 text-primary-700" />
+                    <h2 className="text-base font-semibold text-slate-900">Scan settings</h2>
+                  </div>
+                </div>
+                <div className="card-body space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-2">Scanner</p>
+                    <div className="flex flex-wrap gap-2">
+                      {isScannerEnabled(scannerConfig, 'sql') && (
+                        <button
+                          onClick={() => setScannerType('sql')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'sql'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Bug className={`h-4 w-4 ${scannerType === 'sql' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          SQL
+                        </button>
+                      )}
+                      {isScannerEnabled(scannerConfig, 'xss') && (
+                        <button
+                          onClick={() => setScannerType('xss')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'xss'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Shield className={`h-4 w-4 ${scannerType === 'xss' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          XSS
+                        </button>
+                      )}
+                      {isScannerEnabled(scannerConfig, 'command') && (
+                        <button
+                          onClick={() => setScannerType('command')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'command'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <AlertTriangle className={`h-4 w-4 ${scannerType === 'command' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          Command
+                        </button>
+                      )}
+                      {isScannerEnabled(scannerConfig, 'csrf') && (
+                        <button
+                          onClick={() => setScannerType('csrf')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'csrf'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Shield className={`h-4 w-4 ${scannerType === 'csrf' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          CSRF
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium text-slate-700 mb-2">Analysis mode</p>
+                    <div className="inline-flex rounded-lg shadow-sm overflow-hidden ring-1 ring-slate-200/70" role="group">
+                      <button
+                        type="button"
+                        onClick={() => setAnalysisMode('static')}
+                        className={`px-3 py-2 text-sm font-medium ${
+                          analysisMode === 'static'
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        Static
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnalysisMode('ml')}
+                        className={`px-3 py-2 text-sm font-medium border-l border-slate-200/70 ${
+                          analysisMode === 'ml'
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        ML
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={handleScan}
+                      disabled={!canScan()}
+                      className="btn-primary w-full flex items-center justify-center gap-2"
+                    >
+                      {isScanning ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Scanning...
+                        </>
+                      ) : (
+                        <>
+                          <meta.Icon className="h-5 w-5" />
+                          Start scan
+                        </>
+                      )}
+                    </button>
+                    {!canScan() && (
+                      <p className="mt-2 text-xs text-slate-500">
+                        {activeTab === 'url'
+                          ? 'Paste a valid URL to enable scanning.'
+                          : activeTab === 'file'
+                          ? 'Upload a file to enable scanning.'
+                          : 'Paste some code to enable scanning.'}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-
+            </div>
           </div>
-        </div>
+        </>
 
       </div>
     </div>
