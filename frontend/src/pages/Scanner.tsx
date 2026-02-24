@@ -569,8 +569,8 @@ const Scanner: React.FC = () => {
                       ? "# Paste your Python code here for command injection analysis..."
                       : "# Paste your code here (Python, HTML, JavaScript, etc.) for CSRF analysis..."
                     }
-                    rows={12}
-                    className="textarea-field font-mono text-sm"
+                    rows={18}
+                    className="textarea-field font-mono text-sm min-h-[360px]"
                   />
                 </div>
               </div>
