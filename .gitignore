@@ -60,3 +60,7 @@ reports/
 frontend/.npm-cache/
 frontend/.npm-logs/
 backend/venv/
+backend/mlvenv/
+.env
+.env.local
+.env.*.local

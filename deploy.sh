@@ -86,18 +86,13 @@ if [ ! -f "package.json" ]; then
     exit 1
 fi
 
-# Update config.js with the actual backend URL
-echo -e "${YELLOW}🔧 Updating frontend configuration...${NC}"
-sed -i.bak "s|https://your-app-name.appspot.com|$BACKEND_URL|g" src/config.js
-echo -e "${GREEN}✅ Updated API endpoint to: $BACKEND_URL${NC}"
-
 # Install dependencies
 echo -e "${YELLOW}📦 Installing frontend dependencies...${NC}"
 npm install
 
 # Build React app
 echo -e "${YELLOW}🏗️  Building React app...${NC}"
-npm run build
+REACT_APP_API_BASE_URL="$BACKEND_URL" npm run build
 
 # Check if build directory exists
 if [ ! -d "build" ]; then
@@ -121,12 +116,6 @@ echo "Backend API: $BACKEND_URL"
 echo "Frontend App: $FRONTEND_URL"
 echo "Admin Console: https://console.cloud.google.com/appengine"
 echo -e "${NC}"
-
-# Restore original config.js backup
-if [ -f "src/config.js.bak" ]; then
-    mv src/config.js.bak src/config.js
-    echo -e "${YELLOW}📝 Restored original config.js${NC}"
-fi
 
 echo -e "${GREEN}✅ Your SQL Injection Scanner is now live on Google Cloud Platform!${NC}"
 echo -e "${YELLOW}💡 You can now visit: $FRONTEND_URL${NC}"

@@ -23,20 +23,6 @@ steps:
         echo "✅ Dependencies installed"
     id: 'install-frontend-deps'
 
-  # Update frontend configuration with backend URL
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "🔧 Updating frontend configuration..."
-        cd frontend
-        BACKEND_URL="https://$(gcloud app describe --format='value(defaultHostname)')"
-        sed -i "s|https://your-app-name.appspot.com|$BACKEND_URL|g" src/config.js
-        echo "✅ Updated API endpoint to: $BACKEND_URL"
-    id: 'update-frontend-config'
-    waitFor: ['deploy-backend']
-
   # Build React app
   - name: 'node:18'
     entrypoint: 'bash'
@@ -45,10 +31,12 @@ steps:
       - |
         echo "🏗️ Building React app..."
         cd frontend
-        npm run build
+        BACKEND_URL="https://$(gcloud app describe --format='value(defaultHostname)')"
+        echo "🔧 Using backend URL: $BACKEND_URL"
+        REACT_APP_API_BASE_URL="$BACKEND_URL" npm run build
         echo "✅ React app built successfully"
     id: 'build-frontend'
-    waitFor: ['install-frontend-deps', 'update-frontend-config']
+    waitFor: ['install-frontend-deps', 'deploy-backend']
 
   # Deploy frontend
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'

@@ -238,6 +238,29 @@ def scan_ml():
         ml_api_cwd = backend_root / 'ml' / 'api'
         analyzer_script = backend_root / 'ml' / 'lib' / 'analyze.py'
 
+        if not analyzer_script.exists():
+            return jsonify({
+                'status': 'error',
+                'type': vuln_type,
+                'mode': mode,
+                'message': 'ML analyzer is not available in this repository checkout',
+                'details': {
+                    'missing_path': str(analyzer_script),
+                    'hint': 'Add the ML analyzer and model files under backend/ml/ or disable ML in the UI.'
+                }
+            }), 501
+
+        if not ml_api_cwd.exists():
+            return jsonify({
+                'status': 'error',
+                'type': vuln_type,
+                'mode': mode,
+                'message': 'ML working directory is missing',
+                'details': {
+                    'missing_path': str(ml_api_cwd)
+                }
+            }), 501
+
         try:
             completed = subprocess.run(
                 [python_bin, str(analyzer_script), mode, uid, filename],
