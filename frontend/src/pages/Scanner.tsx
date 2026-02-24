@@ -172,6 +172,7 @@ const Scanner: React.FC = () => {
         } else {
           throw new Error('Invalid scanner type');
         }
+
         const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
           method: 'POST',
           headers,
@@ -184,17 +185,18 @@ const Scanner: React.FC = () => {
         }
         results = await response.json();
       } else {
-        // ML analysis
         const mlPayload: any = {
           type: scannerType,
           code: payload.code || payload.url,
           filename: scanInput.filename || (scannerType + '.py')
         };
+
         const response = await fetch(`${config.API_BASE_URL}/api/scan-ml`, {
           method: 'POST',
           headers,
           body: JSON.stringify(mlPayload)
         });
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'ML scan failed');
@@ -270,24 +272,11 @@ const Scanner: React.FC = () => {
     return '';
   };
 
-  const getScannerDescription = () => {
-    if (scannerType === 'sql') {
-      return '';
-    } else if (scannerType === 'xss') {
-      return '';
-    } else if (scannerType === 'command') {
-      return '';
-    } else if (scannerType === 'csrf') {
-      return '';
-    }
-    return '';
-  };
-
   // Show loading state while fetching configuration
   if (isLoadingConfig) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary-600" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Scanner Configuration</h2>
@@ -301,8 +290,8 @@ const Scanner: React.FC = () => {
   // Show message if no scanners are enabled
   if (!scannerConfig || !Object.values(scannerConfig.scanners).some(enabled => enabled === 1)) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen py-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">No Scanners Available</h2>
@@ -322,191 +311,122 @@ const Scanner: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
             {getScannerTitle()}
           </h1>
-          <p className="text-lg text-gray-600">
-            {getScannerDescription()}
-          </p>
         </div>
 
         {/* Scanner Type Selector */}
-        <div className="bg-white rounded-lg shadow-lg mb-6 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {isScannerEnabled(scannerConfig, 'sql') && (
-              <button
-                onClick={() => setScannerType('sql')}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  scannerType === 'sql'
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Bug className={`h-6 w-6 mr-3 ${
-                    scannerType === 'sql' ? 'text-primary-600' : 'text-gray-600'
-                  }`} />
-                  <div className="text-left">
-                    <h4 className={`font-medium ${
-                      scannerType === 'sql' ? 'text-primary-900' : 'text-gray-900'
-                    }`}>
-                      SQL Injection Scanner
-                    </h4>
-                    <p className={`text-sm ${
-                      scannerType === 'sql' ? 'text-primary-600' : 'text-gray-600'
-                    }`}>
-                      Detect database injection vulnerabilities
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )}
+        <div className="bg-white rounded-lg shadow-lg mb-4 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-wrap gap-2 sm:flex-1">
+              {isScannerEnabled(scannerConfig, 'sql') && (
+                <button
+                  onClick={() => setScannerType('sql')}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                    scannerType === 'sql'
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  <Bug className={`h-4 w-4 ${scannerType === 'sql' ? 'text-primary-700' : 'text-gray-600'}`} />
+                  SQL Injection
+                </button>
+              )}
 
-            {isScannerEnabled(scannerConfig, 'xss') && (
-              <button
-                onClick={() => setScannerType('xss')}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  scannerType === 'xss'
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Shield className={`h-6 w-6 mr-3 ${
-                    scannerType === 'xss' ? 'text-primary-600' : 'text-gray-600'
-                  }`} />
-                  <div className="text-left">
-                    <h4 className={`font-medium ${
-                      scannerType === 'xss' ? 'text-primary-900' : 'text-gray-900'
-                    }`}>
-                      XSS Scanner
-                    </h4>
-                    <p className={`text-sm ${
-                      scannerType === 'xss' ? 'text-primary-600' : 'text-gray-600'
-                    }`}>
-                      Detect cross-site scripting vulnerabilities
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )}
+              {isScannerEnabled(scannerConfig, 'xss') && (
+                <button
+                  onClick={() => setScannerType('xss')}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                    scannerType === 'xss'
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  <Shield className={`h-4 w-4 ${scannerType === 'xss' ? 'text-primary-700' : 'text-gray-600'}`} />
+                  XSS
+                </button>
+              )}
 
-            {isScannerEnabled(scannerConfig, 'command') && (
-              <button
-                onClick={() => setScannerType('command')}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  scannerType === 'command'
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center">
-                  <AlertTriangle className={`h-6 w-6 mr-3 ${
-                    scannerType === 'command' ? 'text-primary-600' : 'text-gray-600'
-                  }`} />
-                  <div className="text-left">
-                    <h4 className={`font-medium ${
-                      scannerType === 'command' ? 'text-primary-900' : 'text-gray-900'
-                    }`}>
-                      Command Injection Scanner
-                    </h4>
-                    <p className={`text-sm ${
-                      scannerType === 'command' ? 'text-primary-600' : 'text-gray-600'
-                    }`}>
-                      Detect command injection vulnerabilities
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )}
+              {isScannerEnabled(scannerConfig, 'command') && (
+                <button
+                  onClick={() => setScannerType('command')}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                    scannerType === 'command'
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  <AlertTriangle className={`h-4 w-4 ${scannerType === 'command' ? 'text-primary-700' : 'text-gray-600'}`} />
+                  Command Injection
+                </button>
+              )}
 
-            {isScannerEnabled(scannerConfig, 'csrf') && (
-              <button
-                onClick={() => setScannerType('csrf')}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  scannerType === 'csrf'
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center">
-                  <Shield className={`h-6 w-6 mr-3 ${
-                    scannerType === 'csrf' ? 'text-primary-600' : 'text-gray-600'
-                  }`} />
-                  <div className="text-left">
-                    <h4 className={`font-medium ${
-                      scannerType === 'csrf' ? 'text-primary-900' : 'text-gray-900'
-                    }`}>
-                      CSRF Scanner
-                    </h4>
-                    <p className={`text-sm ${
-                      scannerType === 'csrf' ? 'text-primary-600' : 'text-gray-600'
-                    }`}>
-                      Detect cross-site request forgery vulnerabilities
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )}
-          </div>
+              {isScannerEnabled(scannerConfig, 'csrf') && (
+                <button
+                  onClick={() => setScannerType('csrf')}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                    scannerType === 'csrf'
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  <Shield className={`h-4 w-4 ${scannerType === 'csrf' ? 'text-primary-700' : 'text-gray-600'}`} />
+                  CSRF
+                </button>
+              )}
+            </div>
 
-          {/* Analysis + Scan Controls */}
-          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            {/* Analysis Mode Toggle (left) */}
-            <div>
-              <h4 className="text-md font-medium text-gray-900 mb-2">Analysis Mode</h4>
+            <div className="sm:flex-1 sm:flex sm:justify-center">
               <div className="inline-flex rounded-md shadow-sm" role="group">
                 <button
                   type="button"
                   onClick={() => setAnalysisMode('static')}
-                  className={`px-4 py-2 text-sm font-medium border ${analysisMode === 'static' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                  className={`px-3 py-2 text-sm font-medium border ${analysisMode === 'static' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                 >
-                  Static Analysis
+                  Static
                 </button>
                 <button
                   type="button"
                   onClick={() => setAnalysisMode('ml')}
-                  className={`px-4 py-2 text-sm font-medium border -ml-px ${analysisMode === 'ml' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                  className={`px-3 py-2 text-sm font-medium border -ml-px ${analysisMode === 'ml' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                 >
-                  ML Analysis
+                  ML
                 </button>
               </div>
             </div>
 
-            {/* Start Scanning (right) */}
-            <div className="sm:min-w-[260px]">
+            <div className="sm:flex-1 sm:flex sm:justify-end">
               <button
                 onClick={handleScan}
                 disabled={!canScan()}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
+                className={`whitespace-nowrap inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
                   canScan()
-                    ? 'bg-primary-600 hover:bg-primary-700 text-white'
+                    ? 'bg-primary-600 text-white hover:bg-primary-700'
                     : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                 }`}
               >
                 {isScanning ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Scanning Code...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Scanning...
                   </>
                 ) : (
                   <>
                     {scannerType === 'sql' ? (
-                      <Bug className="h-5 w-5 mr-2" />
+                      <Bug className="h-4 w-4" />
                     ) : scannerType === 'xss' ? (
-                      <Shield className="h-5 w-5 mr-2" />
+                      <Shield className="h-4 w-4" />
                     ) : scannerType === 'command' ? (
-                      <AlertTriangle className="h-5 w-5 mr-2" />
+                      <AlertTriangle className="h-4 w-4" />
                     ) : (
-                      <Shield className="h-5 w-5 mr-2" />
+                      <Shield className="h-4 w-4" />
                     )}
-                    Start {scannerType === 'sql' ? 'SQL Injection' : 
-                      scannerType === 'xss' ? 'XSS' : 
-                      scannerType === 'command' ? 'Command Injection' : 'CSRF'} Scan
+                    Start Scan
                   </>
                 )}
               </button>
@@ -520,7 +440,7 @@ const Scanner: React.FC = () => {
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => handleTabChange('code')}
-              className={`flex-1 py-4 px-6 text-center font-medium transition-colors duration-200 ${
+              className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
                 activeTab === 'code'
                   ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -531,7 +451,7 @@ const Scanner: React.FC = () => {
             </button>
             <button
               onClick={() => handleTabChange('file')}
-              className={`flex-1 py-4 px-6 text-center font-medium transition-colors duration-200 ${
+              className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
                 activeTab === 'file'
                   ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -542,7 +462,7 @@ const Scanner: React.FC = () => {
             </button>
             <button
               onClick={() => handleTabChange('url')}
-              className={`flex-1 py-4 px-6 text-center font-medium transition-colors duration-200 ${
+              className={`flex-1 py-3 px-4 text-center font-medium transition-colors duration-200 ${
                 activeTab === 'url'
                   ? 'bg-primary-50 text-primary-600 border-b-2 border-primary-600'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -554,7 +474,7 @@ const Scanner: React.FC = () => {
           </div>
 
           {/* Tab Content */}
-          <div className="p-6">
+          <div className="p-4">
             {/* URL Tab */}
             {activeTab === 'url' && (
               <div className="space-y-4">
