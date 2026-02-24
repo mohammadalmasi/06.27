@@ -276,7 +276,7 @@ const Scanner: React.FC = () => {
   if (isLoadingConfig) {
     return (
       <div className="min-h-screen py-6">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary-600" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Scanner Configuration</h2>
@@ -291,7 +291,7 @@ const Scanner: React.FC = () => {
   if (!scannerConfig || !Object.values(scannerConfig.scanners).some(enabled => enabled === 1)) {
     return (
       <div className="min-h-screen py-6">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-900 mb-2">No Scanners Available</h2>
@@ -312,7 +312,7 @@ const Scanner: React.FC = () => {
 
   return (
     <div className="min-h-screen py-6">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
         {/* Header */}
         <div className="mb-4 flex items-end justify-between gap-4">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
