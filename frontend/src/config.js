@@ -6,4 +6,6 @@ const fallback = nodeEnv === 'production' ? DEFAULT_PROD_API_BASE_URL : DEFAULT_
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || fallback;
 
-export default { API_BASE_URL };
+const appConfig = { API_BASE_URL };
+
+export default appConfig;

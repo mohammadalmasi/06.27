@@ -180,7 +180,7 @@ const ScanModal: React.FC<ScanModalProps> = ({ isOpen, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">
-            Start SQL Injection Scan
+            Start Scanning
           </h2>
           <button
             onClick={onClose}

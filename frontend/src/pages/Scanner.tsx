@@ -6,7 +6,6 @@ import {
   Link as LinkIcon, 
   Code, 
   AlertTriangle, 
-  CheckCircle, 
   Loader2,
   FileText,
   X,
@@ -260,67 +259,28 @@ const Scanner: React.FC = () => {
 
   const getScannerTitle = () => {
     if (scannerType === 'sql') {
-      return 'SQL Injection Vulnerability Scanner';
+      return '';
     } else if (scannerType === 'xss') {
-      return 'Cross-Site Scripting (XSS) Scanner';
+      return '';
     } else if (scannerType === 'command') {
-      return 'Command Injection Vulnerability Scanner';
+      return '';
     } else if (scannerType === 'csrf') {
-      return 'CSRF (Cross-Site Request Forgery) Scanner';
+      return '';
     }
-    return 'Security Scanner';
+    return '';
   };
 
   const getScannerDescription = () => {
     if (scannerType === 'sql') {
-      return 'Upload your code, paste it directly, or scan GitHub files for SQL injection vulnerabilities';
+      return '';
     } else if (scannerType === 'xss') {
-      return 'Upload your code, paste it directly, or scan GitHub files for XSS vulnerabilities';
+      return '';
     } else if (scannerType === 'command') {
-      return 'Upload your code, paste it directly, or scan GitHub files for command injection vulnerabilities';
+      return '';
     } else if (scannerType === 'csrf') {
-      return 'Upload your code, paste it directly, or scan GitHub files for CSRF vulnerabilities';
+      return '';
     }
-    return 'Upload your code, paste it directly, or scan GitHub files for security vulnerabilities';
-  };
-
-  const getDetectionCapabilities = () => {
-    if (scannerType === 'sql') {
-      return [
-        'String concatenation vulnerabilities',
-        'Dynamic query construction',
-        'Parameterized query validation',
-        'NoSQL injection patterns',
-        'Framework-specific vulnerabilities'
-      ];
-    } else if (scannerType === 'xss') {
-      return [
-        'Reflected XSS vulnerabilities',
-        'Stored XSS patterns',
-        'DOM-based XSS detection',
-        'Template injection risks',
-        'Unsafe HTML rendering'
-      ];
-    } else if (scannerType === 'command') {
-      return [
-        'os.system() vulnerabilities',
-        'subprocess with shell=True',
-        'Command string construction',
-        'eval() and exec() misuse',
-        'Dynamic module imports',
-        'File operation injection'
-      ];
-    } else if (scannerType === 'csrf') {
-      return [
-        'Missing CSRF tokens in forms',
-        'Flask routes without CSRF protection',
-        'Django views with CSRF exemption',
-        'AJAX requests without CSRF headers',
-        'Cookie security misconfigurations',
-        'Form validation bypasses'
-      ];
-    }
-    return [];
+    return '';
   };
 
   // Show loading state while fetching configuration
@@ -350,10 +310,10 @@ const Scanner: React.FC = () => {
               All scanners are currently disabled. Please contact your administrator to enable scanners.
             </p>
             <button
-              onClick={() => navigate('/home')}
+              onClick={() => navigate('/scanner')}
               className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-lg transition-colors"
             >
-              Return to Home
+              Back to Scanner
             </button>
           </div>
         </div>
@@ -376,7 +336,6 @@ const Scanner: React.FC = () => {
 
         {/* Scanner Type Selector */}
         <div className="bg-white rounded-lg shadow-lg mb-6 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Scanner Type</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {isScannerEnabled(scannerConfig, 'sql') && (
               <button
@@ -698,42 +657,6 @@ const Scanner: React.FC = () => {
           </div>
         </div>
 
-        {/* Information Cards */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Supported Languages
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                Python (.py)
-              </li>
-              {scannerType === 'xss' && (
-                <>
-                  {/* <li className="flex items-center">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    JavaScript (.js, .jsx, .ts, .tsx)
-                  </li> */}
-                </>
-              )}
-            </ul>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Detection Capabilities
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-600">
-              {getDetectionCapabilities().map((capability, index) => (
-                <li key={index} className="flex items-center">
-                  <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2" />
-                  {capability}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
       </div>
     </div>
   );

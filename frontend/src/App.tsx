@@ -1,15 +1,13 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 // import { AuthProvider } from './contexts/AuthContext';
 // import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import Home from './pages/Home';
 // import Login from './pages/Login';
 import Scanner from './pages/Scanner';
 import Results from './pages/Results';
-import About from './pages/About';
 import './App.css';
 
 function App() {
@@ -20,10 +18,8 @@ function App() {
         
         <main className="flex-grow">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/home" element={<Home />} />
+            <Route path="/" element={<Navigate to="/scanner" replace />} />
             {/* <Route path="/login" element={<Login />} /> */}
-            <Route path="/about" element={<About />} />
             <Route 
               path="/scanner" 
               element={<Scanner />}
@@ -32,6 +28,7 @@ function App() {
               path="/results" 
               element={<Results />}
             />
+            <Route path="*" element={<Navigate to="/scanner" replace />} />
           </Routes>
         </main>
         

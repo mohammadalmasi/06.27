@@ -17,7 +17,7 @@ const Login: React.FC = () => {
 
   // Get redirect destination from URL params
   const searchParams = new URLSearchParams(location.search);
-  const redirectTo = searchParams.get('redirect') || '/home';
+  const redirectTo = searchParams.get('redirect') || '/scanner';
 
   useEffect(() => {
     // Check if user is already logged in
@@ -181,10 +181,10 @@ const Login: React.FC = () => {
         {/* Footer */}
         <div className="text-center">
           <Link
-            to="/home"
+            to="/scanner"
             className="text-primary-100 hover:text-white transition-colors duration-200 text-sm"
           >
-            ← Back to Home
+            ← Back to Scanner
           </Link>
         </div>
       </div>
