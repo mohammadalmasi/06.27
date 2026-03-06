@@ -1,20 +1,16 @@
 # =============================================================================
 # ML SQL INJECTION SCANNER
 # =============================================================================
-#
 # What this file does (in simple words):
 #
 #   1. Read a Python file.
 #   2. Split the code into small words (tokens), e.g. "def", "query", "=", "+"
-#   3. Turn each token into a list of numbers (vector). If we have Word2Vec we
-#      use it; otherwise we use zeros.
+#   3. Turn each token into a list of numbers (vector). using Word2Vec model
 #   4. Take chunks of 200 tokens, pad them to same length, and send each chunk
 #      to the BiLSTM model. The model answers: "How likely is this chunk
 #      vulnerable?" (a number between 0 and 1).
 #   5. If the number is >= 0.5 we say "potential SQL injection" and report the
 #      line. We then remove duplicates (same line reported more than once).
-#
-# Model file: backend/models/bidirectional_LSTM_model_sql.h5
 # =============================================================================
 
 import os
@@ -287,6 +283,14 @@ class MLSQLInjectionDetector:
                 else:
                     print(f"[ML SQL] Word2Vec: not found (using zero vectors). Put {REQUIRED_WORD2VEC_FILENAME} in backend/models/")
 
+    def scan_source(self, source_code, source_name="<source>"):
+        """
+        Scan a source code string directly. Returns a list of SQLInjectionVulnerability.
+        """
+        self.vulnerabilities = []
+        self._load_model_and_w2v()
+        return self._scan_code(source_code, source_name)
+
     def scan_file(self, filename):
         """
         Scan a Python file. Returns a list of SQLInjectionVulnerability.
@@ -294,16 +298,21 @@ class MLSQLInjectionDetector:
         self.vulnerabilities = []
         self._load_model_and_w2v()
 
-        # Step 1: Read file
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 code = f.read()
         except UnicodeDecodeError:
             with open(filename, "r", encoding="latin-1") as f:
                 code = f.read()
+        return self._scan_code(code, filename)
+
+    def _scan_code(self, code, source_name):
+        """
+        Core scanning logic shared by scan_file and scan_source.
+        """
         lines = code.split("\n")
         if self.verbose:
-            print(f"[ML SQL] Step 1: Read file — {len(lines)} lines")
+            print(f"[ML SQL] Step 1: Read source — {len(lines)} lines")
 
         # Step 2: Tokenize
         tokens = tokenize_code(code)
@@ -360,7 +369,7 @@ class MLSQLInjectionDetector:
                         code_snippet=snippet,
                         remediation="Use parameterized queries and avoid string concatenation for SQL.",
                         confidence=round(prob, 3),
-                        file_path=filename,
+                        file_path=source_name,
                     )
                 )
 
@@ -485,31 +494,28 @@ def _make_summary(vulnerabilities):
         "low": sum(1 for v in vulnerabilities if v.severity == "low"),
     }
 
-
-# =============================================================================
-# Run from command line: python ml_sql_injection_scanner.py [file.py]
-# =============================================================================
 if __name__ == "__main__":
     import sys
     import tempfile
 
-    test_code = """
-def bad():
-    user_id = request.form["user_id"]
-    query = "SELECT * FROM users WHERE id = '" + user_id + "'"
-    cursor.execute(query)
-"""
-    path = sys.argv[1] if len(sys.argv) > 1 else None
-    if path and os.path.isfile(path):
-        detector = MLSQLInjectionDetector()
-        vulns = detector.scan_file(path)
+    mode = sys.argv[1]
+    argument = sys.argv[2]
+
+    detector = MLSQLInjectionDetector()
+
+    if mode == "0":
+        print(f"00000")
+        # mode 0 → scan a .py file
+        vulns = detector.scan_file(argument)
+
+    elif mode == "1":
+        # mode 1 → scan source code string
+        print(f"11111")
+
     else:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-            f.write(test_code)
-            f.flush()
-        detector = MLSQLInjectionDetector()
-        vulns = detector.scan_file(f.name)
-        os.unlink(f.name)
+        print("Unknown mode. Use 0 for file, 1 for source code.")
+        sys.exit(1)
+
     print("Vulnerabilities found:", len(vulns))
     for v in vulns:
         print("  Line", v.line_number, ":", v.description, "| confidence:", v.confidence)
