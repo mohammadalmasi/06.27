@@ -3,6 +3,16 @@ import sys
 from pathlib import Path
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector
 
+def scan_source(source_code: str) -> None:
+    detector = MLSQLInjectionDetector()
+    vulnerabilities = detector.scan_source(source_code)
+
+    print(f"Total vulnerabilities: {len(vulnerabilities)}")
+    for v in vulnerabilities:
+        print(
+            f"[line {v.line_number}] {v.severity} "
+            f"confidence={v.confidence}: {v.description}"
+        )
 
 def scan_file(file_path: str) -> None:
     path = Path(file_path)
@@ -17,39 +27,22 @@ def scan_file(file_path: str) -> None:
             f"confidence={v.confidence}: {v.description}"
         )
 
-
-def scan_source(source_code: str) -> None:
-    detector = MLSQLInjectionDetector()
-    vulnerabilities = detector.scan_source(source_code)
-
-    print(f"Total vulnerabilities: {len(vulnerabilities)}")
-    for v in vulnerabilities:
-        print(
-            f"[line {v.line_number}] {v.severity} "
-            f"confidence={v.confidence}: {v.description}"
-        )
-
-
 if __name__ == "__main__":
-    # Usage:
-    #   python run_ml_sql_scanner.py 0 path/to/file.py     → scan a file
-    #   python run_ml_sql_scanner.py 1 "source code here"  → scan source code string
+    mode = sys.argv[1]
+    argument = sys.argv[2]
 
     if mode == "0":
-        scan_file(argument)
-    elif mode == "1":
         scan_source(argument)
+    elif mode == "1":
+        scan_file(argument)
     else:
         print("Unknown mode. Use 0 for file, 1 for source code.")
         sys.exit(1)
 
-# Run: mode 0 → scan a file
-# cd /Users/mohammadalmasi/thesis/06.27/backend
-# venv/bin/python run_ml_sql_scanner.py 0 test_sql_injection_vulnerabilities.py
 
-# Run: mode 1 → scan source code string
+# Run: mode 0 → scan source code string
 # cd /Users/mohammadalmasi/thesis/06.27/backend
-# venv/bin/python run_ml_sql_scanner.py 1 "
+# venv/bin/python run_ml_sql_scanner.py 0 "
 # ============================================================================
 # SQL INJECTION VULNERABILITIES (HIGH SEVERITY)
 # ============================================================================
@@ -89,3 +82,9 @@ if __name__ == "__main__":
 # def vulnerable_sql_low_2():
 #     table_name = \"user_\" + table_id
 # "
+
+
+
+# Run: mode 1 → scan a file
+# cd /Users/mohammadalmasi/thesis/06.27/backend
+# venv/bin/python run_ml_sql_scanner.py 1 test_sql_injection_vulnerabilities.py

@@ -225,11 +225,6 @@ def token_index_to_line_number(code, token_index):
 # =============================================================================
 
 class MLSQLInjectionDetector:
-    """
-    Scans a Python file for SQL injection using the BiLSTM model.
-    Use: detector = MLSQLInjectionDetector(); detector.scan_file("file.py")
-    """
-
     def __init__(
         self,
         model_path=None,
@@ -284,38 +279,15 @@ class MLSQLInjectionDetector:
                     print(f"[ML SQL] Word2Vec: not found (using zero vectors). Put {REQUIRED_WORD2VEC_FILENAME} in backend/models/")
 
     def scan_source(self, source_code, source_name="<source>"):
-        """
-        Scan a source code string directly. Returns a list of SQLInjectionVulnerability.
-        """
-        self.vulnerabilities = []
-        self._load_model_and_w2v()
-        return self._scan_code(source_code, source_name)
-
-    def scan_file(self, filename):
-        """
-        Scan a Python file. Returns a list of SQLInjectionVulnerability.
-        """
         self.vulnerabilities = []
         self._load_model_and_w2v()
 
-        try:
-            with open(filename, "r", encoding="utf-8") as f:
-                code = f.read()
-        except UnicodeDecodeError:
-            with open(filename, "r", encoding="latin-1") as f:
-                code = f.read()
-        return self._scan_code(code, filename)
-
-    def _scan_code(self, code, source_name):
-        """
-        Core scanning logic shared by scan_file and scan_source.
-        """
-        lines = code.split("\n")
+        lines = source_code.split("\n")
         if self.verbose:
             print(f"[ML SQL] Step 1: Read source — {len(lines)} lines")
 
         # Step 2: Tokenize
-        tokens = tokenize_code(code)
+        tokens = tokenize_code(source_code)
         if not tokens:
             if self.verbose:
                 print("[ML SQL] Step 2: Tokenize — no tokens, skipping")
@@ -351,12 +323,12 @@ class MLSQLInjectionDetector:
             prob = float(pred.ravel()[0])
 
             if self.verbose:
-                line_number = token_index_to_line_number(code, start)
+                line_number = token_index_to_line_number(source_code, start)
                 print(f"[ML SQL]   Window {window_index + 1}/{num_windows}: tokens [{start}:{end}] -> line ~{line_number}, prob={prob:.3f}")
             window_index += 1
 
             if prob >= self.confidence_threshold:
-                line_number = token_index_to_line_number(code, start)
+                line_number = token_index_to_line_number(source_code, start)
                 snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
                 if self.verbose:
                     print(f"[ML SQL]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
@@ -379,6 +351,15 @@ class MLSQLInjectionDetector:
             print(f"[ML SQL] Step 6: Deduplicate — {len(self.vulnerabilities)} raw -> {len(result)} vulnerabilities")
         return result
 
+    def scan_file(self, filename):
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                code = f.read()
+        except UnicodeDecodeError:
+            with open(filename, "r", encoding="latin-1") as f:
+                code = f.read()
+        return self.scan_source(code, source_name=filename)
+
     def _get_line(self, lines, line_number):
         """Get the text of line number (1-based)."""
         if not lines or line_number < 1 or line_number > len(lines):
@@ -397,103 +378,6 @@ class MLSQLInjectionDetector:
         return list(by_line.values())
 
 
-# =============================================================================
-# PART 5: API-style function (scan a string of code, return a dict like the API)
-# =============================================================================
-
-def scan_code_content_for_sql_injection_ml(
-    code_content: str,
-    source_name: str,
-    model_path=None,
-    w2v_path=None,
-    verbose=False,
-    confidence_threshold=0.5,
-) -> dict:
-    """
-    Scan a string of code (e.g. from an API). Returns a dict with
-    'vulnerabilities', 'summary', 'scan_type', etc. Same shape as the
-    rule-based SQL scanner result.
-    """
-    from datetime import datetime
-    import tempfile
-
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False, encoding="utf-8"
-        ) as f:
-            f.write(code_content)
-            temp_path = f.name
-        if verbose:
-            print("[ML SQL] Scanning code content (temp file)...")
-        detector = MLSQLInjectionDetector(
-            model_path=model_path,
-            w2v_path=w2v_path,
-            verbose=verbose,
-            confidence_threshold=confidence_threshold,
-        )
-        vulnerabilities = detector.scan_file(temp_path)
-        os.unlink(temp_path)
-    except Exception as e:
-        return _error_result(source_name, code_content, str(e))
-
-    summary = _make_summary(vulnerabilities)
-    file_name = source_name.split("/")[-1] if "/" in source_name else source_name
-    if source_name.startswith("http") and "/" in source_name:
-        file_name = source_name.split("/")[-1]
-
-    return {
-        "source": source_name,
-        "scan_type": "sql_injection_ml",
-        "summary": summary,
-        "vulnerabilities": [v.to_dict() for v in vulnerabilities],
-        "total_vulnerabilities": len(vulnerabilities),
-        "scan_timestamp": datetime.now().isoformat(),
-        "total_issues": len(vulnerabilities),
-        "high_severity": summary["high_severity"],
-        "medium_severity": summary["medium_severity"],
-        "low_severity": summary["low_severity"],
-        "high_count": summary["high"],
-        "medium_count": summary["medium"],
-        "low_count": summary["low"],
-        "highlighted_code": None,
-        "original_code": code_content,
-        "file_name": file_name,
-    }
-
-
-def _error_result(source_name, code_content, error_message):
-    """Build the same dict shape when an error happens."""
-    return {
-        "error": f"Error during ML SQL injection scan: {error_message}",
-        "source": source_name,
-        "scan_type": "sql_injection_ml",
-        "vulnerabilities": [],
-        "total_vulnerabilities": 0,
-        "total_issues": 0,
-        "high_severity": 0,
-        "medium_severity": 0,
-        "low_severity": 0,
-        "high_count": 0,
-        "medium_count": 0,
-        "low_count": 0,
-        "highlighted_code": None,
-        "original_code": code_content,
-        "file_name": source_name,
-    }
-
-
-def _make_summary(vulnerabilities):
-    """Count high/medium/low severities."""
-    return {
-        "total_vulnerabilities": len(vulnerabilities),
-        "high_severity": sum(1 for v in vulnerabilities if v.severity == "high"),
-        "medium_severity": sum(1 for v in vulnerabilities if v.severity == "medium"),
-        "low_severity": sum(1 for v in vulnerabilities if v.severity == "low"),
-        "high": sum(1 for v in vulnerabilities if v.severity == "high"),
-        "medium": sum(1 for v in vulnerabilities if v.severity == "medium"),
-        "low": sum(1 for v in vulnerabilities if v.severity == "low"),
-    }
-
 if __name__ == "__main__":
     import sys
     import tempfile
@@ -504,13 +388,10 @@ if __name__ == "__main__":
     detector = MLSQLInjectionDetector()
 
     if mode == "0":
-        print(f"00000")
-        # mode 0 → scan a .py file
-        vulns = detector.scan_file(argument)
+        vulns = detector.scan_source(argument)
 
     elif mode == "1":
-        # mode 1 → scan source code string
-        print(f"11111")
+        vulns = detector.scan_file(argument)
 
     else:
         print("Unknown mode. Use 0 for file, 1 for source code.")
