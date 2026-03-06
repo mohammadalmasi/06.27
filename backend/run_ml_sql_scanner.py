@@ -42,47 +42,7 @@ if __name__ == "__main__":
 
 # Run: mode 0 → scan source code string
 # cd /Users/mohammadalmasi/thesis/06.27/backend
-# venv/bin/python run_ml_sql_scanner.py 0 "
-# ============================================================================
-# SQL INJECTION VULNERABILITIES (HIGH SEVERITY)
-# ============================================================================
-#
-# def vulnerable_sql_high_1():
-#     user_id = request.form[\"user_id\"]
-#     query = \"SELECT * FROM users WHERE id = '\" + user_id + \"'\"
-#     cursor.execute(query)
-#
-# def vulnerable_sql_high_2():
-#     name = request.args.get(\"name\")
-#     query = f\"SELECT * FROM users WHERE name = '{name}'\"
-#     cursor.execute(query)
-#
-# ============================================================================
-# SQL INJECTION VULNERABILITIES (MEDIUM SEVERITY)
-# ============================================================================
-#
-# def vulnerable_sql_medium_1():
-#     sort_column = request.args.get(\"sort\", \"name\")
-#     query = \"ORDER BY \" + sort_column
-#
-# def vulnerable_sql_medium_2():
-#     limit_value = request.form.get(\"limit\", \"10\")
-#     query = \"LIMIT \" + limit_value
-#
-# def vulnerable_sql_medium_3():
-#     comment_input = admin_user + \"' --\"
-#
-# ============================================================================
-# SQL INJECTION VULNERABILITIES (LOW SEVERITY)
-# ============================================================================
-#
-# def vulnerable_sql_low_1():
-#     prefix_name = user_prefix + suffix
-#
-# def vulnerable_sql_low_2():
-#     table_name = \"user_\" + table_id
-# "
-
+# venv/bin/python run_ml_sql_scanner.py 0 "$(cat test_sql_injection_vulnerabilities.py)"
 
 
 # Run: mode 1 → scan a file
