@@ -320,9 +320,9 @@ const Results: React.FC = () => {
               <div className="flex items-center">
                 <Code className="h-8 w-8 text-primary-600 mr-3" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Visualization</p>
+                  <p className="text-sm font-medium text-gray-600">Findings</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {results.image_url ? 'Generated' : 'Not Available'}
+                    {typeof results.total_issues === 'number' ? results.total_issues : (results.vulnerabilities?.length ?? 0)}
                   </p>
                 </div>
               </div>

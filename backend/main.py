@@ -18,11 +18,13 @@ from scanners.xss.xss_scanner import (
     api_generate_xss_report
 )
 
-# Import SQL injection scanner functions  
+# Import SQL injection scanner functions
 from scanners.sql_injection.sql_injection_scanner import (
     api_scan_sql_injection,
-    api_generate_sql_injection_report
+    api_generate_sql_injection_report,
+    highlight_sql_injection_vulnerabilities,
 )
+from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector
 
 # Import Command injection scanner functions
 from scanners.command_injection.command_injection_scanner import (
@@ -213,7 +215,41 @@ def scan_ml():
             return jsonify({'error': f'Unsupported type: {vuln_type}'}), 400
         mode = mode_map[vuln_type]
 
-        # Prepare upload folder and file
+        # SQL: use integrated ML SQL scanner (BiLSTM), return vulnerabilities + highlighted code
+        if vuln_type == 'sql':
+            try:
+                detector = MLSQLInjectionDetector()
+                vulns = detector.scan_source(code, source_name=filename)
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'type': vuln_type,
+                    'mode': mode,
+                    'message': f'ML SQL scan failed: {str(e)}',
+                }), 500
+
+            vuln_dicts = [v.to_dict() for v in vulns]
+            high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
+            medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
+            low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
+            highlighted = highlight_sql_injection_vulnerabilities(code, vulns)
+
+            return jsonify({
+                'status': 'completed',
+                'type': vuln_type,
+                'mode': mode,
+                'filename': filename,
+                'file_name': filename,
+                'vulnerabilities': vuln_dicts,
+                'highlighted_code': highlighted,
+                'original_code': code,
+                'total_issues': len(vulns),
+                'high_severity': high,
+                'medium_severity': medium,
+                'low_severity': low,
+            })
+
+        # Non-SQL: use external ML pipeline
         uid = uuid.uuid4().hex
         uploads_dir = Path(__file__).parent / 'ml' / 'api' / 'uploads' / uid
         uploads_dir.mkdir(parents=True, exist_ok=True)
