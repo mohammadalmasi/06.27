@@ -13,12 +13,15 @@
 #      line. We then remove duplicates (same line reported more than once).
 # =============================================================================
 
+import io
 import os
 import re
 import tokenize
-import io
-import numpy as np
 from pathlib import Path
+from urllib.request import urlopen, Request
+from urllib.error import URLError, HTTPError
+
+import numpy as np
 
 # -----------------------------------------------------------------------------
 # PART 1: Load TensorFlow/Keras (needed for the BiLSTM model)
@@ -220,6 +223,23 @@ def token_index_to_line_number(code, token_index):
     return 1
 
 
+def _github_blob_to_raw(url):
+    """
+    Convert GitHub blob URL to raw content URL.
+    e.g. https://github.com/owner/repo/blob/branch/path/file.py
+     -> https://raw.githubusercontent.com/owner/repo/branch/path/file.py
+    """
+    m = re.match(
+        r"https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)",
+        url.strip(),
+        re.IGNORECASE,
+    )
+    if m:
+        owner, repo, branch, path = m.groups()
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+    return url
+
+
 # =============================================================================
 # PART 4: The main detector class
 # =============================================================================
@@ -359,6 +379,17 @@ class MLSQLInjectionDetector:
             with open(filename, "r", encoding="latin-1") as f:
                 code = f.read()
         return self.scan_source(code, source_name=filename)
+
+    def scan_url(self, url, timeout=30):
+        """
+        Fetch source code from a URL and scan it. Supports GitHub blob URLs
+        (converted to raw automatically). Raises URLError/HTTPError on fetch failure.
+        """
+        fetch_url = _github_blob_to_raw(url)
+        req = Request(fetch_url, headers={"User-Agent": "ML-SQL-Scanner/1.0"})
+        with urlopen(req, timeout=timeout) as resp:
+            code = resp.read().decode("utf-8", errors="replace")
+        return self.scan_source(code, source_name=url)
 
     def _get_line(self, lines, line_number):
         """Get the text of line number (1-based)."""
