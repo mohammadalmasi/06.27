@@ -430,5 +430,6 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=debug)
 
 
-# cd /Users/mohammen.almasi/thesis/06.27 && source venv/bin/activate && cd backend && python main.py
-# cd frontend && npm start
+# cd /Users/mohammadalmasi/thesis/06.27/backend && venv/bin/python main.py
+
+# cd /Users/mohammadalmasi/thesis/06.27/frontend && npm start
