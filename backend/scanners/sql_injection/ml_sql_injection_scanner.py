@@ -10,7 +10,7 @@
 #      to the BiLSTM model. The model answers: "How likely is this chunk
 #      vulnerable?" (a number between 0 and 1).
 #   5. If the number is >= 0.5 we say "potential SQL injection" and report the
-#      line. We then remove duplicates (same line reported more than once).
+#      line.
 # =============================================================================
 
 import io
@@ -365,11 +365,9 @@ class MLSQLInjectionDetector:
                     )
                 )
 
-        # Step 6: One report per line (keep highest confidence)
-        result = self._deduplicate_by_line(self.vulnerabilities)
         if self.verbose:
-            print(f"[ML SQL] Step 6: Deduplicate — {len(self.vulnerabilities)} raw -> {len(result)} vulnerabilities")
-        return result
+            print(f"[ML SQL] Found {len(self.vulnerabilities)} vulnerabilities")
+        return self.vulnerabilities
 
     def scan_file(self, filename):
         try:
@@ -396,17 +394,6 @@ class MLSQLInjectionDetector:
         if not lines or line_number < 1 or line_number > len(lines):
             return ""
         return lines[line_number - 1].strip()
-
-    def _deduplicate_by_line(self, vuln_list):
-        """If same line appears several times, keep only the one with highest confidence."""
-        if not vuln_list:
-            return []
-        by_line = {}
-        for v in vuln_list:
-            ln = v.line_number
-            if ln not in by_line or v.confidence > by_line[ln].confidence:
-                by_line[ln] = v
-        return list(by_line.values())
 
 
 if __name__ == "__main__":
