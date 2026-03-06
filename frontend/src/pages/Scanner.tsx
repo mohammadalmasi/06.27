@@ -152,7 +152,7 @@ const Scanner: React.FC = () => {
 
     setIsScanning(true);
     
-    try {
+      try {
       // Prepare JSON payload for the appropriate API endpoint
       const payload: any = {};
       
@@ -199,9 +199,15 @@ const Scanner: React.FC = () => {
       } else {
         const mlPayload: any = {
           type: scannerType,
-          code: payload.code || payload.url,
           filename: scanInput.filename || (scannerType + '.py')
         };
+
+        if (payload.code) {
+          mlPayload.code = payload.code;
+        }
+        if (payload.url) {
+          mlPayload.url = payload.url;
+        }
 
         const response = await fetch(`${config.API_BASE_URL}/api/scan-ml`, {
           method: 'POST',

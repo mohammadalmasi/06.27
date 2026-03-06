@@ -11,6 +11,7 @@ import zipfile
 import uuid
 import subprocess
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 # Import XSS scanner functions
 from scanners.xss.xss_scanner import (
@@ -24,7 +25,7 @@ from scanners.sql_injection.sql_injection_scanner import (
     api_generate_sql_injection_report,
     highlight_sql_injection_vulnerabilities,
 )
-from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector
+from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector, _github_blob_to_raw
 
 # Import Command injection scanner functions
 from scanners.command_injection.command_injection_scanner import (
@@ -198,11 +199,12 @@ def scan_ml():
     try:
         data = request.get_json(force=True)
         vuln_type = (data.get('type') or '').lower()
-        code = data.get('code', '')
+        code = data.get('code') or ''
+        url = (data.get('url') or '').strip()
         filename = data.get('filename') or 'code.py'
 
-        if not code or not vuln_type:
-            return jsonify({'error': 'type and code are required'}), 400
+        if not vuln_type:
+            return jsonify({'error': 'type is required'}), 400
 
         # Map UI types to model modes
         mode_map = {
@@ -215,11 +217,39 @@ def scan_ml():
             return jsonify({'error': f'Unsupported type: {vuln_type}'}), 400
         mode = mode_map[vuln_type]
 
+        # For non-SQL ML analysis we currently require direct code content.
+        if vuln_type != 'sql' and not code:
+            return jsonify({'error': 'type and code are required'}), 400
+
         # SQL: use integrated ML SQL scanner (BiLSTM), return vulnerabilities + highlighted code
         if vuln_type == 'sql':
             try:
+                if not code and not url:
+                    return jsonify({'error': 'type and either code or url are required'}), 400
+
                 detector = MLSQLInjectionDetector()
-                vulns = detector.scan_source(code, source_name=filename)
+
+                effective_code = code
+                vuln_source_name = filename
+
+                # If no code was provided but a URL was, fetch the source from the URL.
+                if not effective_code and url:
+                    fetch_url = _github_blob_to_raw(url)
+                    try:
+                        req = Request(fetch_url, headers={"User-Agent": "ML-SQL-Scanner/1.0"})
+                        with urlopen(req, timeout=30) as resp:
+                            effective_code = resp.read().decode("utf-8", errors="replace")
+                        vuln_source_name = url
+                    except Exception as e:
+                        return jsonify({
+                            'status': 'error',
+                            'type': vuln_type,
+                            'mode': mode,
+                            'message': f'Failed to fetch source from URL: {str(e)}',
+                        }), 400
+
+                detector = MLSQLInjectionDetector()
+                vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
             except Exception as e:
                 return jsonify({
                     'status': 'error',
@@ -232,7 +262,7 @@ def scan_ml():
             high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
             medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
             low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
-            highlighted = highlight_sql_injection_vulnerabilities(code, vulns)
+            highlighted = highlight_sql_injection_vulnerabilities(effective_code, vulns)
 
             return jsonify({
                 'status': 'completed',
@@ -242,7 +272,7 @@ def scan_ml():
                 'file_name': filename,
                 'vulnerabilities': vuln_dicts,
                 'highlighted_code': highlighted,
-                'original_code': code,
+                'original_code': effective_code,
                 'total_issues': len(vulns),
                 'high_severity': high,
                 'medium_severity': medium,
