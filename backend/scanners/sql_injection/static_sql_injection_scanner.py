@@ -48,177 +48,44 @@ def scan_file(filename):
             code = f.read()
     try:
         tree = ast.parse(code)
-        analyzer = SQLInjectionTaintAnalyzer(filename, code)
+        analyzer = _make_sql_taint_analyzer(filename, code)
         analyzer.analyze(tree)
         return analyzer.vulnerabilities
     except SyntaxError:
         return []
 
-class SQLInjectionTaintAnalyzer:
-    """
-    Taint + sink analysis for SQL injection.
-    Taint sources = untrusted data (input(), request.args, etc.).
-    Sinks = dangerous operations (cursor.execute(query), text(sql), etc.).
-    If tainted data reaches a sink -> potential vulnerability.
-    """
-    # Calls that introduce tainted data (sources)
-    TAINT_SOURCE_ATTRS = frozenset({
-        'args', 'form', 'cookies', 'headers', 'json', 'data', 'values',
-        'get', 'getlist', 'get_json', 'get_data'
-    })
-    TAINT_SOURCE_NAMES = frozenset({'input'})
-    REQUEST_LIKE_NAMES = frozenset({'request', 'req', 'flask_request', 'environ'})
-    # Method names that are SQL sinks (first argument is the query string)
-    SQL_SINK_ATTRS = frozenset({'execute', 'executemany', 'raw'})
-    SQL_SINK_NAMES = frozenset({'text'})
 
-    def __init__(self, filename, source_code):
-        self.filename = filename
-        self.source_code = source_code
-        self.vulnerabilities = []
-        self._assignments = []   # (line, list of target name ids, value node)
-        self._sink_calls = []    # (line, call node, arg index for SQL)
-        self._tainted = set()
+def _sql_vulnerability_factory(*, line, call_node, code_snippet, file_path):
+    method = "execute" if isinstance(call_node.func, ast.Attribute) else "text()"
+    return StaticSqlInjectionScanner(
+        line_number=line,
+        vulnerability_type="sql_injection",
+        description=f"Tainted data (user input) flows to SQL sink ({method}) - SQL injection risk",
+        severity="high",
+        code_snippet=code_snippet,
+        remediation="Use parameterized queries; do not build SQL from user input.",
+        confidence=0.9,
+        file_path=file_path,
+    )
 
-    def analyze(self, tree):
-        self._collect_assignments_and_sinks(tree)
-        self._compute_tainted_fixpoint()
-        self._report_tainted_sinks()
 
-    def _collect_assignments_and_sinks(self, node):
-        """Gather all Assign/AugAssign and sink calls in execution order (DFS)."""
-        if isinstance(node, ast.Assign):
-            targets = []
-            for t in node.targets:
-                if isinstance(t, ast.Name):
-                    targets.append(t.id)
-            if targets:
-                self._assignments.append((getattr(node, 'lineno', 0), targets, node.value))
-        elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
-            # x += expr propagates taint to x
-            self._assignments.append((getattr(node, 'lineno', 0), [node.target.id], node.value))
-        elif isinstance(node, ast.Call):
-            line = getattr(node, 'lineno', 0)
-            if isinstance(node.func, ast.Attribute):
-                attr = getattr(node.func, 'attr', None)
-                if attr in self.SQL_SINK_ATTRS:
-                    if node.args:
-                        self._sink_calls.append((line, node, 0))
-            elif isinstance(node.func, ast.Name) and getattr(node.func, 'id', None) in self.SQL_SINK_NAMES:
-                if node.args:
-                    self._sink_calls.append((line, node, 0))
-        for child in ast.iter_child_nodes(node):
-            self._collect_assignments_and_sinks(child)
+def _make_sql_taint_analyzer(filename, source_code):
+    from scanners.taint_analyzer import TaintAnalyzer
+    return TaintAnalyzer(
+        filename=filename,
+        source_code=source_code,
+        taint_source_attrs={
+            "args", "form", "cookies", "headers", "json", "data", "values",
+            "get", "getlist", "get_json", "get_data",
+        },
+        taint_source_names={"input"},
+        request_like_names={"request", "req", "flask_request", "environ"},
+        sink_attrs={"execute", "executemany", "raw"},
+        sink_names={"text"},
+        vulnerability_factory=_sql_vulnerability_factory,
+        sink_arg_index=0,
+    )
 
-    def _is_taint_source_call(self, node):
-        """True if this Call is a taint source (e.g. input(), request.args.get())."""
-        if not isinstance(node, ast.Call):
-            return False
-        if isinstance(node.func, ast.Name):
-            return getattr(node.func, 'id', None) in self.TAINT_SOURCE_NAMES
-        if isinstance(node.func, ast.Attribute):
-            attr = getattr(node.func, 'attr', None)
-            if attr not in self.TAINT_SOURCE_ATTRS:
-                return False
-            val = node.func.value
-            if isinstance(val, ast.Name):
-                return val.id in self.REQUEST_LIKE_NAMES
-            if isinstance(val, ast.Attribute) and isinstance(getattr(val, 'value', None), ast.Name):
-                return getattr(val.value, 'id', None) in self.REQUEST_LIKE_NAMES
-            if attr in ('get', 'getlist', 'get_json', 'get_data'):
-                return True
-        if isinstance(node.func, ast.Subscript):
-            return self._is_request_like(node.func.value)
-        return False
-
-    def _is_request_like(self, node):
-        """request, request.args, request.form, etc."""
-        if isinstance(node, ast.Name):
-            return node.id in self.REQUEST_LIKE_NAMES
-        if isinstance(node, ast.Attribute):
-            if getattr(node, 'attr', None) in self.TAINT_SOURCE_ATTRS:
-                return self._is_request_like(node.value)
-        return False
-
-    def _expr_tainted(self, node):
-        """True if expression node uses tainted data (names, concat, f-string, source call)."""
-        if node is None:
-            return False
-        if isinstance(node, ast.Name):
-            return getattr(node, 'id', None) in self._tainted
-        if isinstance(node, ast.Call):
-            if self._is_taint_source_call(node):
-                return True
-            for a in node.args:
-                if self._expr_tainted(a):
-                    return True
-            for k in getattr(node, 'keywords', []) or []:
-                if self._expr_tainted(k.value):
-                    return True
-            return False
-        if isinstance(node, ast.BinOp) and isinstance(getattr(node, 'op', None), ast.Add):
-            return self._expr_tainted(node.left) or self._expr_tainted(node.right)
-        if isinstance(node, ast.JoinedStr):
-            for v in node.values:
-                if isinstance(v, ast.FormattedValue) and self._expr_tainted(v.value):
-                    return True
-            return False
-        if isinstance(node, ast.Attribute):
-            return self._expr_tainted(node.value) if hasattr(node, 'value') else False
-        if isinstance(node, ast.Subscript):
-            # request.form['x'], request.args['id'] etc. are taint sources
-            if self._is_request_like(node.value):
-                return True
-            return self._expr_tainted(node.value) or self._expr_tainted(
-                node.slice if isinstance(node.slice, ast.AST) else None
-            )
-        if isinstance(node, (ast.List, ast.Tuple)):
-            for e in (getattr(node, 'elts', []) or []):
-                if self._expr_tainted(e):
-                    return True
-            return False
-        return False
-
-    def _compute_tainted_fixpoint(self):
-        """Compute set of tainted variable names until fixpoint."""
-        changed = True
-        while changed:
-            changed = False
-            for _line, targets, value in self._assignments:
-                if not self._expr_tainted(value):
-                    continue
-                for name in targets:
-                    if name not in self._tainted:
-                        self._tainted.add(name)
-                        changed = True
-
-    def _report_tainted_sinks(self):
-        """Report vulnerability when a sink receives tainted argument."""
-        for line, call_node, arg_idx in self._sink_calls:
-            if arg_idx >= len(call_node.args):
-                continue
-            arg = call_node.args[arg_idx]
-            if not self._expr_tainted(arg):
-                continue
-            snippet = self._get_code_snippet(call_node)
-            method = 'execute' if isinstance(call_node.func, ast.Attribute) else 'text()'
-            vulnerability = StaticSqlInjectionScanner(
-                line_number=line,
-                vulnerability_type='sql_injection',
-                description=f'Tainted data (user input) flows to SQL sink ({method}) - SQL injection risk',
-                severity='high',
-                code_snippet=snippet,
-                remediation='Use parameterized queries; do not build SQL from user input.',
-                confidence=0.9,
-                file_path=self.filename
-            )
-            self.vulnerabilities.append(vulnerability)
-
-    def _get_code_snippet(self, node):
-        try:
-            return ast.unparse(node)
-        except AttributeError:
-            return f'Line {getattr(node, "lineno", "unknown")}'
 
 def highlight_sql_injection_vulnerabilities(code, vulnerabilities=None):
     """Return code as-is; UI should use vulnerabilities[].line_number and .severity to highlight lines."""
