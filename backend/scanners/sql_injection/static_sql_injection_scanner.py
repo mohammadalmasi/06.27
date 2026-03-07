@@ -12,7 +12,7 @@ from datetime import datetime
 import json
 import tempfile
 
-class SQLInjectionVulnerability:
+class StaticSqlInjectionScanner:
     def __init__(self, line_number, vulnerability_type, description, severity, code_snippet, remediation, confidence, file_path=None):
         self.line_number = line_number
         self.vulnerability_type = vulnerability_type
@@ -39,7 +39,7 @@ class SQLInjectionVulnerability:
         }
 
 def scan_file(filename):
-    """Scan a Python file for SQL injection vulnerabilities. Returns list of SQLInjectionVulnerability."""
+    """Scan a Python file for SQL injection vulnerabilities. Returns list of StaticSqlInjectionScanner."""
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             code = f.read()
@@ -202,7 +202,7 @@ class SQLInjectionTaintAnalyzer:
                 continue
             snippet = self._get_code_snippet(call_node)
             method = 'execute' if isinstance(call_node.func, ast.Attribute) else 'text()'
-            vulnerability = SQLInjectionVulnerability(
+            vulnerability = StaticSqlInjectionScanner(
                 line_number=line,
                 vulnerability_type='sql_injection',
                 description=f'Tainted data (user input) flows to SQL sink ({method}) - SQL injection risk',
