@@ -13,6 +13,7 @@
 # =============================================================================
 
 import io
+import json
 import os
 import re
 import tokenize
@@ -238,6 +239,56 @@ def _github_blob_to_raw(url):
     return url
 
 
+def _xss_relevance(line_text):
+    """Score how relevant a source line is to XSS (higher = more likely vulnerable)."""
+    if not line_text:
+        return 0
+    t = line_text.strip()
+    # Ignore docstrings and comments (avoid false positives)
+    if t.startswith('"""') or t.startswith("'''") or t.startswith("#"):
+        return 0
+    # XSS sinks (output to HTML/JS) — strong signals
+    has_sink = (
+        "innerHTML" in t or "document.write" in t or "eval(" in t or "eval " in t
+        or "|safe" in t or "Markup(" in t or ".append(" in t or "insertAdjacentHTML" in t
+        or "URLSearchParams" in t or "window.location" in t
+        or ("f\"" in t or "f'" in t) and "{" in t  # f-string with interpolation (e.g. return f"<h1>{name}</h1>")
+        or "<h1" in t or "<div" in t or "<script" in t.lower() or "{{" in t  # HTML/template
+    )
+    score = 0
+    if "innerHTML" in t or "document.write" in t:
+        score += 3
+    if "eval(" in t or "eval " in t:
+        score += 3
+    if "|safe" in t or "Markup(" in t:
+        score += 2
+    if ".append(" in t or "insertAdjacentHTML" in t:
+        score += 1
+    if "URLSearchParams" in t or "window.location" in t:
+        score += 1
+    # request/form/args only count for XSS when line also has an XSS sink (avoid SQL-only code)
+    if (("request." in t or "request[" in t) and has_sink):
+        score += 2
+    is_likely_code = "=" in t or "return " in t or 'f"' in t or "f'" in t or "(" in t
+    # Weak signals only when sink present (avoid flagging SQL injection test code)
+    if is_likely_code and has_sink and ("user_" in t or "username" in t or "content" in t or "form" in t or "args" in t):
+        score += 1
+    # user_name/username in string concat or f-string (classic XSS) without requiring sink on same line
+    if is_likely_code and ("user_name" in t or "username" in t) and ("+" in t or 'f"' in t or "f'" in t):
+        score += 1
+    return score
+
+
+def _relevant_lines_in_range(lines, line_start, line_end, min_relevance=1):
+    """Return 1-based line numbers in [line_start, line_end] with XSS relevance >= min_relevance."""
+    result = []
+    for i in range(max(0, line_start - 1), min(len(lines), line_end)):
+        if _xss_relevance(lines[i]) >= min_relevance:
+            result.append(i + 1)
+    # No fallback: do not report window start when no relevant line in window
+    return result
+
+
 # =============================================================================
 # PART 4: The main detector class
 # =============================================================================
@@ -316,6 +367,8 @@ class MLXSSDetector:
         num_windows = len(range(0, max(1, len(tokens) - self._window_length + 1), WINDOW_STEP))
         if self.verbose:
             print(f"[ML XSS] Step 3: Processing {num_windows} windows (length={self._window_length}, step={WINDOW_STEP})")
+        # One vulnerability per line (keep highest confidence when multiple windows hit same line)
+        by_line = {}
         window_index = 0
         for start in range(0, max(1, len(tokens) - self._window_length + 1), WINDOW_STEP):
             end = min(start + self._window_length, len(tokens))
@@ -337,7 +390,12 @@ class MLXSSDetector:
 
             # Step 5: Ask the model: is this chunk vulnerable?
             pred = self._model.predict(X, verbose=0)
-            prob = float(pred.ravel()[0])
+            raw = float(pred.ravel()[0])
+            # Model outputs logits (no sigmoid in saved graph). Convert to probability like SQL.
+            prob = float(1.0 / (1.0 + np.exp(-np.clip(raw, -709.0, 709.0))))
+
+            if self.verbose:
+                print(json.dumps({"window_number": window_index + 1, "prop": prob}))
 
             if self.verbose:
                 line_number = token_index_to_line_number(source_code, start)
@@ -345,23 +403,25 @@ class MLXSSDetector:
             window_index += 1
 
             if prob >= self.confidence_threshold:
-                line_number = token_index_to_line_number(source_code, start)
-                snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
-                if self.verbose:
-                    print(f"[ML XSS]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
-                self.vulnerabilities.append(
-                    XSSVulnerability(
-                        line_number=line_number,
-                        vulnerability_type="xss",
-                        description=f"ML BiLSTM: potential XSS (confidence: {prob:.2f})",
-                        severity="high",
-                        code_snippet=snippet,
-                        remediation="Escape user input, use template auto-escaping, and avoid innerHTML/document.write with unsanitized data.",
-                        confidence=round(prob, 3),
-                        file_path=source_name,
-                    )
-                )
+                line_start = token_index_to_line_number(source_code, start)
+                line_end = token_index_to_line_number(source_code, end - 1)
+                for line_number in _relevant_lines_in_range(lines, line_start, line_end):
+                    if line_number not in by_line or round(prob, 3) > by_line[line_number].confidence:
+                        snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
+                        if self.verbose:
+                            print(f"[ML XSS]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
+                        by_line[line_number] = XSSVulnerability(
+                            line_number=line_number,
+                            vulnerability_type="xss",
+                            description=f"ML BiLSTM: potential XSS (confidence: {prob:.2f})",
+                            severity="high",
+                            code_snippet=snippet,
+                            remediation="Escape user input, use template auto-escaping, and avoid innerHTML/document.write with unsanitized data.",
+                            confidence=round(prob, 3),
+                            file_path=source_name,
+                        )
 
+        self.vulnerabilities = [by_line[ln] for ln in sorted(by_line)]
         if self.verbose:
             print(f"[ML XSS] Found {len(self.vulnerabilities)} vulnerabilities")
         return self.vulnerabilities
