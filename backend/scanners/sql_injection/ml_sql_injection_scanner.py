@@ -62,7 +62,7 @@ except ImportError:
     HAS_GENSIM = False
 
 # We use the same "vulnerability" object as the rule-based SQL scanner.
-from scanners.sql_injection.sql_injection_scanner import SQLInjectionVulnerability
+from scanners.sql_injection.static_sql_injection_scanner import StaticSqlInjectionScanner
 
 # Where files live
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
@@ -353,7 +353,7 @@ class MLSQLInjectionDetector:
                 if self.verbose:
                     print(f"[ML SQL]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
                 self.vulnerabilities.append(
-                    SQLInjectionVulnerability(
+                    StaticSqlInjectionScanner(
                         line_number=line_number,
                         vulnerability_type="sql_injection",
                         description=f"ML BiLSTM: potential SQL injection (confidence: {prob:.2f})",

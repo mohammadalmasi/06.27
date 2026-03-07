@@ -22,7 +22,7 @@ from scanners.xss.xss_scanner import (
 from scanners.xss.ml_xss_scanner import MLXSSDetector
 
 # Import SQL injection scanner functions
-from scanners.sql_injection.sql_injection_scanner import (
+from scanners.sql_injection.static_sql_injection_scanner import (
     api_scan_sql_injection,
     api_generate_sql_injection_report,
     highlight_sql_injection_vulnerabilities,
