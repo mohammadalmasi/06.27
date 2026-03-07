@@ -1,8 +1,9 @@
 from flask import request, jsonify, send_file
-import requests
 import re
 import os
 import ast
+import tempfile
+from urllib.request import Request, urlopen
 from docx import Document
 from docx.shared import RGBColor, Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
@@ -10,244 +11,169 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
 from datetime import datetime
 import json
-import tempfile
+
 
 class StaticSqlInjectionScanner:
-    def __init__(self, line_number, vulnerability_type, description, severity, code_snippet, remediation, confidence, file_path=None):
-        self.line_number = line_number
-        self.vulnerability_type = vulnerability_type
-        self.description = description
-        self.severity = severity
-        self.code_snippet = code_snippet
-        self.remediation = remediation
-        self.confidence = confidence
-        self.file_path = file_path or 'unknown'
-        
-    def to_dict(self):
+    """SQL injection detector: taint + sink analysis. All scan and helper methods live here."""
+    def __init__(self):
+        pass
+
+    def _vuln_factory(self, *, line, call_node, code_snippet, file_path):
+        method = "execute" if isinstance(call_node.func, ast.Attribute) else "text()"
         return {
-            'line_number': self.line_number,
-            'vulnerability_type': self.vulnerability_type,
-            'description': self.description,
-            'severity': self.severity,
-            'code_snippet': self.code_snippet,
-            'remediation': self.remediation,
-            'confidence': self.confidence,
-            'file_path': self.file_path,
-            'cwe_references': ["89", "564", "943"],
-            'owasp_references': ["A03:2021-Injection"],
-            'rule_key': 'python:S2077'
+            "line_number": line,
+            "vulnerability_type": "sql_injection",
+            "description": f"Tainted data (user input) flows to SQL sink ({method}) - SQL injection risk",
+            "severity": "high",
+            "code_snippet": code_snippet,
+            "remediation": "Use parameterized queries; do not build SQL from user input.",
+            "confidence": 0.9,
+            "file_path": file_path or "unknown",
+            "cwe_references": ["89", "564", "943"],
+            "owasp_references": ["A03:2021-Injection"],
+            "rule_key": "python:S2077",
         }
 
-def scan_file(filename):
-    """Scan a Python file for SQL injection vulnerabilities. Returns list of StaticSqlInjectionScanner."""
-    try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            code = f.read()
-    except UnicodeDecodeError:
-        with open(filename, 'r', encoding='latin-1') as f:
-            code = f.read()
-    try:
-        tree = ast.parse(code)
-        analyzer = _make_sql_taint_analyzer(filename, code)
-        analyzer.analyze(tree)
-        return analyzer.vulnerabilities
-    except SyntaxError:
-        return []
+    def _make_taint_analyzer(self, filename, source_code):
+        from scanners.taint_analyzer import TaintAnalyzer
+        return TaintAnalyzer(
+            filename=filename,
+            source_code=source_code,
+            taint_source_attrs={
+                "args", "form", "cookies", "headers", "json", "data", "values",
+                "get", "getlist", "get_json", "get_data",
+            },
+            taint_source_names={"input"},
+            request_like_names={"request", "req", "flask_request", "environ"},
+            sink_attrs={"execute", "executemany", "raw"},
+            sink_names={"text"},
+            vulnerability_factory=self._vuln_factory,
+            sink_arg_index=0,
+        )
 
+    def scan_source(self, source_code, source_name="<source>"):
+        """Scan source code string. Returns list of vulnerability dicts."""
+        try:
+            tree = ast.parse(source_code)
+            analyzer = self._make_taint_analyzer(source_name, source_code)
+            analyzer.analyze(tree)
+            return analyzer.vulnerabilities
+        except SyntaxError:
+            return []
 
-def _sql_vulnerability_factory(*, line, call_node, code_snippet, file_path):
-    method = "execute" if isinstance(call_node.func, ast.Attribute) else "text()"
-    return StaticSqlInjectionScanner(
-        line_number=line,
-        vulnerability_type="sql_injection",
-        description=f"Tainted data (user input) flows to SQL sink ({method}) - SQL injection risk",
-        severity="high",
-        code_snippet=code_snippet,
-        remediation="Use parameterized queries; do not build SQL from user input.",
-        confidence=0.9,
-        file_path=file_path,
-    )
+    def scan_file(self, filename):
+        """Scan a Python file. Returns list of vulnerability dicts."""
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                code = f.read()
+        except UnicodeDecodeError:
+            with open(filename, "r", encoding="latin-1") as f:
+                code = f.read()
+        return self.scan_source(code, source_name=filename)
 
+    def scan_url(self, url, timeout=30):
+        """Fetch URL and scan. Supports GitHub blob URLs (converted to raw). Returns list of vulnerability dicts."""
+        fetch_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+        req = Request(fetch_url, headers={"User-Agent": "Static-SQL-Scanner/1.0"})
+        with urlopen(req, timeout=timeout) as resp:
+            code = resp.read().decode("utf-8", errors="replace")
+        return self.scan_source(code, source_name=url)
 
-def _make_sql_taint_analyzer(filename, source_code):
-    from scanners.taint_analyzer import TaintAnalyzer
-    return TaintAnalyzer(
-        filename=filename,
-        source_code=source_code,
-        taint_source_attrs={
-            "args", "form", "cookies", "headers", "json", "data", "values",
-            "get", "getlist", "get_json", "get_data",
-        },
-        taint_source_names={"input"},
-        request_like_names={"request", "req", "flask_request", "environ"},
-        sink_attrs={"execute", "executemany", "raw"},
-        sink_names={"text"},
-        vulnerability_factory=_sql_vulnerability_factory,
-        sink_arg_index=0,
-    )
+    def scan_code_content(self, code_content, source_name):
+        """Scan code and return full API result dict (vulnerabilities, summary, lines_to_highlight, etc.)."""
+        vulnerabilities = self.scan_source(code_content, source_name=source_name)
+        file_name = source_name
+        if "/" in source_name:
+            file_name = source_name.split("/")[-1]
+        elif source_name.startswith("http"):
+            file_name = source_name.split("/")[-1] if "/" in source_name else "scanned_code.py"
+        lines_to_highlight = [{"line_number": v["line_number"], "severity": v["severity"]} for v in vulnerabilities]
+        summary = {
+            "total_vulnerabilities": len(vulnerabilities),
+            "high_severity": sum(1 for v in vulnerabilities if v.get("severity") == "high"),
+            "medium_severity": sum(1 for v in vulnerabilities if v.get("severity") == "medium"),
+            "low_severity": sum(1 for v in vulnerabilities if v.get("severity") == "low"),
+            "high": sum(1 for v in vulnerabilities if v.get("severity") == "high"),
+            "medium": sum(1 for v in vulnerabilities if v.get("severity") == "medium"),
+            "low": sum(1 for v in vulnerabilities if v.get("severity") == "low"),
+        }
+        return {
+            "source": source_name,
+            "scan_type": "sql_injection",
+            "summary": summary,
+            "vulnerabilities": vulnerabilities,
+            "lines_to_highlight": lines_to_highlight,
+            "code": code_content,
+            "original_code": code_content,
+            "highlighted_code": code_content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"),
+            "total_vulnerabilities": len(vulnerabilities),
+            "scan_timestamp": datetime.now().isoformat(),
+            "total_issues": len(vulnerabilities),
+            "high_severity": summary["high_severity"],
+            "medium_severity": summary["medium_severity"],
+            "low_severity": summary["low_severity"],
+            "high_count": summary["high"],
+            "medium_count": summary["medium"],
+            "low_count": summary["low"],
+            "file_name": file_name,
+        }
 
+    def highlight(self, code, vulnerabilities=None):
+        """Return code as-is; UI uses vulnerabilities (list of dicts) to highlight by line."""
+        return code if code else ""
 
-def highlight_sql_injection_vulnerabilities(code, vulnerabilities=None):
-    """Return code as-is; UI should use vulnerabilities[].line_number and .severity to highlight lines."""
-    return code if code else ''
+    @staticmethod
+    @staticmethod
+    def is_github_py_url(url):
+        return "github.com" in url and url.endswith(".py")
+
+    @staticmethod
+    def github_raw_url(url):
+        return url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+
+    def highlight_word(self, code):
+        """Highlight SQL injection patterns for Word documents."""
+        patterns = [
+            r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
+            r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
+            r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*?[\'"])',
+            r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
+            r'(\w+\s*\+\s*[\'"].*(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM|JOIN|UNION).*[\'"])',
+            r'(cursor\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'(\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'(cursor\.execute\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+            r'(\.raw\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'(\.raw\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+            r'(text\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'(text\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+            r'([\'"]WHERE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'([\'"]LIKE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'([\'"]ORDER\s+BY\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'(request\.args\.get\([^)]*\))',
+            r'(request\.form\.get\([^)]*\))',
+            r'(request\.(?:form|args)\[[^]]*\])',
+            r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'\"]\s*\+[^+]*\+[^+]*\+)',
+            r'([\'\"]\s*WHERE[^\'\"]*[\'\"]\s*\+[^+]*\+)',
+            r'([\'\"]\s*FROM[^\'\"]*[\'\"]\s*\+[^+]*\+)',
+            r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+            r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
+            r'(db\.eval\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
+            r'(db\.eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
+            r'(db\.eval\s*\([^)]*(?:request\.|username|user_input|\w+_input))',
+            r'(\.(?:find_one|update|delete|remove|insert)\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
+            r'(\{[^}]*[\'"]:\s*request\.(?:form|args|json)\[[^]]*\][^}]*\})',
+            r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
+        ]
+        highlighted = code
+        for pattern in patterns:
+            highlighted = re.sub(pattern, lambda m: f"[SQL-INJECTION-VULNERABLE:{m.group(0)}]", highlighted, flags=re.IGNORECASE | re.DOTALL)
+        return highlighted
+
 
 def highlight_sql_injection_vulnerabilities_word(code):
-    """Highlight SQL injection vulnerability patterns for Word documents"""
-    patterns = [
-        # Updated patterns to match our fixes
-        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
-        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
-        r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*?[\'"])',
-        r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
-        r'(\w+\s*\+\s*[\'"].*(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM|JOIN|UNION).*[\'"])',
-        r'(cursor\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'(\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'(cursor\.execute\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'(\.raw\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'(\.raw\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'(text\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'(text\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'([\'"]WHERE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'([\'"]LIKE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'([\'"]ORDER\s+BY\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'(request\.args\.get\([^)]*\))',
-        r'(request\.form\.get\([^)]*\))',
-        r'(request\.(?:form|args)\[[^]]*\])',
-        # Multi-line concatenation patterns
-        r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'\"]\s*\+[^+]*\+[^+]*\+)',
-        r'([\'\"]\s*WHERE[^\'\"]*[\'\"]\s*\+[^+]*\+)',
-        r'([\'\"]\s*FROM[^\'\"]*[\'\"]\s*\+[^+]*\+)',
-        # NoSQL injection patterns
-        r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
-        r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
-        r'(db\.eval\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-        r'(db\.eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-        r'(db\.eval\s*\([^)]*(?:request\.|username|user_input|\w+_input))',
-        r'(\.(?:find_one|update|delete|remove|insert)\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
-        r'(\{[^}]*[\'"]:\s*request\.(?:form|args|json)\[[^]]*\][^}]*\})',
-        r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))'
-    ]
-    
-    highlighted = code
-    for pattern in patterns:
-        highlighted = re.sub(pattern, lambda m: f'[SQL-INJECTION-VULNERABLE:{m.group(0)}]', highlighted, flags=re.IGNORECASE | re.DOTALL)
-    
-    return highlighted
+    """Highlight SQL injection patterns for Word documents."""
+    return StaticSqlInjectionScanner().highlight_word(code)
 
-def scan_code_content_for_sql_injection(code_content: str, source_name: str) -> dict:
-    """Scan code content for SQL injection vulnerabilities"""
-    try:
-        # Create temporary file for scanning
-        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
-        temp_file.write(code_content)
-        temp_file.close()
-        
-        vulnerabilities = scan_file(temp_file.name)
-        os.unlink(temp_file.name)
-
-        file_name = source_name
-        if '/' in source_name:
-            file_name = source_name.split('/')[-1]
-        elif source_name.startswith('http'):
-            file_name = source_name.split('/')[-1] if '/' in source_name else 'scanned_code.py'
-
-        lines_to_highlight = [{'line_number': v.line_number, 'severity': v.severity} for v in vulnerabilities]
-
-        # Calculate summary
-        summary = {
-            'total_vulnerabilities': len(vulnerabilities),
-            'high_severity': sum(1 for v in vulnerabilities if v.severity == 'high'),
-            'medium_severity': sum(1 for v in vulnerabilities if v.severity == 'medium'),
-            'low_severity': sum(1 for v in vulnerabilities if v.severity == 'low'),
-            'high': sum(1 for v in vulnerabilities if v.severity == 'high'),
-            'medium': sum(1 for v in vulnerabilities if v.severity == 'medium'),
-            'low': sum(1 for v in vulnerabilities if v.severity == 'low')
-        }
-        
-        results = {
-            'source': source_name,
-            'scan_type': 'sql_injection',
-            'summary': summary,
-            'vulnerabilities': [vuln.to_dict() for vuln in vulnerabilities],
-            'lines_to_highlight': lines_to_highlight,
-            'code': code_content,
-            'original_code': code_content,
-            'highlighted_code': code_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'),
-            'total_vulnerabilities': len(vulnerabilities),
-            'scan_timestamp': datetime.now().isoformat(),
-            'total_issues': len(vulnerabilities),
-            'high_severity': summary['high_severity'],
-            'medium_severity': summary['medium_severity'],
-            'low_severity': summary['low_severity'],
-            'high_count': summary['high'],
-            'medium_count': summary['medium'],
-            'low_count': summary['low'],
-            'file_name': file_name
-        }
-        
-        return results
-        
-    except Exception as e:
-        return {
-            'error': f'Error during SQL injection scan: {str(e)}',
-            'source': source_name,
-            'scan_type': 'sql_injection',
-            'vulnerabilities': [],
-            'lines_to_highlight': [],
-            'code': '',
-            'original_code': '',
-            'highlighted_code': '',
-            'total_vulnerabilities': 0,
-            'total_issues': 0,
-            'high_severity': 0,
-            'medium_severity': 0,
-            'low_severity': 0,
-            'high_count': 0,
-            'medium_count': 0,
-            'low_count': 0,
-            'file_name': source_name
-        }
-
-def is_github_py_url(url):
-    """Check if URL is a GitHub Python file URL"""
-    return 'github.com' in url and url.endswith('.py')
-
-def github_raw_url(url):
-    """Convert GitHub blob URL to raw URL"""
-    return url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
-
-def api_scan_sql_injection(current_user):
-    """API endpoint for SQL injection scanning"""
-    try:
-        data = request.get_json()
-        code_content = data.get('code')
-        url = data.get('url')
-        
-        if code_content:
-            # Scan provided code content
-            results = scan_code_content_for_sql_injection(code_content, 'Direct input')
-            
-        elif url:
-            # Scan URL content
-            if is_github_py_url(url):
-                raw_url = github_raw_url(url)
-                try:
-                    response = requests.get(raw_url, timeout=10)
-                    if response.status_code == 200:
-                        results = scan_code_content_for_sql_injection(response.text, url)
-                    else:
-                        return jsonify({'error': f'Failed to fetch URL: {response.status_code}'}), 400
-                except Exception as e:
-                    return jsonify({'error': f'Error fetching URL: {str(e)}'}), 400
-            else:
-                return jsonify({'error': 'Invalid GitHub Python file URL'}), 400
-        else:
-            return jsonify({'error': 'Invalid scan parameters'}), 400
-        
-        return jsonify(results)
-        
-    except Exception as e:
-        return jsonify({'error': f'Error during SQL injection scan: {str(e)}'}), 500
 
 def api_generate_sql_injection_report(current_user):
     try:
@@ -337,3 +263,25 @@ These vulnerabilities should be addressed immediately to prevent potential attac
         
     except Exception as e:
         return jsonify({'error': f'Error generating SQL injection report: {str(e)}'}), 500
+
+
+if __name__ == "__main__":
+    import sys
+    
+    mode = sys.argv[1]
+    argument = sys.argv[2]
+
+    detector = StaticSqlInjectionScanner()
+
+    if mode == "0":
+        vulns = detector.scan_source(argument)
+    elif mode == "1":
+        vulns = detector.scan_file(argument)
+    elif mode == "2":
+        vulns = detector.scan_url(argument)
+    else:
+        print("Unknown mode. Use 0 for source, 1 for file, 2 for URL.")
+        sys.exit(1)
+    print("Vulnerabilities found:", len(vulns))
+    for v in vulns:
+        print("  Line", v["line_number"], ":", v.get("description", ""))

@@ -23,9 +23,8 @@ from scanners.xss.ml_xss_scanner import MLXSSDetector
 
 # Import SQL injection scanner functions
 from scanners.sql_injection.static_sql_injection_scanner import (
-    api_scan_sql_injection,
+    StaticSqlInjectionScanner,
     api_generate_sql_injection_report,
-    highlight_sql_injection_vulnerabilities,
 )
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector, _github_blob_to_raw
 
@@ -150,7 +149,30 @@ def generate_xss_report():
 # @token_required
 def scan_sql_injection():
     """SQL injection vulnerability scanning endpoint"""
-    return api_scan_sql_injection("anonymous")
+    try:
+        data = request.get_json()
+        code_content = data.get('code')
+        url = data.get('url')
+        scanner = StaticSqlInjectionScanner()
+        if code_content:
+            results = scanner.scan_code_content(code_content, 'Direct input')
+        elif url:
+            if StaticSqlInjectionScanner.is_github_py_url(url):
+                raw_url = StaticSqlInjectionScanner.github_raw_url(url)
+                try:
+                    req = Request(raw_url, headers={"User-Agent": "SQL-Scanner/1.0"})
+                    with urlopen(req, timeout=10) as resp:
+                        text = resp.read().decode("utf-8", errors="replace")
+                    results = scanner.scan_code_content(text, url)
+                except Exception as e:
+                    return jsonify({'error': f'Error fetching URL: {str(e)}'}), 400
+            else:
+                return jsonify({'error': 'Invalid GitHub Python file URL'}), 400
+        else:
+            return jsonify({'error': 'Invalid scan parameters'}), 400
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': f'Error during SQL injection scan: {str(e)}'}), 500
 
 @app.route('/api/generate-sql-injection-report', methods=['POST'])
 # @token_required
@@ -265,11 +287,11 @@ def scan_ml():
                     'message': f'ML SQL scan failed: {str(e)}',
                 }), 500
 
-            vuln_dicts = [v.to_dict() for v in vulns]
-            high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
-            medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
-            low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
-            lines_to_highlight = [{'line_number': v.line_number, 'severity': (v.severity or 'high').lower()} for v in vulns]
+            vuln_dicts = vulns
+            high = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'high')
+            medium = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'medium')
+            low = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'low')
+            lines_to_highlight = [{'line_number': v['line_number'], 'severity': (v.get('severity') or 'high').lower()} for v in vulns]
 
             return jsonify({
                 'status': 'completed',

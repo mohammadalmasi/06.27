@@ -9,8 +9,8 @@ def _print_results(label: str, vulnerabilities: list) -> None:
     print(f"Total vulnerabilities: {len(vulnerabilities)}")
     for v in vulnerabilities:
         print(
-            f"[line {v.line_number}] {v.severity} "
-            f"confidence={v.confidence}: {v.description}"
+            f"[line {v['line_number']}] {v.get('severity', '')} "
+            f"confidence={v.get('confidence')}: {v.get('description', '')}"
         )
 
 

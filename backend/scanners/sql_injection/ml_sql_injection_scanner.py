@@ -61,9 +61,6 @@ try:
 except ImportError:
     HAS_GENSIM = False
 
-# We use the same "vulnerability" object as the rule-based SQL scanner.
-from scanners.sql_injection.static_sql_injection_scanner import StaticSqlInjectionScanner
-
 # Where files live
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 MODEL_DIR = BACKEND_DIR / "models"
@@ -352,18 +349,19 @@ class MLSQLInjectionDetector:
                 snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
                 if self.verbose:
                     print(f"[ML SQL]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
-                self.vulnerabilities.append(
-                    StaticSqlInjectionScanner(
-                        line_number=line_number,
-                        vulnerability_type="sql_injection",
-                        description=f"ML BiLSTM: potential SQL injection (confidence: {prob:.2f})",
-                        severity="high",
-                        code_snippet=snippet,
-                        remediation="Use parameterized queries and avoid string concatenation for SQL.",
-                        confidence=round(prob, 3),
-                        file_path=source_name,
-                    )
-                )
+                self.vulnerabilities.append({
+                    "line_number": line_number,
+                    "vulnerability_type": "sql_injection",
+                    "description": f"ML BiLSTM: potential SQL injection (confidence: {prob:.2f})",
+                    "severity": "high",
+                    "code_snippet": snippet,
+                    "remediation": "Use parameterized queries and avoid string concatenation for SQL.",
+                    "confidence": round(prob, 3),
+                    "file_path": source_name,
+                    "cwe_references": ["89", "564", "943"],
+                    "owasp_references": ["A03:2021-Injection"],
+                    "rule_key": "python:S2077",
+                })
 
         if self.verbose:
             print(f"[ML SQL] Found {len(self.vulnerabilities)} vulnerabilities")
@@ -417,4 +415,4 @@ if __name__ == "__main__":
 
     print("Vulnerabilities found:", len(vulns))
     for v in vulns:
-        print("  Line", v.line_number, ":", v.description, "| confidence:", v.confidence)
+        print("  Line", v["line_number"], ":", v.get("description", ""), "| confidence:", v.get("confidence"))
