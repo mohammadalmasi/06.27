@@ -65,6 +65,8 @@ interface ScanResults {
   file_name?: string;
   highlighted_code?: string;
   original_code?: string;
+  code?: string;
+  lines_to_highlight?: { line_number: number; severity: string }[];
 }
 
 const Results: React.FC = () => {
@@ -290,22 +292,25 @@ const Results: React.FC = () => {
             </button>
           </div>
           
-          <div className="mt-4 text-sm text-gray-600">
-            <p>
-              <strong>Source:</strong> {scanInput?.filename || scanInput?.type || 'N/A'} •
-                                <strong className="ml-2">Scanner Type:</strong> {
-                    results.scannerType === 'xss' ? 'XSS' : 
-                    results.scannerType === 'command' ? 'Command Injection' : 
-                    results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'
-                  } • <strong className="ml-2">Mode:</strong> {results.analysisMode === 'ml' ? 'ML' : 'Static'} •
-              <strong className="ml-2">Scanned:</strong> {new Date().toLocaleString()}
-            </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+              {results.analysisMode === 'ml' ? 'ML Analysis' : 'Static Analysis'}
+            </span>
+            <span><strong>Source:</strong> {scanInput?.filename || scanInput?.type || 'N/A'}</span>
+            <span><strong>Scanner:</strong> {
+              results.scannerType === 'xss' ? 'XSS' :
+              results.scannerType === 'command' ? 'Command Injection' :
+              results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'
+            }</span>
+            <span><strong>Scanned:</strong> {new Date().toLocaleString()}</span>
           </div>
         </div>
 
-        {/* Summary Cards */}
+        {/* Summary Cards — clearly separated by analysis type */}
         {results.analysisMode === 'ml' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">ML Analysis</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 {getScannerIcon()}
@@ -327,9 +332,12 @@ const Results: React.FC = () => {
                 </div>
               </div>
             </div>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Static Analysis</h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 {getScannerIcon()}
@@ -376,6 +384,7 @@ const Results: React.FC = () => {
                   </p>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -442,24 +451,22 @@ const Results: React.FC = () => {
           </div>
         )}
 
-        {/* Highlighted Source Code */}
-        {results.highlighted_code && (
+        {/* Source Code — Static vs ML */}
+        {(results.code || results.original_code || results.highlighted_code) && (
           <div className="bg-white rounded-lg shadow mb-8">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <Code className="h-5 w-5 mr-2" />
-                Source Code Analysis {results.analysisMode === 'ml' ? '(ML)' : ''}
+                Source Code — {results.analysisMode === 'ml' ? 'ML Analysis' : 'Static Analysis'}
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                Vulnerable code sections are highlighted in red.
-                {results.scannerType === 'xss' 
-                  ? ' XSS vulnerabilities are marked for review.'
-                  : results.scannerType === 'command'
-                  ? ' Command injection vulnerabilities are marked for review.'
-                  : results.scannerType === 'csrf'
-                  ? ' CSRF vulnerabilities are marked for review.'
-                  : ' SQL injection vulnerabilities are marked for review.'
+                {results.analysisMode === 'ml'
+                  ? 'Code as analyzed by the ML model.'
+                  : 'Vulnerable lines are highlighted by severity (red = high, orange = medium, green = low).'
                 }
+                {results.scannerType === 'sql' && results.analysisMode !== 'ml' && results.lines_to_highlight?.length
+                  ? ' Tainted data flowing to SQL sinks is marked.'
+                  : ''}
               </p>
             </div>
             <div className="p-6">
@@ -472,9 +479,9 @@ const Results: React.FC = () => {
                       {results.file_name || scanInput?.filename || 'scanned_code.py'}
                     </span>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
-                      {results.scannerType === 'xss' ? 'XSS Analysis' : 
-                       results.scannerType === 'command' ? 'Command Injection Analysis' : 
-                       results.scannerType === 'csrf' ? 'CSRF Analysis' : 'SQL Injection Analysis'}
+                      {results.analysisMode === 'ml' ? 'ML' : 'Static'} — {results.scannerType === 'xss' ? 'XSS' :
+                      results.scannerType === 'command' ? 'Command Injection' :
+                      results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -491,28 +498,57 @@ const Results: React.FC = () => {
                   <div className="flex">
                     {/* Line Numbers */}
                     <div className="bg-gray-800 px-3 py-4 text-right text-gray-400 text-sm font-mono border-r border-gray-700 select-none">
-                      {results.original_code?.split('\n').map((_, index) => (
+                      {(results.code || results.original_code || results.highlighted_code || '').split('\n').map((_, index) => (
                         <div key={index} className="leading-6">
                           {index + 1}
                         </div>
                       ))}
                     </div>
-                    
-                    {/* Code with Highlighting */}
+
+                    {/* Code: UI highlighting when lines_to_highlight present, else raw/HTML */}
                     <div className="flex-1 overflow-x-auto">
-                      <pre 
-                        className="text-sm text-gray-100 font-mono leading-6 code-content p-4"
-                        dangerouslySetInnerHTML={{ __html: results.highlighted_code }}
-                        style={{
-                          whiteSpace: 'pre',
-                          margin: 0,
-                          padding: '1rem',
-                          textAlign: 'left',
-                          fontFamily: '"Fira Code", Monaco, "Cascadia Code", "Roboto Mono", monospace',
-                          tabSize: 2,
-                          overflowWrap: 'normal'
-                        }}
-                      />
+                      {results.lines_to_highlight?.length && (results.code || results.original_code) ? (
+                        <pre
+                          className="text-sm text-gray-100 font-mono leading-6 code-content p-4"
+                          style={{
+                            whiteSpace: 'pre',
+                            margin: 0,
+                            padding: '1rem',
+                            textAlign: 'left',
+                            fontFamily: '"Fira Code", Monaco, "Cascadia Code", "Roboto Mono", monospace',
+                            tabSize: 2,
+                            overflowWrap: 'normal'
+                          }}
+                        >
+                          {(results.code || results.original_code || '').split('\n').map((line, index) => {
+                            const lineNum = index + 1;
+                            const hit = results.lines_to_highlight?.find(h => h.line_number === lineNum);
+                            const severityClass = hit ? `sql-injection-vuln-${(hit.severity || 'high').toLowerCase()}` : '';
+                            return (
+                              <div key={index} className={severityClass ? `leading-6 ${severityClass}` : 'leading-6'}>
+                                {line || '\n'}
+                              </div>
+                            );
+                          })}
+                        </pre>
+                      ) : (
+                        <pre
+                          className="text-sm text-gray-100 font-mono leading-6 code-content p-4"
+                          dangerouslySetInnerHTML={{
+                            __html: results.highlighted_code || (results.code || results.original_code || '')
+                              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                          }}
+                          style={{
+                            whiteSpace: 'pre',
+                            margin: 0,
+                            padding: '1rem',
+                            textAlign: 'left',
+                            fontFamily: '"Fira Code", Monaco, "Cascadia Code", "Roboto Mono", monospace',
+                            tabSize: 2,
+                            overflowWrap: 'normal'
+                          }}
+                        />
+                      )}
                       <style>{`
                         .code-content .vuln {
                           background-color: #dc2626 !important;
@@ -794,9 +830,9 @@ const Results: React.FC = () => {
               )}
             </p>
             <p className="text-sm text-gray-500">
-              {results.highlighted_code
-                ? 'Check the highlighted code (and visualization if available) for detailed results.'
-                : 'Check the visualization above for detailed analysis results.'}
+              {results.analysisMode === 'ml'
+                ? (results.code || results.highlighted_code ? 'Check the source code and visualization above for details.' : 'Check the visualization above for detailed analysis results.')
+                : 'Check the source code and vulnerability list above for details.'}
             </p>
           </div>
         )}

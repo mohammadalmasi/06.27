@@ -269,7 +269,7 @@ def scan_ml():
             high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
             medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
             low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
-            highlighted = highlight_sql_injection_vulnerabilities(effective_code, vulns)
+            lines_to_highlight = [{'line_number': v.line_number, 'severity': (v.severity or 'high').lower()} for v in vulns]
 
             return jsonify({
                 'status': 'completed',
@@ -278,7 +278,9 @@ def scan_ml():
                 'filename': filename,
                 'file_name': filename,
                 'vulnerabilities': vuln_dicts,
-                'highlighted_code': highlighted,
+                'lines_to_highlight': lines_to_highlight,
+                'code': effective_code,
+                'highlighted_code': effective_code,
                 'original_code': effective_code,
                 'total_issues': len(vulns),
                 'high_severity': high,
