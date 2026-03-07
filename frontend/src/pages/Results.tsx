@@ -610,6 +610,43 @@ const Results: React.FC = () => {
                         .code-content .xss-vuln-low:hover {
                           background-color: #059669 !important;
                         }
+                        
+                        /* Command injection vulnerability highlighting */
+                        .code-content .command-vuln-critical,
+                        .code-content .command-vuln-high {
+                          background-color: #dc2626 !important;
+                          color: #ffffff !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .command-vuln-critical:hover,
+                        .code-content .command-vuln-high:hover {
+                          background-color: #b91c1c !important;
+                        }
+                        .code-content .command-vuln-medium {
+                          background-color: #f59e0b !important;
+                          color: #000000 !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .command-vuln-medium:hover {
+                          background-color: #d97706 !important;
+                        }
+                        .code-content .command-vuln-low {
+                          background-color: #10b981 !important;
+                          color: #000000 !important;
+                          padding: 2px 4px;
+                          border-radius: 3px;
+                          font-weight: bold;
+                          cursor: pointer;
+                        }
+                        .code-content .command-vuln-low:hover {
+                          background-color: #059669 !important;
+                        }
                       `}</style>
                     </div>
                   </div>
