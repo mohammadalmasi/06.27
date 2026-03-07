@@ -209,6 +209,46 @@ def _github_blob_to_raw(url):
     return url
 
 
+def _csrf_relevance(line_text):
+    """Score how relevant a source line is to CSRF (higher = more likely vulnerable)."""
+    if not line_text:
+        return 0
+    t = line_text.strip()
+    # Ignore docstrings and comments
+    if t.startswith('"""') or t.startswith("'''") or t.startswith("#"):
+        return 0
+    score = 0
+    # Form / POST handling
+    if "request.method" in t and ("POST" in t or "post" in t):
+        score += 3
+    if "request.form" in t or "request.POST" in t:
+        score += 2
+    if "@app.route" in t or "app.route" in t:
+        if "POST" in t or "post" in t or "methods" in t:
+            score += 3
+        score += 1
+    if "csrf_exempt" in t:
+        score += 3
+    if "<form" in t or "method=" in t or "method =" in t:
+        if "post" in t.lower() or "action=" in t:
+            score += 2
+    if "set_cookie" in t:
+        score += 1
+    if "fetch(" in t or "$.ajax" in t or "axios." in t:
+        if "POST" in t or "post" in t or "method:" in t:
+            score += 2
+    return score
+
+
+def _relevant_lines_in_range(lines, line_start, line_end, min_relevance=1):
+    """Return 1-based line numbers in [line_start, line_end] with CSRF relevance >= min_relevance."""
+    result = []
+    for i in range(max(0, line_start - 1), min(len(lines), line_end)):
+        if _csrf_relevance(lines[i]) >= min_relevance:
+            result.append(i + 1)
+    return result
+
+
 # =============================================================================
 # PART 4: The main detector class
 # =============================================================================
@@ -283,6 +323,7 @@ class MLCSRFDetector:
         num_windows = len(range(0, max(1, len(tokens) - self._window_length + 1), WINDOW_STEP))
         if self.verbose:
             print(f"[ML CSRF] Step 3: Processing {num_windows} windows (length={self._window_length}, step={WINDOW_STEP})")
+        by_line = {}
         window_index = 0
         for start in range(0, max(1, len(tokens) - self._window_length + 1), WINDOW_STEP):
             end = min(start + self._window_length, len(tokens))
@@ -302,7 +343,9 @@ class MLCSRFDetector:
             X = np.asarray(X).astype(np.float32)
 
             pred = self._model.predict(X, verbose=0)
-            prob = float(pred.ravel()[0])
+            raw = float(pred.ravel()[0])
+            # Model may output logits (no sigmoid in saved graph). Convert to probability like XSS/command injection.
+            prob = float(1.0 / (1.0 + np.exp(-np.clip(raw, -709.0, 709.0))))
 
             if self.verbose:
                 line_number = token_index_to_line_number(source_code, start)
@@ -310,22 +353,24 @@ class MLCSRFDetector:
             window_index += 1
 
             if prob >= self.confidence_threshold:
-                line_number = token_index_to_line_number(source_code, start)
-                snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
-                if self.verbose:
-                    print(f"[ML CSRF]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
-                self.vulnerabilities.append(
-                    CSRFVulnerability(
-                        line_number=line_number,
-                        severity="high",
-                        description=f"ML BiLSTM: potential CSRF vulnerability (confidence: {prob:.2f})",
-                        code_snippet=snippet,
-                        confidence=round(prob, 3),
-                        cwe_id="CWE-352",
-                        rule_key="CSRF-GENERIC",
-                    )
-                )
+                line_start_num = token_index_to_line_number(source_code, start)
+                line_end_num = token_index_to_line_number(source_code, end - 1)
+                for line_number in _relevant_lines_in_range(lines, line_start_num, line_end_num):
+                    if line_number not in by_line or round(prob, 3) > by_line[line_number].confidence:
+                        snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
+                        if self.verbose:
+                            print(f"[ML CSRF]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
+                        by_line[line_number] = CSRFVulnerability(
+                            line_number=line_number,
+                            severity="high",
+                            description=f"ML BiLSTM: potential CSRF vulnerability (confidence: {prob:.2f})",
+                            code_snippet=snippet,
+                            confidence=round(prob, 3),
+                            cwe_id="CWE-352",
+                            rule_key="CSRF-GENERIC",
+                        )
 
+        self.vulnerabilities = [by_line[ln] for ln in sorted(by_line)]
         if self.verbose:
             print(f"[ML CSRF] Found {len(self.vulnerabilities)} vulnerabilities")
         return self.vulnerabilities
