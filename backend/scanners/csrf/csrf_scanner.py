@@ -379,6 +379,46 @@ class CSRFScanner:
         return ["OWASP Top 10 2021: A05-2021", "OWASP CSRF Prevention Cheat Sheet"]
 
 
+def _get_remediation_for_vuln(vuln: CSRFVulnerability) -> str:
+    """Get remediation advice for a CSRF vulnerability (module-level for ML scanner)."""
+    if 'Flask route' in vuln.description:
+        return "Add CSRF protection using Flask-WTF: from flask_wtf.csrf import CSRFProtect; csrf = CSRFProtect(app); Add {{ csrf_token() }} to forms"
+    elif 'Django view' in vuln.description:
+        return "Remove @csrf_exempt decorator or implement proper CSRF validation using Django's built-in CSRF middleware"
+    elif 'POST method handling' in vuln.description:
+        return "Add Django CSRF protection: from django.views.decorators.csrf import csrf_protect; @csrf_protect def your_view(request): ..."
+    elif 'HTML form' in vuln.description:
+        return "Add CSRF token to form: <input type='hidden' name='csrf_token' value='{{ csrf_token() }}'>"
+    elif 'AJAX' in vuln.description:
+        return "Add CSRF headers to AJAX requests: headers: {'X-CSRF-Token': $('meta[name=\"csrf-token\"]').attr('content')}"
+    elif 'Fetch API' in vuln.description:
+        return "Add CSRF headers to Fetch requests: headers: {'X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]').content}"
+    elif 'Cookie' in vuln.description:
+        return "Set secure cookie attributes: response.set_cookie('name', 'value', secure=True, samesite='Strict', httponly=True)"
+    elif 'GET method' in vuln.description:
+        return "Use POST method for state-changing operations and implement proper CSRF protection"
+    else:
+        return "Implement proper CSRF protection using framework-specific mechanisms and validate all state-changing requests"
+
+
+def csrf_vulnerability_to_dict(vuln: CSRFVulnerability, file_path: Optional[str] = None) -> Dict[str, Any]:
+    """Convert a CSRFVulnerability to API dict (for ML scanner and consistency)."""
+    return {
+        'line_number': vuln.line_number,
+        'severity': vuln.severity,
+        'description': vuln.description,
+        'code_snippet': vuln.code_snippet,
+        'confidence': vuln.confidence,
+        'cwe_id': vuln.cwe_id,
+        'rule_key': vuln.rule_key,
+        'remediation': _get_remediation_for_vuln(vuln),
+        'cwe_references': ["CWE-352"],
+        'owasp_references': ["OWASP Top 10 2021: A05-2021", "OWASP CSRF Prevention Cheat Sheet"],
+        'file_path': file_path or 'unknown',
+        'vulnerability_type': 'csrf',
+    }
+
+
 class CSRFASTVisitor(ast.NodeVisitor):
     """AST visitor for detecting CSRF vulnerabilities."""
     

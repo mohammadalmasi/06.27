@@ -40,8 +40,11 @@ from scanners.command_injection.ml_command_injection_scanner import MLCommandInj
 # Import CSRF scanner functions
 from scanners.csrf.csrf_scanner import (
     api_scan_csrf,
-    api_generate_csrf_report
+    api_generate_csrf_report,
+    csrf_vulnerability_to_dict,
+    _highlight_csrf_vulnerabilities,
 )
+from scanners.csrf.ml_csrf_scanner import MLCSRFDetector
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
@@ -221,11 +224,9 @@ def scan_ml():
             return jsonify({'error': f'Unsupported type: {vuln_type}'}), 400
         mode = mode_map[vuln_type]
 
-        # For ML analysis: sql, xss, command accept code or URL; csrf requires code only.
-        if vuln_type in ('sql', 'xss', 'command') and not code and not url:
+        # For ML analysis: sql, xss, command, csrf all accept code or URL.
+        if vuln_type in ('sql', 'xss', 'command', 'csrf') and not code and not url:
             return jsonify({'error': 'type and either code or url are required'}), 400
-        if vuln_type == 'csrf' and not code:
-            return jsonify({'error': 'type and code are required'}), 400
 
         # SQL: use integrated ML SQL scanner (BiLSTM), return vulnerabilities + highlighted code
         if vuln_type == 'sql':
@@ -357,6 +358,50 @@ def scan_ml():
             medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
             low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
             highlighted = highlight_command_injection_vulnerabilities_html(effective_code, vulns)
+
+            return jsonify({
+                'status': 'completed',
+                'type': vuln_type,
+                'mode': mode,
+                'filename': filename,
+                'file_name': filename,
+                'vulnerabilities': vuln_dicts,
+                'highlighted_code': highlighted,
+                'original_code': effective_code,
+                'total_issues': len(vulns),
+                'high_severity': high,
+                'medium_severity': medium,
+                'low_severity': low,
+            })
+
+        # CSRF: use integrated ML CSRF scanner (BiLSTM)
+        if vuln_type == 'csrf':
+            try:
+                detector = MLCSRFDetector()
+                effective_code = code
+                vuln_source_name = filename
+
+                if not effective_code and url:
+                    fetch_url = _github_blob_to_raw(url)
+                    req = Request(fetch_url, headers={"User-Agent": "ML-CSRF-Scanner/1.0"})
+                    with urlopen(req, timeout=30) as resp:
+                        effective_code = resp.read().decode("utf-8", errors="replace")
+                    vuln_source_name = url
+
+                vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'type': vuln_type,
+                    'mode': mode,
+                    'message': f'ML CSRF scan failed: {str(e)}',
+                }), 500
+
+            vuln_dicts = [csrf_vulnerability_to_dict(v, vuln_source_name) for v in vulns]
+            high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
+            medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
+            low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
+            highlighted = _highlight_csrf_vulnerabilities(effective_code, vuln_dicts)
 
             return jsonify({
                 'status': 'completed',
