@@ -237,6 +237,49 @@ def _github_blob_to_raw(url):
     return url
 
 
+def _command_injection_relevance(line_text):
+    """Score how relevant a source line is to command/code injection (higher = more likely vulnerable)."""
+    if not line_text:
+        return 0
+    t = line_text.strip()
+    # Ignore docstrings and comments (avoid false positives)
+    if t.startswith('"""') or t.startswith("'''") or t.startswith("#"):
+        return 0
+    # Command/code execution sinks
+    has_sink = (
+        "os.system" in t or "os.popen" in t or "subprocess." in t
+        or "eval(" in t or "exec(" in t or "__import__" in t
+        or "shell=True" in t or "shell = True" in t
+    )
+    score = 0
+    if "os.system" in t or "os.popen" in t:
+        score += 3
+    if "subprocess." in t and ("shell=True" in t or "shell = True" in t):
+        score += 3
+    if "eval(" in t or "exec(" in t:
+        score += 3
+    if "__import__" in t:
+        score += 2
+    if "subprocess." in t:
+        score += 1
+    # request/form/args only count when line also has a command sink (avoid SQL/XSS-only code)
+    is_likely_code = "=" in t or "(" in t
+    if (("request." in t or "request[" in t) and has_sink and is_likely_code):
+        score += 2
+    if is_likely_code and has_sink and ("user_" in t or "filename" in t or "command" in t or "cmd" in t or "dir" in t or "code" in t):
+        score += 1
+    return score
+
+
+def _relevant_lines_in_range(lines, line_start, line_end, min_relevance=1):
+    """Return 1-based line numbers in [line_start, line_end] with command-injection relevance >= min_relevance."""
+    result = []
+    for i in range(max(0, line_start - 1), min(len(lines), line_end)):
+        if _command_injection_relevance(lines[i]) >= min_relevance:
+            result.append(i + 1)
+    return result
+
+
 # =============================================================================
 # PART 4: The main detector class
 # =============================================================================
@@ -311,6 +354,8 @@ class MLCommandInjectionDetector:
         num_windows = len(range(0, max(1, len(tokens) - self._window_length + 1), WINDOW_STEP))
         if self.verbose:
             print(f"[ML Command Injection] Step 3: Processing {num_windows} windows (length={self._window_length}, step={WINDOW_STEP})")
+        # One vulnerability per line (keep highest confidence when multiple windows hit same line)
+        by_line = {}
         window_index = 0
         for start in range(0, max(1, len(tokens) - self._window_length + 1), WINDOW_STEP):
             end = min(start + self._window_length, len(tokens))
@@ -330,7 +375,9 @@ class MLCommandInjectionDetector:
             X = np.asarray(X).astype(np.float32)
 
             pred = self._model.predict(X, verbose=0)
-            prob = float(pred.ravel()[0])
+            raw = float(pred.ravel()[0])
+            # Model outputs logits (no sigmoid in saved graph). Convert to probability like XSS/SQL.
+            prob = float(1.0 / (1.0 + np.exp(-np.clip(raw, -709.0, 709.0))))
 
             if self.verbose:
                 line_number = token_index_to_line_number(source_code, start)
@@ -338,23 +385,25 @@ class MLCommandInjectionDetector:
             window_index += 1
 
             if prob >= self.confidence_threshold:
-                line_number = token_index_to_line_number(source_code, start)
-                snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
-                if self.verbose:
-                    print(f"[ML Command Injection]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
-                self.vulnerabilities.append(
-                    CommandInjectionVulnerability(
-                        line_number=line_number,
-                        vulnerability_type="command_injection",
-                        description=f"ML BiLSTM: potential command injection (confidence: {prob:.2f})",
-                        severity="high",
-                        code_snippet=snippet,
-                        remediation="Use subprocess.run() with shell=False and a list of arguments; avoid os.system() and shell=True with user input.",
-                        confidence=round(prob, 3),
-                        file_path=source_name,
-                    )
-                )
+                line_start = token_index_to_line_number(source_code, start)
+                line_end = token_index_to_line_number(source_code, end - 1)
+                for line_number in _relevant_lines_in_range(lines, line_start, line_end):
+                    if line_number not in by_line or round(prob, 3) > by_line[line_number].confidence:
+                        snippet = self._get_line(lines, line_number) or " ".join(chunk[:30])
+                        if self.verbose:
+                            print(f"[ML Command Injection]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
+                        by_line[line_number] = CommandInjectionVulnerability(
+                            line_number=line_number,
+                            vulnerability_type="command_injection",
+                            description=f"ML BiLSTM: potential command injection (confidence: {prob:.2f})",
+                            severity="high",
+                            code_snippet=snippet,
+                            remediation="Use subprocess.run() with shell=False and a list of arguments; avoid os.system() and shell=True with user input.",
+                            confidence=round(prob, 3),
+                            file_path=source_name,
+                        )
 
+        self.vulnerabilities = [by_line[ln] for ln in sorted(by_line)]
         if self.verbose:
             print(f"[ML Command Injection] Found {len(self.vulnerabilities)} vulnerabilities")
         return self.vulnerabilities
