@@ -41,14 +41,14 @@ def vulnerable_sql_medium_3():
 # ============================================================================
 
 def vulnerable_sql_low_1():
-    """Simple string concatenation - user prefix flows into query"""
+    """LOW SEVERITY: Simple string concatenation - user prefix flows into LIKE pattern"""
     prefix_name = request.form.get("prefix", "") + suffix
     query = "SELECT * FROM users WHERE name LIKE '" + prefix_name + "%'"
     cursor.execute(query)
 
 def vulnerable_sql_low_2():
-    """Basic string building - table name from user flows into query"""
+    """LOW SEVERITY: Basic string building - table name from user (identifier injection)"""
     table_id = request.args.get("table", "users")
     table_name = "user_" + table_id
-    query = "SELECT * FROM " + table_name + " WHERE id = 1"
+    query = "SELECT * FROM " + table_name
     cursor.execute(query)
