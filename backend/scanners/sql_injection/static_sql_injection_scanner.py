@@ -52,17 +52,17 @@ class StaticSqlInjectionScanner:
         )
 
     def scan_source(self, source_code, source_name="<source>"):
-        """Scan source code string. Returns list of vulnerability dicts."""
+        """Scan source code string. Returns dict with 'vulnerabilities' and 'source_name'."""
         try:
             tree = ast.parse(source_code)
             analyzer = self._make_taint_analyzer(source_name, source_code)
             analyzer.analyze(tree)
-            return analyzer.vulnerabilities
+            return {"vulnerabilities": analyzer.vulnerabilities, "source_name": source_name}
         except SyntaxError:
-            return []
+            return {"vulnerabilities": [], "source_name": source_name}
 
     def scan_file(self, filename):
-        """Scan a Python file. Returns list of vulnerability dicts."""
+        """Scan a Python file. Returns dict with 'vulnerabilities' and 'source_name'."""
         try:
             with open(filename, "r", encoding="utf-8") as f:
                 code = f.read()
@@ -72,7 +72,7 @@ class StaticSqlInjectionScanner:
         return self.scan_source(code, source_name=filename)
 
     def scan_url(self, url, timeout=30):
-        """Fetch URL and scan. Supports GitHub blob URLs (converted to raw). Returns list of vulnerability dicts."""
+        """Fetch URL and scan. Supports GitHub blob URLs (converted to raw). Returns dict with 'vulnerabilities' and 'source_name'."""
         fetch_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
         req = Request(fetch_url, headers={"User-Agent": "Static-SQL-Scanner/1.0"})
         with urlopen(req, timeout=timeout) as resp:
@@ -81,7 +81,8 @@ class StaticSqlInjectionScanner:
 
     def scan_code_content(self, code_content, source_name):
         """Scan code and return full API result dict (vulnerabilities, summary, lines_to_highlight, etc.)."""
-        vulnerabilities = self.scan_source(code_content, source_name=source_name)
+        result = self.scan_source(code_content, source_name=source_name)
+        vulnerabilities = result["vulnerabilities"]
         file_name = source_name
         if "/" in source_name:
             file_name = source_name.split("/")[-1]
@@ -117,19 +118,6 @@ class StaticSqlInjectionScanner:
             "low_count": summary["low"],
             "file_name": file_name,
         }
-
-    def highlight(self, code, vulnerabilities=None):
-        """Return code as-is; UI uses vulnerabilities (list of dicts) to highlight by line."""
-        return code if code else ""
-
-    @staticmethod
-    @staticmethod
-    def is_github_py_url(url):
-        return "github.com" in url and url.endswith(".py")
-
-    @staticmethod
-    def github_raw_url(url):
-        return url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
 
     def highlight_word(self, code):
         """Highlight SQL injection patterns for Word documents."""
@@ -274,14 +262,15 @@ if __name__ == "__main__":
     detector = StaticSqlInjectionScanner()
 
     if mode == "0":
-        vulns = detector.scan_source(argument)
+        result = detector.scan_source(argument)
     elif mode == "1":
-        vulns = detector.scan_file(argument)
+        result = detector.scan_file(argument)
     elif mode == "2":
-        vulns = detector.scan_url(argument)
+        result = detector.scan_url(argument)
     else:
         print("Unknown mode. Use 0 for source, 1 for file, 2 for URL.")
         sys.exit(1)
+    vulns = result["vulnerabilities"]
     print("Vulnerabilities found:", len(vulns))
     for v in vulns:
         print("  Line", v["line_number"], ":", v.get("description", ""))

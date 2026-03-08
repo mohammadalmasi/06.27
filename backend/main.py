@@ -157,8 +157,9 @@ def scan_sql_injection():
         if code_content:
             results = scanner.scan_code_content(code_content, 'Direct input')
         elif url:
-            if StaticSqlInjectionScanner.is_github_py_url(url):
-                raw_url = StaticSqlInjectionScanner.github_raw_url(url)
+            # Support GitHub .py URLs: convert blob URL to raw
+            if "github.com" in url and url.endswith(".py"):
+                raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
                 try:
                     req = Request(raw_url, headers={"User-Agent": "SQL-Scanner/1.0"})
                     with urlopen(req, timeout=10) as resp:
