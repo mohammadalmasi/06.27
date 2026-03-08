@@ -6,12 +6,15 @@ import tempfile
 from urllib.request import Request, urlopen
 from docx import Document
 from docx.shared import RGBColor, Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml.shared import OxmlElement, qn
 from datetime import datetime
+import json
+
 
 class StaticXSSScanner:
     """XSS detector: taint + sink analysis + pattern scan. All scan and helper methods live here."""
-
     def __init__(self):
         pass
 
@@ -151,29 +154,32 @@ def highlight_xss_vulnerabilities_word(code):
     """Highlight XSS vulnerability patterns for Word documents."""
     return StaticXSSScanner().highlight_word(code)
 
+
 def api_generate_xss_report(current_user):
-    """API endpoint for generating XSS reports."""
     try:
         data = request.get_json()
-        vulnerabilities = data.get("vulnerabilities", [])
-        source = data.get("source", "Unknown")
+        vulnerabilities = data.get('vulnerabilities', [])
+        source = data.get('source', 'Unknown')
+
         if not vulnerabilities:
-            return jsonify({"error": "No vulnerabilities provided"}), 400
+            return jsonify({'error': 'No vulnerabilities provided'}), 400
+
         doc = Document()
-        title = doc.add_heading("Cross-Site Scripting (XSS) Security Analysis Report", 0)
+        title = doc.add_heading('Cross-Site Scripting (XSS) Security Analysis Report', 0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_heading("Report Information", level=1)
+        doc.add_heading('Report Information', level=1)
         info_table = doc.add_table(rows=4, cols=2)
-        info_table.style = "Table Grid"
-        info_table.cell(0, 0).text = "Source"
+        info_table.style = 'Table Grid'
+
+        info_table.cell(0, 0).text = 'Source'
         info_table.cell(0, 1).text = source
-        info_table.cell(1, 0).text = "Report Generated"
-        info_table.cell(1, 1).text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        info_table.cell(2, 0).text = "Total Vulnerabilities"
+        info_table.cell(1, 0).text = 'Report Generated'
+        info_table.cell(1, 1).text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        info_table.cell(2, 0).text = 'Total Vulnerabilities'
         info_table.cell(2, 1).text = str(len(vulnerabilities))
-        info_table.cell(3, 0).text = "Risk Level"
-        info_table.cell(3, 1).text = "High" if len(vulnerabilities) > 0 else "Low"
-        doc.add_heading("Executive Summary", level=1)
+        info_table.cell(3, 0).text = 'Risk Level'
+        info_table.cell(3, 1).text = 'High' if len(vulnerabilities) > 0 else 'Low'
+        doc.add_heading('Executive Summary', level=1)
         summary_text = f"""
 This report presents the results of a comprehensive Cross-Site Scripting (XSS) vulnerability analysis performed on the provided code.
 The analysis identified {len(vulnerabilities)} potential XSS vulnerabilities that could allow attackers to inject malicious scripts
@@ -183,31 +189,34 @@ XSS vulnerabilities can lead to session hijacking, credential theft, malware dis
 These vulnerabilities should be addressed immediately to prevent potential attacks against users.
         """
         doc.add_paragraph(summary_text.strip())
-        doc.add_heading("Vulnerability Details", level=1)
+        doc.add_heading('Vulnerability Details', level=1)
+
         for i, vuln in enumerate(vulnerabilities, 1):
-            doc.add_heading(f"XSS Vulnerability #{i}", level=2)
+            doc.add_heading(f'XSS Vulnerability #{i}', level=2)
             vuln_table = doc.add_table(rows=5, cols=2)
-            vuln_table.style = "Table Grid"
-            vuln_table.cell(0, 0).text = "Line Number"
-            vuln_table.cell(0, 1).text = str(vuln.get("line_number", "N/A"))
-            vuln_table.cell(1, 0).text = "Severity"
-            vuln_table.cell(1, 1).text = vuln.get("severity", "Medium").title()
-            vuln_table.cell(2, 0).text = "CWE References"
-            vuln_table.cell(2, 1).text = ", ".join(vuln.get("cwe_references", []))
-            vuln_table.cell(3, 0).text = "OWASP References"
-            vuln_table.cell(3, 1).text = ", ".join(vuln.get("owasp_references", []))
-            vuln_table.cell(4, 0).text = "Description"
-            vuln_table.cell(4, 1).text = vuln.get("description", "XSS vulnerability detected")
-            doc.add_paragraph("Vulnerable Code:", style="Heading 3")
+            vuln_table.style = 'Table Grid'
+
+            vuln_table.cell(0, 0).text = 'Line Number'
+            vuln_table.cell(0, 1).text = str(vuln.get('line_number', 'N/A'))
+            vuln_table.cell(1, 0).text = 'Severity'
+            vuln_table.cell(1, 1).text = vuln.get('severity', 'Medium').title()
+            vuln_table.cell(2, 0).text = 'CWE References'
+            vuln_table.cell(2, 1).text = ', '.join(vuln.get('cwe_references', []))
+            vuln_table.cell(3, 0).text = 'OWASP References'
+            vuln_table.cell(3, 1).text = ', '.join(vuln.get('owasp_references', []))
+            vuln_table.cell(4, 0).text = 'Description'
+            vuln_table.cell(4, 1).text = vuln.get('description', 'XSS vulnerability detected')
+            doc.add_paragraph('Vulnerable Code:', style='Heading 3')
             code_para = doc.add_paragraph()
-            code_run = code_para.add_run(vuln.get("code_snippet", ""))
-            code_run.font.name = "Courier New"
+            code_run = code_para.add_run(vuln.get('code_snippet', ''))
+            code_run.font.name = 'Courier New'
             code_run.font.size = Pt(10)
             code_run.font.color.rgb = RGBColor(255, 0, 0)
-            doc.add_paragraph("Remediation:", style="Heading 3")
-            doc.add_paragraph(vuln.get("remediation", "Apply proper input validation and output encoding"))
+            doc.add_paragraph('Remediation:', style='Heading 3')
+            remediation_para = doc.add_paragraph(vuln.get('remediation', 'Apply proper input validation and output encoding'))
             doc.add_paragraph()
-        doc.add_heading("XSS Prevention Recommendations", level=1)
+
+        doc.add_heading('XSS Prevention Recommendations', level=1)
         recommendations = """
 1. Input Validation: Validate all user inputs on both client and server side.
 2. Output Encoding: Encode data before inserting it into HTML, JavaScript, CSS, or URL contexts.
@@ -219,36 +228,35 @@ These vulnerabilities should be addressed immediately to prevent potential attac
 8. Regular Testing: Conduct regular security testing including automated XSS scanning.
         """
         doc.add_paragraph(recommendations.strip())
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
         doc.save(temp_file.name)
         temp_file.close()
+
         return send_file(
             temp_file.name,
             as_attachment=True,
-            download_name=f"xss_security_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
-            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            download_name=f'xss_security_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.docx',
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
+
     except Exception as e:
-        return jsonify({"error": f"Error generating XSS report: {str(e)}"}), 500
+        return jsonify({'error': f'Error generating XSS report: {str(e)}'}), 500
 
 
 if __name__ == "__main__":
     import sys
-  
+
     mode = sys.argv[1]
     argument = sys.argv[2]
-    scanner = StaticXSSScanner()
+
+    detector = StaticXSSScanner()
+
     if mode == "0":
-        if argument == "-":
-            source_code = sys.stdin.read()
-        else:
-            with open(argument, "r", encoding="utf-8") as f:
-                source_code = f.read()
-        result = scanner.scan_source(source_code, argument)
+        result = detector.scan_source(argument)
     elif mode == "1":
-        result = scanner.scan_file(argument)
+        result = detector.scan_file(argument)
     elif mode == "2":
-        result = scanner.scan_url(argument)
+        result = detector.scan_url(argument)
     else:
         print("Unknown mode. Use 0 for source, 1 for file, 2 for URL.")
         sys.exit(1)

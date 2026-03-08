@@ -14,11 +14,11 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 # Import XSS scanner functions
-from scanners.xss.xss_scanner import (
-    api_scan_xss,
+from scanners.xss.static_xss_scanner import (
+    StaticXSSScanner,
     api_generate_xss_report,
-    highlight_xss_vulnerabilities,
 )
+from scanners.xss.xss_scanner import highlight_xss_vulnerabilities
 from scanners.xss.ml_xss_scanner import MLXSSDetector
 
 # Import SQL injection scanner functions
@@ -135,7 +135,34 @@ def ensure_dirs():
 # @token_required
 def scan_xss():
     """XSS vulnerability scanning endpoint"""
-    return api_scan_xss("anonymous")
+    try:
+        data = request.get_json()
+        code_content = data.get('code')
+        url = data.get('url')
+        scanner = StaticXSSScanner()
+        if code_content:
+            results = scanner.scan_code_content(code_content, 'Direct input')
+        elif url:
+            if "github.com" in url and url.endswith(".py"):
+                raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+                try:
+                    req = Request(raw_url, headers={"User-Agent": "XSS-Scanner/1.0"})
+                    with urlopen(req, timeout=10) as resp:
+                        text = resp.read().decode("utf-8", errors="replace")
+                    results = scanner.scan_code_content(text, url)
+                except Exception as e:
+                    return jsonify({'error': f'Error fetching URL: {str(e)}'}), 400
+            else:
+                return jsonify({'error': 'Invalid GitHub Python file URL'}), 400
+        else:
+            return jsonify({'error': 'Invalid scan parameters'}), 400
+        if results.get('vulnerabilities') and results.get('code'):
+            results['highlighted_code'] = highlight_xss_vulnerabilities(
+                results['code'], results['vulnerabilities']
+            )
+        return jsonify(results)
+    except Exception as e:
+        return jsonify({'error': f'Error during XSS scan: {str(e)}'}), 500
 
 @app.route('/api/generate-xss-report', methods=['POST'])
 # @token_required
