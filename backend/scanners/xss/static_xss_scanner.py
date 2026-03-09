@@ -32,15 +32,18 @@ class StaticXSSScanner:
             source_code=source_code,
             taint_source_attrs={
                 "args", "form", "cookies", "headers", "json", "data", "values",
-                "get", "getlist", "get_json", "get_data",
+                "get", "getlist", "get_json", "get_data", "search",
             },
-            taint_source_names={"input"},
-            request_like_names={"request", "req", "flask_request", "environ"},
+            taint_source_names={"input", "URLSearchParams"},
+            request_like_names={"request", "req", "flask_request", "environ", "window", "location"},
             sink_attrs={"send", "write", "send_file"},
             sink_names={"render_template_string", "Markup", "mark_safe", "HttpResponse", "eval"},
             sanitizer_names={"escape", "escape_html", "bleach", "clean"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
+            returns_are_sinks=True,
+            taint_source_vars={"user_name", "username", "user_content", "search_term", "data", "content"},
+            sink_patterns={".innerHTML", ".append(", "|safe"}
         )
 
     def scan_source(self, source_code, source_name="<source>"):

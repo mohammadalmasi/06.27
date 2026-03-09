@@ -25,6 +25,9 @@ class TaintAnalyzer:
         sanitizer_names,
         vulnerability_factory,
         sink_arg_index=0,
+        returns_are_sinks=False,
+        taint_source_vars=None,
+        sink_patterns=None,
     ):
         self.filename = filename
         self.source_code = source_code
@@ -36,6 +39,9 @@ class TaintAnalyzer:
         self.sanitizer_names = frozenset(sanitizer_names) if sanitizer_names else frozenset()
         self.vulnerability_factory = vulnerability_factory
         self.sink_arg_index = sink_arg_index
+        self.returns_are_sinks = returns_are_sinks
+        self.taint_source_vars = frozenset(taint_source_vars) if taint_source_vars else frozenset()
+        self.sink_patterns = frozenset(sink_patterns) if sink_patterns else frozenset()
         self.vulnerabilities = []
         self._assignments = []
         self._sink_calls = []
@@ -72,8 +78,25 @@ class TaintAnalyzer:
                     targets.append(t.id)
             if targets:
                 self._assignments.append((getattr(node, "lineno", 0), targets, node.value, scope_id))
+            
+            if self.sink_patterns:
+                try:
+                    code_str = ast.unparse(node)
+                    if any(p in code_str for p in self.sink_patterns):
+                        self._sink_calls.append((getattr(node, "lineno", 0), node, -1, scope_id))
+                except:
+                    pass
         elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
             self._assignments.append((getattr(node, "lineno", 0), [node.target.id], node.value, scope_id))
+            if self.sink_patterns:
+                try:
+                    code_str = ast.unparse(node)
+                    if any(p in code_str for p in self.sink_patterns):
+                        self._sink_calls.append((getattr(node, "lineno", 0), node, -1, scope_id))
+                except:
+                    pass
+        elif isinstance(node, ast.Return) and self.returns_are_sinks:
+            self._sink_calls.append((getattr(node, "lineno", 0), node, -1, scope_id))
         elif isinstance(node, ast.Call):
             line = getattr(node, "lineno", 0)
             if isinstance(node.func, ast.Attribute):
@@ -118,7 +141,12 @@ class TaintAnalyzer:
     def _expr_tainted(self, node, scope_id):
         if node is None:
             return False
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if self.sink_patterns and any(p in node.value for p in self.sink_patterns):
+                return True
         if isinstance(node, ast.Name):
+            if getattr(node, "id", None) in self.taint_source_vars:
+                return True
             return (getattr(node, "id", None), scope_id) in self._tainted
         if isinstance(node, ast.Call):
             # Check if this function cleans the data
@@ -175,9 +203,17 @@ class TaintAnalyzer:
 
     def _report_tainted_sinks(self):
         for line, call_node, arg_idx, scope_id in self._sink_calls:
-            if arg_idx >= len(call_node.args):
+            if isinstance(call_node, ast.Call):
+                if arg_idx >= len(call_node.args):
+                    continue
+                arg = call_node.args[arg_idx]
+            elif isinstance(call_node, ast.Return):
+                arg = call_node.value
+            elif isinstance(call_node, (ast.Assign, ast.AugAssign)):
+                arg = call_node.value
+            else:
                 continue
-            arg = call_node.args[arg_idx]
+
             if not self._expr_tainted(arg, scope_id):
                 continue
             snippet = self._get_code_snippet(call_node)
