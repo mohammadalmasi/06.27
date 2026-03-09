@@ -125,12 +125,15 @@ const Scanner: React.FC = () => {
       // Prepare JSON payload for the appropriate API endpoint
       const payload: any = {};
       
-      if (scanInput.type === 'url') {
-        payload.url = scanInput.content;
+      if (scanInput.type === 'code') {
+        payload.code = scanInput.content;
+        payload.scanType = 1;
       } else if (scanInput.type === 'file') {
         payload.code = scanInput.content;
-      } else {
-        payload.code = scanInput.content;
+        payload.scanType = 2;
+      } else if (scanInput.type === 'url') {
+        payload.url = scanInput.content;
+        payload.scanType = 3;
       }
 
       // Headers for API requests

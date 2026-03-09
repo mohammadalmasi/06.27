@@ -36,26 +36,77 @@ def scan_sql_injection():
     """SQL injection vulnerability scanning endpoint"""
     try:
         data = request.get_json()
-        code_content = data.get('code')
-        url = data.get('url')
+        code_content = data.get('code', '')
+        url = data.get('url', '')
+        scan_type = data.get('scanType')
+        
         scanner = StaticSqlInjectionScanner()
-        if code_content:
-            results = scanner.scan_code_content(code_content, 'Direct input')
-        elif url:
-            # Support GitHub .py URLs: convert blob URL to raw
-            if "github.com" in url and url.endswith(".py"):
-                raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-                try:
-                    req = Request(raw_url, headers={"User-Agent": "SQL-Scanner/1.0"})
-                    with urlopen(req, timeout=10) as resp:
-                        text = resp.read().decode("utf-8", errors="replace")
-                    results = scanner.scan_code_content(text, url)
-                except Exception as e:
-                    return jsonify({'error': f'Error fetching URL: {str(e)}'}), 400
+        
+        # Determine scan_type if not provided for backward compatibility
+        if not scan_type:
+            if url:
+                scan_type = 3
             else:
-                return jsonify({'error': 'Invalid GitHub Python file URL'}), 400
+                scan_type = 1
+        
+        if scan_type == 1:
+            print(json.dumps({"debug": "calling scan_source for scanType 1"}))
+            raw_results = scanner.scan_source(code_content, source_name='Direct input')
+            effective_code = code_content
+        elif scan_type == 2:
+            print(json.dumps({"debug": "calling scan_file for scanType 2"}))
+            import tempfile
+            import os
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as tmp:
+                tmp.write(code_content)
+                tmp_path = tmp.name
+                
+            try:
+                raw_results = scanner.scan_file(tmp_path)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            effective_code = code_content
+        elif scan_type == 3:
+            print(json.dumps({"debug": "calling scan_url for scanType 3"}))
+            if not url:
+                return jsonify({'error': 'URL is required for GitHub URL scan'}), 400
+            
+            raw_results = scanner.scan_url(url)
+            
+            try:
+                raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+                req = Request(raw_url, headers={"User-Agent": "SQL-Scanner/1.0"})
+                with urlopen(req, timeout=10) as resp:
+                    effective_code = resp.read().decode("utf-8", errors="replace")
+            except Exception:
+                effective_code = "# Could not fetch source code for display"
         else:
-            return jsonify({'error': 'Invalid scan parameters'}), 400
+            return jsonify({'error': 'Invalid scanType'}), 400
+
+        vulns = raw_results.get('vulnerabilities', [])
+        source_name = raw_results.get('source_name', 'unknown')
+        
+        high = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'high')
+        medium = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'medium')
+        low = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'low')
+        lines_to_highlight = [{'line_number': v['line_number'], 'severity': (v.get('severity') or 'high').lower()} for v in vulns]
+        
+        results = {
+            'status': 'completed',
+            'vulnerabilities': vulns,
+            'lines_to_highlight': lines_to_highlight,
+            'code': effective_code,
+            'highlighted_code': effective_code,
+            'original_code': effective_code,
+            'total_issues': len(vulns),
+            'high_severity': high,
+            'medium_severity': medium,
+            'low_severity': low,
+            'source': source_name,
+            'scan_type': 'sql_injection'
+        }
+        
         return jsonify(results)
     except Exception as e:
         return jsonify({'error': f'Error during SQL injection scan: {str(e)}'}), 500
