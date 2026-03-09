@@ -46,6 +46,26 @@ def vulnerable_xss_low_2():
     message_template = "Hello " + username
     return message_template
 
+    def vulnerable_xss_high_4():
+    """Flask render_template_string with user input in template"""
+    from flask import render_template_string
+    user_input = request.args.get("name")
+    # Dangerous: Injecting variable directly into the template string
+    template = f"<h1>Hello {user_input}</h1>"
+    return render_template_string(template)
+
+def vulnerable_xss_high_5():
+    """Django HttpResponse with unescaped input"""
+    from django.http import HttpResponse
+    user_input = request.GET.get("name")
+    return HttpResponse(f"<div>{user_input}</div>")
+
+def vulnerable_xss_medium_5():
+    """document.write() usage"""
+    user_payload = request.form.get("payload")
+    script = f"document.write('{user_payload}');"
+    return script
+
 # ============================================================================
 # XSS SAFE CODE
 # ============================================================================
@@ -84,4 +104,34 @@ def safe_xss_5():
     # Bleach sanitizes the input by removing/escaping dangerous tags
     clean_html = bleach.clean(user_input)
     return f"<div>{clean_html}</div>"
+
+def safe_xss_6():
+    """Flask render_template_string safe context passing"""
+    from flask import render_template_string
+    user_input = request.args.get("name")
+    # Safe: Template string is static, user data is passed as context variable
+    template = "<h1>Hello {{ name }}</h1>"
+    return render_template_string(template, name=user_input)
+
+def safe_xss_7():
+    """Django HttpResponse with html.escape"""
+    from django.http import HttpResponse
+    import html
+    user_input = request.GET.get("name")
+    # Safe: using Python's built-in html.escape
+    safe_input = html.escape(user_input)
+    return HttpResponse(f"<div>{safe_input}</div>")
+
+def safe_xss_8():
+    """Safe DOM manipulation with document.createElement"""
+    import json
+    content = request.form.get("content")
+    safe_js_string = json.dumps(content)
+    # Safe: Using textContent on a newly created element
+    script = f"""
+    var div = document.createElement('div');
+    div.textContent = {safe_js_string};
+    document.body.appendChild(div);
+    """
+    return script
 
