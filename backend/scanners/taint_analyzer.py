@@ -134,7 +134,7 @@ class TaintAnalyzer:
                 if self._expr_tainted(k.value, scope_id):
                     return True
             return False
-        if isinstance(node, ast.BinOp) and isinstance(getattr(node, "op", None), ast.Add):
+        if isinstance(node, ast.BinOp) and isinstance(getattr(node, "op", None), (ast.Add, ast.Mod)):
             return self._expr_tainted(node.left, scope_id) or self._expr_tainted(node.right, scope_id)
         if isinstance(node, ast.JoinedStr):
             for v in node.values:
