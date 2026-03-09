@@ -351,16 +351,9 @@ class MLSQLInjectionDetector:
                     print(f"[ML SQL]   -> VULNERABILITY at line {line_number} (confidence={prob:.2f})")
                 self.vulnerabilities.append({
                     "line_number": line_number,
-                    "vulnerability_type": "sql_injection",
-                    "description": f"ML BiLSTM: potential SQL injection (confidence: {prob:.2f})",
                     "severity": "high",
                     "code_snippet": snippet,
-                    "remediation": "Use parameterized queries and avoid string concatenation for SQL.",
                     "confidence": round(prob, 3),
-                    "file_path": source_name,
-                    "cwe_references": ["89", "564", "943"],
-                    "owasp_references": ["A03:2021-Injection"],
-                    "rule_key": "python:S2077",
                 })
 
         if self.verbose:

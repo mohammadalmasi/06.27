@@ -13,18 +13,11 @@ import {
 } from 'lucide-react';
 
 interface Vulnerability {
-  file_path: string;
   line_number: number;
-  vulnerability_type: string;
-  description: string;
   severity: string;
   code_snippet: string;
-  remediation: string;
   confidence: number;
-  rule_key?: string;
-  cwe_references?: string[];
-  owasp_references?: string[];
-  sq_category?: string;
+  description?: string; // Optional since we removed it but the UI defaults to something if missing
 }
 
 interface ScanResults {
@@ -661,32 +654,6 @@ const Results: React.FC = () => {
                           
                           {/* Vulnerability Details */}
                           <div className="space-y-3">
-                            
-                            {vulnerability.cwe_references && vulnerability.cwe_references.length > 0 && (
-                              <div>
-                                <h4 className="font-medium text-gray-900 mb-2">CWE References:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {vulnerability.cwe_references.map((cwe, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                      CWE-{cwe}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {vulnerability.owasp_references && vulnerability.owasp_references.length > 0 && (
-                              <div>
-                                <h4 className="font-medium text-gray-900 mb-2">OWASP References:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {vulnerability.owasp_references.map((owasp, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                                      {owasp}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>

@@ -18,19 +18,11 @@ class StaticSqlInjectionScanner:
         pass
 
     def _vuln_factory(self, *, line, call_node, code_snippet, file_path):
-        method = "execute" if isinstance(call_node.func, ast.Attribute) else "text()"
         return {
             "line_number": line,
-            "vulnerability_type": "sql_injection",
-            "description": f"Tainted data (user input) flows to SQL sink ({method}) - SQL injection risk",
             "severity": "high",
             "code_snippet": code_snippet,
-            "remediation": "Use parameterized queries; do not build SQL from user input.",
             "confidence": 0.9,
-            "file_path": file_path or "unknown",
-            "cwe_references": ["89", "564", "943"],
-            "owasp_references": ["A03:2021-Injection"],
-            "rule_key": "python:S2077",
         }
 
     def _make_taint_analyzer(self, filename, source_code):
@@ -98,4 +90,4 @@ if __name__ == "__main__":
     vulns = result["vulnerabilities"]
     print("Vulnerabilities found:", len(vulns))
     for v in vulns:
-        print("  Line", v["line_number"], ":", v.get("description", ""))
+        print("  Line", v["line_number"], ":", v.get("code_snippet", ""))
