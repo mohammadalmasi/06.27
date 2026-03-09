@@ -1,9 +1,5 @@
-
-# ============================================================================
-# CSRF VULNERABILITIES (HIGH SEVERITY)
-# ============================================================================
-
-def vulnerable_csrf_high_1():
+# CSRF VULNERABLE CODE
+def vulnerable_code1():
     """Missing CSRF protection on state-changing endpoint"""
     from django.views.decorators.csrf import csrf_exempt
     from django.http import HttpResponse
@@ -17,7 +13,7 @@ def vulnerable_csrf_high_1():
             request.user.save()
             return HttpResponse("Password updated")
 
-def vulnerable_csrf_high_2():
+def vulnerable_code2():
     """State change via GET request"""
     from flask import request
     
@@ -31,11 +27,7 @@ def vulnerable_csrf_high_2():
         user.save()
         return "Funds transferred"
 
-# ============================================================================
-# CSRF VULNERABILITIES (MEDIUM SEVERITY)
-# ============================================================================
-
-def vulnerable_csrf_medium_1():
+def vulnerable_code3():
     """Custom CSRF exemption mechanisms"""
     
     # Vulnerable: Custom decorator or mechanism that bypasses standard CSRF
@@ -46,11 +38,7 @@ def vulnerable_csrf_medium_1():
         request.user.save()
         return "Email changed"
 
-# ============================================================================
-# CSRF VULNERABILITIES (LOW SEVERITY)
-# ============================================================================
-
-def safe_csrf_1():
+def vulnerable_code4():
     """Safe state change with proper method and default CSRF"""
     
     # Safe: Standard POST endpoint in a framework with default CSRF middleware enabled
