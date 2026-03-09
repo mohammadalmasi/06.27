@@ -46,7 +46,7 @@ def vulnerable_xss_low_2():
     message_template = "Hello " + username
     return message_template
 
-    def vulnerable_xss_high_4():
+def vulnerable_xss_high_4():
     """Flask render_template_string with user input in template"""
     from flask import render_template_string
     user_input = request.args.get("name")
