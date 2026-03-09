@@ -1,16 +1,16 @@
-from flask import request, jsonify, send_file
 import re
 import os
 import ast
-import tempfile
-from urllib.request import Request, urlopen
-from docx import Document
-from docx.shared import RGBColor, Inches, Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml.shared import OxmlElement, qn
-from datetime import datetime
 import json
+import tempfile
+from docx import Document
+from datetime import datetime
+from urllib.request import Request, urlopen
+from docx.shared import RGBColor, Inches, Pt
+from docx.oxml.shared import OxmlElement, qn
+from flask import request, jsonify, send_file
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 
 class StaticSqlInjectionScanner:
     """SQL injection detector: taint + sink analysis. All scan and helper methods live here."""
@@ -69,25 +69,3 @@ class StaticSqlInjectionScanner:
         with urlopen(req, timeout=timeout) as resp:
             code = resp.read().decode("utf-8", errors="replace")
         return self.scan_source(code, source_name=url)
-
-if __name__ == "__main__":
-    import sys
-    
-    mode = sys.argv[1]
-    argument = sys.argv[2]
-
-    detector = StaticSqlInjectionScanner()
-
-    if mode == "0":
-        result = detector.scan_source(argument)
-    elif mode == "1":
-        result = detector.scan_file(argument)
-    elif mode == "2":
-        result = detector.scan_url(argument)
-    else:
-        print("Unknown mode. Use 0 for source, 1 for file, 2 for URL.")
-        sys.exit(1)
-    vulns = result["vulnerabilities"]
-    print("Vulnerabilities found:", len(vulns))
-    for v in vulns:
-        print("  Line", v["line_number"], ":", v.get("code_snippet", ""))

@@ -8,7 +8,6 @@ def run_ml_sql_scanner(file_path: str) -> None:
     detector = MLSQLInjectionDetector()
     vulnerabilities = detector.scan_file(str(path))
 
-    print(f"File: {path}")
     print(f"Total vulnerabilities: {len(vulnerabilities)}")
     for v in vulnerabilities:
         print(
