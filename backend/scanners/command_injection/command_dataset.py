@@ -125,3 +125,34 @@ def vulnerable_code13():
     arg = request.args.get("arg", "-l")
     # Vulnerable: attacker can control which binary runs / arguments
     subprocess.run([cmd, arg], check=True)
+
+
+# =============================================================================
+# COMMAND INJECTION SAFE CODE
+# =============================================================================
+
+def safe_code1():
+    """Safe: constant argv list, no shell, no user input"""
+    import subprocess
+    
+    subprocess.run(["ls", "-l", "/tmp"], check=True)
+
+
+def safe_code2():
+    """Safe: sanitize user input before shell execution (shlex.quote)"""
+    import os
+    import shlex
+    from flask import request
+    
+    filename = request.args.get("file", "test.txt")
+    safe_filename = shlex.quote(filename)
+    os.system(f"cat {safe_filename}")
+
+
+def safe_code3():
+    """Safe: execute a fixed binary; user input not used in command"""
+    import subprocess
+    from flask import request
+    
+    _ignored = request.args.get("anything")
+    subprocess.run(["echo", "hello"], check=True)
