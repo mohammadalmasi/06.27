@@ -41,7 +41,6 @@ def get_scanner_config():
     except Exception as e:
         return jsonify({'error': f'Failed to load configuration: {str(e)}'}), 500
 
-
 @app.route('/api/scan-sql-injection', methods=['POST'])
 def scan_sql_injection():
     """SQL injection vulnerability scanning endpoint"""
