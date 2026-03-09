@@ -1,8 +1,6 @@
 
-# ============================================================================
-# XSS VULNERABILITIES (HIGH SEVERITY)
-# ============================================================================
-
+# XSS VULNERABILITIES CODE
+ 
 def vulnerable_xss_high_1():
     """F-string with HTML and user input"""
     user_name = request.args.get("name")
@@ -18,10 +16,7 @@ def vulnerable_xss_high_3():
     user_code = request.args.get("code")
     result = eval("calculate_" + user_code)
 
-# ============================================================================
-# XSS VULNERABILITIES (MEDIUM SEVERITY)
-# ============================================================================
-
+ 
 def vulnerable_xss_medium_1():
     """Using |safe filter (potential XSS if not validated)"""
     user_html = "{{ user_content|safe }}"
@@ -41,11 +36,7 @@ def vulnerable_xss_medium_4():
     """jQuery .append() with HTML"""
     data = request.form.get("data")
     script = "$('#result').append('<div>' + data + '</div>')"
-
-# ============================================================================
-# XSS VULNERABILITIES (LOW SEVERITY)
-# ============================================================================
-
+ 
 def vulnerable_xss_low_1():
     """Simple string concatenation"""
     greeting = user_name + " welcome"
