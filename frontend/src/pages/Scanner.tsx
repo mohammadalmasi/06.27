@@ -22,7 +22,7 @@ interface ScanInput {
   filename?: string;
 }
 
-type ScannerType = 'sql' | 'xss';
+type ScannerType = 'sql' | 'xss' | 'command';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -149,6 +149,8 @@ const Scanner: React.FC = () => {
           endpoint = '/api/static-sql-injection';
         } else if (scannerType === 'xss') {
           endpoint = '/api/static-xss';
+        } else if (scannerType === 'command') {
+          endpoint = '/api/static-command-injection';
         } else {
           throw new Error('Invalid scanner type');
         }
@@ -182,6 +184,8 @@ const Scanner: React.FC = () => {
           endpoint = '/api/ml-sql-injection';
         } else if (scannerType === 'xss') {
           endpoint = '/api/ml-xss';
+        } else if (scannerType === 'command') {
+          endpoint = '/api/ml-command-injection';
         } else {
           throw new Error('Invalid scanner type');
         }
@@ -253,6 +257,8 @@ const Scanner: React.FC = () => {
       return 'SQL Injection Scanner';
     } else if (scannerType === 'xss') {
       return 'Cross-Site Scripting (XSS) Scanner';
+    } else if (scannerType === 'command') {
+      return 'Command Injection Scanner';
     }
     return '';
   };
@@ -270,6 +276,12 @@ const Scanner: React.FC = () => {
           label: 'Cross-Site Scripting',
           description: 'Find vulnerable Cross-Site Scripting sinks and patterns.',
           Icon: Shield,
+        };
+      case 'command':
+        return {
+          label: 'Command Injection',
+          description: 'Find unsafe OS command executions and subprocess calls.',
+          Icon: AlertTriangle,
         };
       default:
         return {
@@ -493,6 +505,8 @@ const Scanner: React.FC = () => {
                           ? "# Paste your code here (SQL injection analysis)..."
                           : scannerType === 'xss'
                           ? "# Paste your code here (XSS analysis)..."
+                          : scannerType === 'command'
+                          ? "# Paste your code here (Command injection analysis)..."
                           : "# Paste your code here..."
                         }
                         rows={18}
@@ -540,6 +554,18 @@ const Scanner: React.FC = () => {
                         >
                           <Shield className={`h-4 w-4 ${scannerType === 'xss' ? 'text-primary-700' : 'text-slate-600'}`} />
                           XSS
+                        </button>
+                        <button
+                          onClick={() => setScannerType('command')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'command'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <AlertTriangle className={`h-4 w-4 ${scannerType === 'command' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          Command
                         </button>
                     </div>
                   </div>

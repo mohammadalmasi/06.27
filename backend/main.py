@@ -16,6 +16,8 @@ from scanners.sql_injection.static_sql_injection_scanner import (
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector, _github_blob_to_raw
 from scanners.xss.static_xss_scanner import StaticXSSScanner
 from scanners.xss.ml_xss_scanner import MLXSSDetector
+from scanners.command_injection.static_command_injection_scanner import StaticCommandInjectionScanner
+from scanners.command_injection.ml_command_injection_scanner import MLCommandInjectionDetector
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
@@ -139,6 +141,70 @@ def ml_xss():
     scan_type = data.get('scanType')
     
     detector = MLXSSDetector()
+    if scan_type == 1:
+        vulns = detector.scan_source(code, source_name='Direct input')
+    elif scan_type == 2:
+        vulns = detector.scan_file(code)
+    elif scan_type == 3:
+        vulns = detector.scan_url(url)
+    else:
+        return jsonify({'error': 'Invalid scanType'}), 400
+        
+    vulnerabilities = []
+    vulns_list = vulns.get("vulnerabilities", []) if isinstance(vulns, dict) else vulns
+    for v in vulns_list:
+        vulnerabilities.append({
+            "code_snippet": v.get("code_snippet"),
+            "confidence": v.get("confidence"),
+            "line_number": v.get("line_number"),
+            "severity": v.get("severity")   
+        })
+
+    return jsonify({
+        'vulnerabilities': vulnerabilities,
+        'code': code
+    })
+
+@app.route('/api/static-command-injection', methods=['POST'])
+def static_command_injection():
+    data = request.get_json(force=True)
+    code = data.get('code')
+    url = data.get('url')
+    scan_type = data.get('scanType')
+    
+    detector = StaticCommandInjectionScanner()
+    if scan_type == 1:
+        vulns = detector.scan_source(code, source_name='Direct input')
+    elif scan_type == 2:
+        vulns = detector.scan_file(code)
+    elif scan_type == 3:
+        vulns = detector.scan_url(url)
+    else:
+        return jsonify({'error': 'Invalid scanType'}), 400
+        
+    vulnerabilities = []
+    vulns_list = vulns.get("vulnerabilities", []) if isinstance(vulns, dict) else vulns
+    for v in vulns_list:
+        vulnerabilities.append({
+            "code_snippet": v.get("code_snippet"),
+            "confidence": v.get("confidence"),
+            "line_number": v.get("line_number"),
+            "severity": v.get("severity")
+        })
+
+    return jsonify({
+        'vulnerabilities': vulnerabilities,
+        'code': code
+    })
+
+@app.route('/api/ml-command-injection', methods=['POST'])
+def ml_command_injection():
+    data = request.get_json(force=True)
+    code = data.get('code')
+    url = data.get('url')
+    scan_type = data.get('scanType')
+    
+    detector = MLCommandInjectionDetector()
     if scan_type == 1:
         vulns = detector.scan_source(code, source_name='Direct input')
     elif scan_type == 2:

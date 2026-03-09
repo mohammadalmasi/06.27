@@ -36,8 +36,8 @@ class StaticCommandInjectionScanner:
             },
             taint_source_names={"input"},
             request_like_names={"request", "req", "flask_request", "environ"},
-            sink_attrs={"execute", "executemany", "raw"},
-            sink_names={"text"},
+            sink_attrs={"system", "popen", "spawn", "popen2", "popen3", "popen4", "call", "check_call", "check_output", "run"},
+            sink_names={"system", "popen", "spawn", "popen2", "popen3", "popen4", "call", "check_call", "check_output", "run", "eval", "exec"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
         )
