@@ -338,9 +338,12 @@ class MLSQLInjectionDetector:
             # Step 5: Ask the model: is this chunk vulnerable?
             pred = self._model.predict(X, verbose=0)
             prob = float(pred.ravel()[0])
+            
+            # ALWAYS print the probability for debugging purposes
+            line_number = token_index_to_line_number(source_code, start)
+            print(f"[DEBUG ML SQL] Window starting at line {line_number} has prob: {prob:.6f}")
 
             if self.verbose:
-                line_number = token_index_to_line_number(source_code, start)
                 print(f"[ML SQL]   Window {window_index + 1}/{num_windows}: tokens [{start}:{end}] -> line ~{line_number}, prob={prob:.3f}")
             window_index += 1
 
