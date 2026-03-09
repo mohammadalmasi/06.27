@@ -108,8 +108,9 @@ def scan_sql_injection():
 def ml_sql_injection():
         data = request.get_json(force=True)
         code = data.get('code')  
-        url = (data.get('url')).strip()
-
+        url = (data.get('url'))
+        scan_type = data.get('scanType')
+        
         detector = MLSQLInjectionDetector()
       
         if scan_type == 1:

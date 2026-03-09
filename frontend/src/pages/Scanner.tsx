@@ -171,6 +171,9 @@ const Scanner: React.FC = () => {
         if (payload.url) {
           mlPayload.url = payload.url;
         }
+        if (payload.scanType) {
+          mlPayload.scanType = payload.scanType;
+        }
 
         const response = await fetch(`${config.API_BASE_URL}/api/ml-sql-injection`, {
           method: 'POST',
