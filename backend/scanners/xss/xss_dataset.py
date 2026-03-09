@@ -1,5 +1,4 @@
-
-# XSS VULNERABILITIES CODE
+# XSS VULNERABLE CODE
  
 def vulnerable_xss_high_1():
     """F-string with HTML and user input"""
