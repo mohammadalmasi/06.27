@@ -17,7 +17,7 @@ class StaticSqlInjectionScanner:
     def __init__(self):
         pass
 
-    def _vuln_factory(self, *, line, call_node, code_snippet, file_path):
+    def _vuln_result(self, *, line, call_node, code_snippet, file_path):
         return {
             "line_number": line,
             "severity": "high",
@@ -38,7 +38,7 @@ class StaticSqlInjectionScanner:
             request_like_names={"request", "req", "flask_request", "environ"},
             sink_attrs={"execute", "executemany", "raw"},
             sink_names={"text"},
-            vulnerability_factory=self._vuln_factory,
+            vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
         )
 
