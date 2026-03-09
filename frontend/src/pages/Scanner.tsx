@@ -22,7 +22,7 @@ interface ScanInput {
   filename?: string;
 }
 
-type ScannerType = 'sql' | 'xss' | 'command';
+type ScannerType = 'sql' | 'xss' | 'command' | 'csrf';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -151,6 +151,8 @@ const Scanner: React.FC = () => {
           endpoint = '/api/static-xss';
         } else if (scannerType === 'command') {
           endpoint = '/api/static-command-injection';
+        } else if (scannerType === 'csrf') {
+          endpoint = '/api/static-csrf';
         } else {
           throw new Error('Invalid scanner type');
         }
@@ -186,6 +188,8 @@ const Scanner: React.FC = () => {
           endpoint = '/api/ml-xss';
         } else if (scannerType === 'command') {
           endpoint = '/api/ml-command-injection';
+        } else if (scannerType === 'csrf') {
+          endpoint = '/api/ml-csrf';
         } else {
           throw new Error('Invalid scanner type');
         }
@@ -259,6 +263,8 @@ const Scanner: React.FC = () => {
       return 'Cross-Site Scripting (XSS) Scanner';
     } else if (scannerType === 'command') {
       return 'Command Injection Scanner';
+    } else if (scannerType === 'csrf') {
+      return 'Cross-Site Request Forgery (CSRF) Scanner';
     }
     return '';
   };
@@ -281,6 +287,12 @@ const Scanner: React.FC = () => {
         return {
           label: 'Command Injection',
           description: 'Find unsafe OS command executions and subprocess calls.',
+          Icon: AlertTriangle,
+        };
+      case 'csrf':
+        return {
+          label: 'CSRF',
+          description: 'Find missing or disabled CSRF tokens and state-changing vulnerabilities.',
           Icon: AlertTriangle,
         };
       default:
@@ -507,6 +519,8 @@ const Scanner: React.FC = () => {
                           ? "# Paste your code here (XSS analysis)..."
                           : scannerType === 'command'
                           ? "# Paste your code here (Command injection analysis)..."
+                          : scannerType === 'csrf'
+                          ? "# Paste your code here (CSRF analysis)..."
                           : "# Paste your code here..."
                         }
                         rows={18}
@@ -566,6 +580,18 @@ const Scanner: React.FC = () => {
                         >
                           <AlertTriangle className={`h-4 w-4 ${scannerType === 'command' ? 'text-primary-700' : 'text-slate-600'}`} />
                           Command
+                        </button>
+                        <button
+                          onClick={() => setScannerType('csrf')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'csrf'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <AlertTriangle className={`h-4 w-4 ${scannerType === 'csrf' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          CSRF
                         </button>
                     </div>
                   </div>

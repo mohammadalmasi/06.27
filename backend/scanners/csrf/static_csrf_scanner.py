@@ -36,8 +36,8 @@ class StaticCSRFScanner:
             },
             taint_source_names={"input"},
             request_like_names={"request", "req", "flask_request", "environ"},
-            sink_attrs={"execute", "executemany", "raw"},
-            sink_names={"text"},
+            sink_attrs={"csrf_exempt", "exempt", "disable_csrf"},
+            sink_names={"csrf_exempt", "disable_csrf", "exempt"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
         )
