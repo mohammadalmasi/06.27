@@ -1,6 +1,6 @@
 # COMMAND INJECTION VULNERABLE CODE
 
-def vulnerable_command_high_1():
+def vulnerable_code1():
     """os.system with user input"""
     import os
     from flask import request
@@ -9,7 +9,7 @@ def vulnerable_command_high_1():
     # Vulnerable: directly passing user input to system command
     os.system(f"ping -c 4 {user_input}")
 
-def vulnerable_command_high_2():
+def vulnerable_code2():
     """subprocess.Popen with shell=True"""
     import subprocess
     from flask import request
@@ -18,14 +18,14 @@ def vulnerable_command_high_2():
     # Vulnerable: shell=True and untrusted input
     subprocess.Popen("cat " + filename, shell=True)
 
-def vulnerable_command_high_3():
+def vulnerable_code3():
     """eval() with user input"""
     from flask import request
     user_code = request.args.get("calc")
     # Vulnerable: evaluating untrusted string
     result = eval(user_code)
 
-def vulnerable_command_medium_1():
+def vulnerable_code4():
     """subprocess.call with potentially unsafe arguments"""
     import subprocess
     from flask import request
@@ -35,7 +35,7 @@ def vulnerable_command_medium_1():
     # Vulnerable if cmd/arg aren't properly validated, though no shell=True
     subprocess.call([cmd, arg])
 
-def vulnerable_command_medium_2():
+def vulnerable_code5():
     """os.popen reading from untrusted source"""
     import os
     from flask import request
@@ -45,7 +45,7 @@ def vulnerable_command_medium_2():
     stream = os.popen('ls -l ' + dir_path)
     output = stream.read()
 
-def vulnerable_command_low_1():
+def vulnerable_code6():
     """Safe usage but looks suspicious to static analyzers"""
     import subprocess
     
@@ -53,7 +53,7 @@ def vulnerable_command_low_1():
     command = ["ls", "-l", "/tmp"]
     subprocess.run(command)
 
-def vulnerable_command_low_2():
+def vulnerable_code7():
     """Input validation before execution"""
     import os
     from flask import request
