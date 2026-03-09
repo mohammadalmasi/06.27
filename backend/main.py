@@ -283,28 +283,6 @@ def scan_ml():
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
-@app.route('/api/ml-output/<string:uid>/<path:filename>', methods=['GET'])
-def get_ml_output(uid: str, filename: str):
-    """Serve generated ML visualization images from ml/api/uploads/<uid>/output."""
-    try:
-        backend_root = Path(__file__).parent
-        file_path = backend_root / 'ml' / 'api' / 'uploads' / uid / 'output' / filename
-        if not file_path.exists():
-            return jsonify({'error': 'File not found'}), 404
-        return send_file(str(file_path), mimetype='image/png')
-    except Exception as e:
-        return jsonify({'error': f'Failed to serve file: {str(e)}'}), 500
-
-# Health check endpoint
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'version': '1.0.0',
-        'scanners': ['sql_injection']
-    })
 
 # Initialize directories on startup
 ensure_dirs()

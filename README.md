@@ -38,12 +38,6 @@ Run the backend (default: `http://localhost:5001`):
 python backend/main.py
 ```
 
-Health check:
-
-```bash
-curl http://localhost:5001/api/health
-```
-
 ### 3) Frontend (React UI)
 
 In a separate terminal:
@@ -72,7 +66,6 @@ REACT_APP_API_BASE_URL=http://localhost:5001
 
 ## Backend API (main endpoints)
 
-- `GET /api/health`
 - `GET /api/scanner-config`
 - `POST /api/scan-sql-injection`
 - `POST /api/scan-ml` (optional; requires ML analyzer/assets)
