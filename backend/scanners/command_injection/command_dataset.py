@@ -56,9 +56,70 @@ def vulnerable_code6():
 def vulnerable_code7():
     """Input validation before execution"""
     import os
+    import re
     from flask import request
     
     ip = request.args.get("ip")
     # Safe if regex strictly enforces IP format
     if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip):
         os.system(f"ping -c 4 {ip}")
+
+
+def vulnerable_code8():
+    """subprocess.run with shell=True and query param"""
+    import subprocess
+    from flask import request
+    
+    cmd = request.args.get("cmd", "ls")
+    # Vulnerable: shell=True and untrusted input
+    subprocess.run(cmd, shell=True)
+
+
+def vulnerable_code9():
+    """subprocess.check_output with string formatting + shell=True"""
+    import subprocess
+    from flask import request
+    
+    pattern = request.args.get("pattern", "root")
+    file_path = request.args.get("file", "/etc/passwd")
+    # Vulnerable: shell=True and untrusted input in a shell command string
+    subprocess.check_output(f"grep {pattern} {file_path}", shell=True)
+
+
+def vulnerable_code10():
+    """sh -c wrapper (command injection)"""
+    import subprocess
+    from flask import request
+    
+    user_cmd = request.args.get("cmd")
+    # Vulnerable: forces a shell to interpret user input
+    subprocess.run(["sh", "-c", user_cmd])
+
+
+def vulnerable_code11():
+    """os.system with headers input"""
+    import os
+    from flask import request
+    
+    host = request.headers.get("X-Host", "127.0.0.1")
+    # Vulnerable: attacker controls part of the command line
+    os.system("ping -c 1 " + host)
+
+
+def vulnerable_code12():
+    """Safe-ish: shlex.quote before shell execution"""
+    import os
+    import shlex
+    from flask import request
+    
+    filename = request.args.get("file", "test.txt")
+    safe_filename = shlex.quote(filename)
+    # Safer: quoted argument reduces shell metacharacter injection risk
+    os.system(f"cat {safe_filename}")
+
+
+def vulnerable_code13():
+    """Safe: subprocess.run with constant argv"""
+    import subprocess
+    
+    subprocess.run(["echo", "hello"], check=True)
