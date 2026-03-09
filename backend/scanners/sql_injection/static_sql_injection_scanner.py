@@ -78,46 +78,6 @@ class StaticSqlInjectionScanner:
             code = resp.read().decode("utf-8", errors="replace")
         return self.scan_source(code, source_name=url)
 
-    def scan_code_content(self, code_content, source_name):
-        """Scan code and return full API result dict (vulnerabilities, summary, lines_to_highlight, etc.)."""
-        result = self.scan_source(code_content, source_name=source_name)
-        vulnerabilities = result["vulnerabilities"]
-        file_name = source_name
-        if "/" in source_name:
-            file_name = source_name.split("/")[-1]
-        elif source_name.startswith("http"):
-            file_name = source_name.split("/")[-1] if "/" in source_name else "scanned_code.py"
-        lines_to_highlight = [{"line_number": v["line_number"], "severity": v["severity"]} for v in vulnerabilities]
-        summary = {
-            "total_vulnerabilities": len(vulnerabilities),
-            "high_severity": sum(1 for v in vulnerabilities if v.get("severity") == "high"),
-            "medium_severity": sum(1 for v in vulnerabilities if v.get("severity") == "medium"),
-            "low_severity": sum(1 for v in vulnerabilities if v.get("severity") == "low"),
-            "high": sum(1 for v in vulnerabilities if v.get("severity") == "high"),
-            "medium": sum(1 for v in vulnerabilities if v.get("severity") == "medium"),
-            "low": sum(1 for v in vulnerabilities if v.get("severity") == "low"),
-        }
-        return {
-            "source": source_name,
-            "scan_type": "sql_injection",
-            "summary": summary,
-            "vulnerabilities": vulnerabilities,
-            "lines_to_highlight": lines_to_highlight,
-            "code": code_content,
-            "original_code": code_content,
-            "highlighted_code": code_content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"),
-            "total_vulnerabilities": len(vulnerabilities),
-            "scan_timestamp": datetime.now().isoformat(),
-            "total_issues": len(vulnerabilities),
-            "high_severity": summary["high_severity"],
-            "medium_severity": summary["medium_severity"],
-            "low_severity": summary["low_severity"],
-            "high_count": summary["high"],
-            "medium_count": summary["medium"],
-            "low_count": summary["low"],
-            "file_name": file_name,
-        }
-
     def highlight_word(self, code):
         """Highlight SQL injection patterns for Word documents."""
         patterns = [
