@@ -136,23 +136,18 @@ def ml_sql_injection():
         detector = MLSQLInjectionDetector()
         vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
 
-        vuln_dicts = vulns
-        high = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'high')
-        medium = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'medium')
-        low = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'low')
-        lines_to_highlight = [{'line_number': v['line_number'], 'severity': (v.get('severity') or 'high').lower()} for v in vulns]
+        vuln_dicts = []
+        for v in vulns:
+            vuln_dicts.append({
+                "code_snippet": v.get("code_snippet"),
+                "confidence": v.get("confidence"),
+                "line_number": v.get("line_number"),
+                "severity": v.get("severity")
+            })
 
         return jsonify({
-            'status': 'completed',
             'vulnerabilities': vuln_dicts,
-            'lines_to_highlight': lines_to_highlight,
-            'code': effective_code,
-            'highlighted_code': effective_code,
-            'original_code': effective_code,
-            'total_issues': len(vulns),
-            'high_severity': high,
-            'medium_severity': medium,
-            'low_severity': low,
+            'code': effective_code
         })
 
     except Exception as e:
