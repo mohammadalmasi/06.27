@@ -160,10 +160,7 @@ const Scanner: React.FC = () => {
         }
         results = await response.json();
       } else {
-        const mlPayload: any = {
-          type: scannerType,
-          filename: scanInput.filename || (scannerType + '.py')
-        };
+        const mlPayload: any = {};
 
         if (payload.code) {
           mlPayload.code = payload.code;
@@ -172,7 +169,7 @@ const Scanner: React.FC = () => {
           mlPayload.url = payload.url;
         }
 
-        const response = await fetch(`${config.API_BASE_URL}/api/scan-ml`, {
+        const response = await fetch(`${config.API_BASE_URL}/api/ml-sql-injection`, {
           method: 'POST',
           headers,
           body: JSON.stringify(mlPayload)

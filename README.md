@@ -67,11 +67,11 @@ REACT_APP_API_BASE_URL=http://localhost:5001
 ## Backend API (main endpoints)
 
 - `POST /api/static-sql-injection`
-- `POST /api/scan-ml` (optional; requires ML analyzer/assets)
+- `POST /api/ml-sql-injection` (optional; requires ML analyzer/assets)
 
 ## ML endpoint note
 
-`POST /api/scan-ml` runs an external analyzer script at `backend/ml/lib/analyze.py`.
+`POST /api/ml-sql-injection` runs an external analyzer script at `backend/ml/lib/analyze.py`.
 
 - If the ML analyzer + model assets are **not** present in your checkout, the endpoint returns **HTTP 501** with a JSON error describing what’s missing.
 - This keeps the repo reproducible even when ML assets are private / too large to ship.
