@@ -1,6 +1,4 @@
-# ============================================================================
-# SQL INJECTION VULNERABILITIES (HIGH SEVERITY)
-# ============================================================================
+# SQL INJECTION VULNERABILE CODE
 
 def vulnerable_sql_high_1():
     """Direct string concatenation in SELECT"""
@@ -13,10 +11,6 @@ def vulnerable_sql_high_2():
     name = request.args.get("name")
     query = f"SELECT * FROM users WHERE name = '{name}'"
     cursor.execute(query)
-
-# ============================================================================
-# SQL INJECTION VULNERABILITIES (MEDIUM SEVERITY)
-# ============================================================================
 
 def vulnerable_sql_medium_1():
     """ORDER BY clause with concatenation"""
@@ -36,10 +30,6 @@ def vulnerable_sql_medium_3():
     query = "SELECT * FROM logs WHERE id = '" + comment_input + "'"
     cursor.execute(query)
 
-# ============================================================================
-# SQL INJECTION VULNERABILITIES (LOW SEVERITY)
-# ============================================================================
-
 def vulnerable_sql_low_1():
     """LOW SEVERITY: Simple string concatenation - user prefix flows into LIKE pattern"""
     prefix_name = request.form.get("prefix", "") + suffix
@@ -52,3 +42,5 @@ def vulnerable_sql_low_2():
     table_name = "user_" + table_id
     query = "SELECT * FROM " + table_name
     cursor.execute(query)
+
+# SQL INJECTION SAFE CODE
