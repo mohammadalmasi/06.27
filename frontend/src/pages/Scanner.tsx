@@ -22,7 +22,7 @@ interface ScanInput {
   filename?: string;
 }
 
-type ScannerType = 'sql';
+type ScannerType = 'sql' | 'xss';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -147,6 +147,8 @@ const Scanner: React.FC = () => {
         let endpoint: string;
         if (scannerType === 'sql') {
           endpoint = '/api/static-sql-injection';
+        } else if (scannerType === 'xss') {
+          endpoint = '/api/static-xss';
         } else {
           throw new Error('Invalid scanner type');
         }
@@ -175,7 +177,16 @@ const Scanner: React.FC = () => {
           mlPayload.scanType = payload.scanType;
         }
 
-        const response = await fetch(`${config.API_BASE_URL}/api/ml-sql-injection`, {
+        let endpoint: string;
+        if (scannerType === 'sql') {
+          endpoint = '/api/ml-sql-injection';
+        } else if (scannerType === 'xss') {
+          endpoint = '/api/ml-xss';
+        } else {
+          throw new Error('Invalid scanner type');
+        }
+
+        const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
           method: 'POST',
           headers,
           body: JSON.stringify(mlPayload)
@@ -240,6 +251,8 @@ const Scanner: React.FC = () => {
   const getScannerTitle = () => {
     if (scannerType === 'sql') {
       return 'SQL Injection Scanner';
+    } else if (scannerType === 'xss') {
+      return 'Cross-Site Scripting (XSS) Scanner';
     }
     return '';
   };
@@ -251,6 +264,12 @@ const Scanner: React.FC = () => {
           label: 'SQL Injection',
           description: 'Find unsafe SQL query construction patterns and injection sinks.',
           Icon: Bug,
+        };
+      case 'xss':
+        return {
+          label: 'Cross-Site Scripting',
+          description: 'Find vulnerable Cross-Site Scripting sinks and patterns.',
+          Icon: Shield,
         };
       default:
         return {
@@ -472,6 +491,8 @@ const Scanner: React.FC = () => {
                         onKeyDown={handleScanKeyDown}
                         placeholder={scannerType === 'sql' 
                           ? "# Paste your code here (SQL injection analysis)..."
+                          : scannerType === 'xss'
+                          ? "# Paste your code here (XSS analysis)..."
                           : "# Paste your code here..."
                         }
                         rows={18}
@@ -507,6 +528,18 @@ const Scanner: React.FC = () => {
                         >
                           <Bug className={`h-4 w-4 ${scannerType === 'sql' ? 'text-primary-700' : 'text-slate-600'}`} />
                           SQL
+                        </button>
+                        <button
+                          onClick={() => setScannerType('xss')}
+                          type="button"
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                            scannerType === 'xss'
+                              ? 'border-primary-500 bg-primary-50 text-primary-800'
+                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Shield className={`h-4 w-4 ${scannerType === 'xss' ? 'text-primary-700' : 'text-slate-600'}`} />
+                          XSS
                         </button>
                     </div>
                   </div>

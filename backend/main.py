@@ -14,6 +14,8 @@ from scanners.sql_injection.static_sql_injection_scanner import (
     StaticSqlInjectionScanner,
 )
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector, _github_blob_to_raw
+from scanners.xss.static_xss_scanner import StaticXSSScanner
+from scanners.xss.ml_xss_scanner import MLXSSDetector
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
