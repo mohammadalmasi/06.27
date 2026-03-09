@@ -33,76 +33,35 @@ def ensure_dirs():
 
 @app.route('/api/static-sql-injection', methods=['POST'])
 def scan_sql_injection():
-    """SQL injection vulnerability scanning endpoint"""
-    try:
-        data = request.get_json()
-        code_content = data.get('code', '')
-        url = data.get('url', '')
+        data = request.get_json(force=True)
+        code = data.get('code')  
+        url = (data.get('url'))
         scan_type = data.get('scanType')
         
-        scanner = StaticSqlInjectionScanner()
-        
-        # Determine scan_type if not provided for backward compatibility
-        if not scan_type:
-            if url:
-                scan_type = 3
-            else:
-                scan_type = 1
-        
+        detector = MLSQLInjectionDetector()
+      
         if scan_type == 1:
-            print(json.dumps({"debug": "calling scan_source for scanType 1"}))
-            raw_results = scanner.scan_source(code_content, source_name='Direct input')
-            effective_code = code_content
+            vulns = detector.scan_source(code, source_name='Direct input')
         elif scan_type == 2:
-            print(json.dumps({"debug": "calling scan_file for scanType 2"}))
-            import tempfile
-            import os
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as tmp:
-                tmp.write(code_content)
-                tmp_path = tmp.name
-                
-            try:
-                raw_results = scanner.scan_file(tmp_path)
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-            effective_code = code_content
+            vulns = detector.scan_file(code)
         elif scan_type == 3:
-            print(json.dumps({"debug": "calling scan_url for scanType 3"}))
-            if not url:
-                return jsonify({'error': 'URL is required for GitHub URL scan'}), 400
-            
-            raw_results = scanner.scan_url(url)
-            
-            try:
-                raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-                req = Request(raw_url, headers={"User-Agent": "SQL-Scanner/1.0"})
-                with urlopen(req, timeout=10) as resp:
-                    effective_code = resp.read().decode("utf-8", errors="replace")
-            except Exception:
-                effective_code = "# Could not fetch source code for display"
+            vulns = detector.scan_url(url)
         else:
             return jsonify({'error': 'Invalid scanType'}), 400
 
-        vulns = raw_results.get('vulnerabilities', [])
-        
-        simplified_vulns = []
+        vulnerabilities = []
         for v in vulns:
-            simplified_vulns.append({
+            vulnerabilities.append({
                 "code_snippet": v.get("code_snippet"),
                 "confidence": v.get("confidence"),
                 "line_number": v.get("line_number"),
                 "severity": v.get("severity")
             })
 
-        results = {
-            'vulnerabilities': simplified_vulns,
-            'code': effective_code
-        }
-        
-        return jsonify(results)
-    except Exception as e:
-        return jsonify({'error': f'Error during SQL injection scan: {str(e)}'}), 500
+        return jsonify({
+            'vulnerabilities': vulnerabilities,
+            'code': code
+        })
 
 @app.route('/api/ml-sql-injection', methods=['POST'])
 def ml_sql_injection():
@@ -136,7 +95,6 @@ def ml_sql_injection():
             'code': code
         })
 
-
 # Initialize directories on startup
 ensure_dirs()
 
@@ -145,7 +103,5 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV') != 'production'
     app.run(host='0.0.0.0', port=port, debug=debug)
 
-
 # cd /Users/mohammadalmasi/thesis/06.27/backend && venv/bin/python main.py
-
 # cd /Users/mohammadalmasi/thesis/06.27/frontend && npm start
