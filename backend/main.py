@@ -1,22 +1,19 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
 import os
-import sqlite3
-import json
-from datetime import datetime, timedelta
-import tempfile
-import zipfile
 import uuid
+import json
+import sqlite3
+import zipfile
+import tempfile
 import subprocess
 from pathlib import Path
+from flask_cors import CORS
+from datetime import datetime, timedelta
 from urllib.request import Request, urlopen
-
-# Import SQL injection scanner functions
+from flask import Flask, request, jsonify, send_file
 from scanners.sql_injection.static_sql_injection_scanner import (
     StaticSqlInjectionScanner,
 )
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector, _github_blob_to_raw
-
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
@@ -33,9 +30,19 @@ def ensure_dirs():
     ml_uploads = Path(__file__).parent / 'ml' / 'api' / 'uploads'
     ml_uploads.mkdir(parents=True, exist_ok=True)
 
-# SQL Injection Scanner API endpoints
+@app.route('/api/scanner-config', methods=['GET'])
+def get_scanner_config():
+    """Get scanner configuration"""
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'scanner_config.json')
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        return jsonify(config)
+    except Exception as e:
+        return jsonify({'error': f'Failed to load configuration: {str(e)}'}), 500
+
+
 @app.route('/api/scan-sql-injection', methods=['POST'])
-# @token_required
 def scan_sql_injection():
     """SQL injection vulnerability scanning endpoint"""
     try:
@@ -64,21 +71,6 @@ def scan_sql_injection():
     except Exception as e:
         return jsonify({'error': f'Error during SQL injection scan: {str(e)}'}), 500
 
-
-
-# Configuration endpoint
-@app.route('/api/scanner-config', methods=['GET'])
-def get_scanner_config():
-    """Get scanner configuration"""
-    try:
-        config_path = os.path.join(os.path.dirname(__file__), 'scanner_config.json')
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-        return jsonify(config)
-    except Exception as e:
-        return jsonify({'error': f'Failed to load configuration: {str(e)}'}), 500
-
-# ML-based analysis endpoint
 @app.route('/api/scan-ml', methods=['POST'])
 def scan_ml():
     """Run machine learning based analysis using LSTM models (Atiqullah Ahmadzai’s project)."""
@@ -282,7 +274,6 @@ def scan_ml():
         })
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
 
 # Initialize directories on startup
 ensure_dirs()
