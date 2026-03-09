@@ -64,7 +64,7 @@ except ImportError:
 # Where files live
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 MODEL_DIR = BACKEND_DIR / "models"
-DEFAULT_MODEL_PATH = MODEL_DIR / "bidirectional_LSTM_model_csrf.h5"
+DEFAULT_MODEL_PATH = MODEL_DIR / "bidirectional_LSTM_model_xsrf.h5"
 WORD2VEC_DIR = MODEL_DIR / "wordtovec_models"
 
 # Model expects chunks of 200 tokens; we move by 5 tokens each time (sliding window).
@@ -277,7 +277,7 @@ class MLCSRFDetector:
         if not os.path.isfile(self.model_path):
             raise FileNotFoundError(
                 f"Model not found: {self.model_path}. "
-                "Put bidirectional_LSTM_model_csrf.h5 in backend/models/."
+                "Put bidirectional_LSTM_model_xsrf.h5 in backend/models/."
             )
         self._model = _load_keras_model(self.model_path)
         # Read expected size from model: (batch, time_steps, features)
