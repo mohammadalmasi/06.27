@@ -154,6 +154,11 @@ class TaintAnalyzer:
                 if self._expr_tainted(e, scope_id):
                     return True
             return False
+        if isinstance(node, ast.Dict):
+            for value in getattr(node, "values", []) or []:
+                if self._expr_tainted(value, scope_id):
+                    return True
+            return False
         return False
 
     def _compute_tainted_fixpoint(self):

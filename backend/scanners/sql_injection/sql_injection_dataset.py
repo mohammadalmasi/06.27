@@ -12,6 +12,13 @@ def vulnerable_sql_high_2():
     query = f"SELECT * FROM users WHERE name = '{name}'"
     cursor.execute(query)
 
+def vulnerable_sql_high_3():
+    """Multiple injections in one query"""
+    user = request.args.get("user")
+    pwd = request.args.get("password")
+    query = "SELECT * FROM users WHERE username = '" + user + "' AND password = '" + pwd + "'"
+    cursor.execute(query)
+
 def vulnerable_sql_medium_1():
     """ORDER BY clause with concatenation"""
     sort_column = request.args.get("sort", "name")
@@ -42,16 +49,10 @@ def vulnerable_sql_medium_5():
     query = "DELETE FROM items WHERE id = '%s'" % item_id
     cursor.execute(query)
 
-def vulnerable_sql_medium_4():
-    """String formatting using .format()"""
-    username = request.args.get("user")
-    query = "SELECT * FROM users WHERE username = '{}'".format(username)
-    cursor.execute(query)
-
-def vulnerable_sql_medium_5():
-    """String formatting using % operator"""
-    item_id = request.form.get("item")
-    query = "DELETE FROM items WHERE id = '%s'" % item_id
+def vulnerable_sql_medium_6():
+    """Dictionary formatting injection"""
+    data = {"user": request.form.get("username")}
+    query = "SELECT * FROM users WHERE username = '%(user)s'" % data
     cursor.execute(query)
 
 def vulnerable_sql_low_1():
@@ -114,3 +115,16 @@ def safe_sql_6():
     if table_choice in ALLOWED_TABLES:
         query = f"SELECT * FROM {table_choice}"
         cursor.execute(query)
+
+def safe_sql_7():
+    """Using parameterized query with dictionary (e.g., SQLite with named placeholders)"""
+    email_val = request.form.get("email")
+    query = "UPDATE users SET verified = 1 WHERE email = :email"
+    cursor.execute(query, {"email": email_val})
+
+def safe_sql_8():
+    """Using SQLAlchemy ORM with explicit parameters (text)"""
+    from sqlalchemy import text
+    user_id = request.args.get("id")
+    query = text("SELECT * FROM users WHERE id = :user_id")
+    db.session.execute(query, {"user_id": user_id})
