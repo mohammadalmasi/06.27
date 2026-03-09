@@ -156,3 +156,41 @@ def safe_code3():
     
     _ignored = request.args.get("anything")
     subprocess.run(["echo", "hello"], check=True)
+
+
+def safe_code4():
+    """Safe: sanitize user input even when passed as argv"""
+    import shlex
+    import subprocess
+    from flask import request
+    
+    pattern = request.args.get("pattern", "root")
+    safe_pattern = shlex.quote(pattern)
+    subprocess.run(["grep", "-F", safe_pattern, "/etc/passwd"], check=True)
+
+
+def safe_code5():
+    """Safe: send user data via stdin; argv is constant"""
+    import subprocess
+    from flask import request
+    
+    data = request.args.get("data", "")
+    subprocess.run(["wc", "-c"], input=data, text=True, check=True, capture_output=True)
+
+
+def safe_code6():
+    """Safe: build a shell command using shlex.quote for the dynamic part"""
+    import shlex
+    import subprocess
+    from flask import request
+    
+    filename = request.args.get("file", "test.txt")
+    safe_filename = shlex.quote(filename)
+    subprocess.run(f"cat {safe_filename}", shell=True, check=True)
+
+
+def safe_code7():
+    """Safe: constant argv list with absolute path"""
+    import subprocess
+    
+    subprocess.run(["/bin/ls", "-la", "/tmp"], check=True)
