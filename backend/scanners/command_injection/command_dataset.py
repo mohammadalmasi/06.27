@@ -1,7 +1,4 @@
-
-# ============================================================================
-# COMMAND INJECTION VULNERABILITIES (HIGH SEVERITY)
-# ============================================================================
+# COMMAND INJECTION VULNERABLE CODE
 
 def vulnerable_command_high_1():
     """os.system with user input"""
@@ -28,10 +25,6 @@ def vulnerable_command_high_3():
     # Vulnerable: evaluating untrusted string
     result = eval(user_code)
 
-# ============================================================================
-# COMMAND INJECTION VULNERABILITIES (MEDIUM SEVERITY)
-# ============================================================================
-
 def vulnerable_command_medium_1():
     """subprocess.call with potentially unsafe arguments"""
     import subprocess
@@ -51,10 +44,6 @@ def vulnerable_command_medium_2():
     # Vulnerable: popen executes in shell
     stream = os.popen('ls -l ' + dir_path)
     output = stream.read()
-
-# ============================================================================
-# COMMAND INJECTION VULNERABILITIES (LOW SEVERITY)
-# ============================================================================
 
 def vulnerable_command_low_1():
     """Safe usage but looks suspicious to static analyzers"""
