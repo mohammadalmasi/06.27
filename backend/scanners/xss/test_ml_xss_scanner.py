@@ -38,11 +38,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
 
-# Run: mode 0 → scan source code string
-# venv/bin/python scanners/xss/test_ml_xss_scanner.py 0 "$(cat scanners/xss/xss_dataset.py)"
+# Run: mode 1 → scan source code string
+# venv/bin/python scanners/xss/test_ml_xss_scanner.py 1 "$(cat scanners/xss/xss_dataset.py)"
 #
-# Run: mode 1 → scan a file
-# venv/bin/python scanners/xss/test_ml_xss_scanner.py 1 scanners/xss/xss_dataset.py
+# Run: mode 2 → scan a file
+# venv/bin/python scanners/xss/test_ml_xss_scanner.py 2 scanners/xss/xss_dataset.py
 #
-# Run: mode 2 → scan from URL (GitHub blob or raw)
-# venv/bin/python scanners/xss/test_ml_xss_scanner.py 2 "https://github.com/mohammadalmasi/06.27/blob/main/backend/scanners/xss/ml_xss_scanner.py"
+# Run: mode 3 → scan from URL (GitHub blob or raw)
+# venv/bin/python scanners/xss/test_ml_xss_scanner.py 3 "https://github.com/mohammadalmasi/06.27/blob/main/backend/scanners/xss/ml_xss_scanner.py"
