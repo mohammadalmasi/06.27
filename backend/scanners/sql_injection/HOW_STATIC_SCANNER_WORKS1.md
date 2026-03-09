@@ -134,23 +134,17 @@ This approach is **rule-based and deterministic**: it does not use machine learn
 
 ---
 
-## 7. Word Report Highlighting (Optional Detail)
-
-For the Word export, the scanner also has a separate function that uses **regular expressions** to mark suspicious patterns in the code (e.g. `.execute(` with concatenation, `request.args.get`, f-strings in SQL). That is only for **visual highlighting** in the report; the **actual vulnerabilities** are those found by the taint analysis described above.
-
----
-
-## 8. Limitations and Future Work
+## 7. Limitations and Future Work
 
 While the current AST and `symtable`-based `TaintAnalyzer` is highly effective for intra-procedural analysis (tracking vulnerabilities within the boundaries of a single function or class), building a compiler-grade static analysis tool from scratch in Python carries inherent limitations. 
 
 To scale this scanner for enterprise-grade, full-codebase analysis, future iterations of this project will involve the following architectural improvements:
 
-### 8.1 Current Limitations
+### 7.1 Current Limitations
 1. **Inter-procedural Analysis:** Currently, if tainted data is passed from one function into a separate helper function (e.g., `execute_query(tainted_data)`), the analyzer may lose the taint trace. Building a global Call Graph is required to track data across multiple files and function calls.
 2. **External Library Reflection:** When tainted data interacts with third-party libraries or dynamic execution (e.g., `getattr()`, `eval()`), a static AST parser struggles to predict the runtime behavior, which can lead to false negatives.
 
-### 8.2 Proposed Future Architecture: Integrating Industry-Standard Engines
+### 7.2 Proposed Future Architecture: Integrating Industry-Standard Engines
 Rather than rewriting a Python interpreter from scratch, the future roadmap involves delegating the heavy lifting of AST parsing and global Call Graph generation to an established static analysis engine. 
 
 **Semgrep** is the primary candidate for this upgrade. Semgrep is an industry-standard, lightweight static analysis framework that natively understands Python's semantics, cross-file tracking, and deep taint propagation. 
