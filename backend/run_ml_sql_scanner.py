@@ -19,29 +19,29 @@ if __name__ == "__main__":
     detector = MLSQLInjectionDetector()
 
     try:
-        if mode == "0":
+        if mode == "1":
             vulns = detector.scan_source(argument)
             _print_results("", vulns)
-        elif mode == "1":
+        elif mode == "2":
             path = Path(argument)
             vulns = detector.scan_file(str(path))
             _print_results(f"File: {path}\n", vulns)
-        elif mode == "2":
+        elif mode == "3":
             vulns = detector.scan_url(argument)
             _print_results(f"URL: {argument}\n", vulns)
         else:
-            print("Unknown mode. Use 0 for source, 1 for file, 2 for URL.")
+            print("Unknown mode. Use 1 for source, 2 for file, 3 for URL.")
             sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
 
 
-# Run: mode 0 → scan source code string
-# venv/bin/python run_ml_sql_scanner.py 0 "$(cat test_sql_injection_vulnerabilities.py)"
+# Run: mode 1 → scan source code string
+# venv/bin/python run_ml_sql_scanner.py 1 "$(cat test_sql_injection_vulnerabilities.py)"
 #
-# Run: mode 1 → scan a file
-# venv/bin/python run_ml_sql_scanner.py 1 test_sql_injection_vulnerabilities.py
+# Run: mode 2 → scan a file
+# venv/bin/python run_ml_sql_scanner.py 2 test_sql_injection_vulnerabilities.py
 #
-# Run: mode 2 → scan from URL (GitHub blob or raw)
-# venv/bin/python run_ml_sql_scanner.py 2 "https://github.com/mohammadalmasi/06.27/blob/main/backend/scanners/sql_injection/ml_sql_injection_scanner.py"
+# Run: mode 3 → scan from URL (GitHub blob or raw)
+# venv/bin/python run_ml_sql_scanner.py 3 "https://github.com/mohammadalmasi/06.27/blob/main/backend/scanners/sql_injection/ml_sql_injection_scanner.py"
