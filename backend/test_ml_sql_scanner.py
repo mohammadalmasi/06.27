@@ -17,8 +17,8 @@ def run_ml_sql_scanner(file_path: str) -> None:
 
 
 if __name__ == "__main__":
-    file_path = os.path.join(os.path.dirname(__file__), "test_sql_injection_vulnerabilities.py")
+    file_path = os.path.join(os.path.dirname(__file__), "scanners", "sql_injection", "sql_injection_dataset.py")
     run_ml_sql_scanner(file_path)
 
 # cd /Users/mohammadalmasi/thesis/06.27/backend
-# venv/bin/python test_ml_sql_scanner.py test_sql_injection_vulnerabilities.py
+# venv/bin/python test_ml_sql_scanner.py scanners/sql_injection/sql_injection_dataset.py

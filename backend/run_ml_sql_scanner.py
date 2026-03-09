@@ -38,10 +38,10 @@ if __name__ == "__main__":
 
 
 # Run: mode 1 → scan source code string
-# venv/bin/python run_ml_sql_scanner.py 1 "$(cat test_sql_injection_vulnerabilities.py)"
+# venv/bin/python run_ml_sql_scanner.py 1 "$(cat scanners/sql_injection/sql_injection_dataset.py)"
 #
 # Run: mode 2 → scan a file
-# venv/bin/python run_ml_sql_scanner.py 2 test_sql_injection_vulnerabilities.py
+# venv/bin/python run_ml_sql_scanner.py 2 scanners/sql_injection/sql_injection_dataset.py
 #
 # Run: mode 3 → scan from URL (GitHub blob or raw)
 # venv/bin/python run_ml_sql_scanner.py 3 "https://github.com/mohammadalmasi/06.27/blob/main/backend/scanners/sql_injection/ml_sql_injection_scanner.py"
