@@ -152,6 +152,8 @@ class TaintAnalyzer:
             # Check if this function cleans the data
             if isinstance(node.func, ast.Name) and getattr(node.func, "id", None) in self.sanitizer_names:
                 return False
+            if isinstance(node.func, ast.Attribute) and getattr(node.func, "attr", None) in self.sanitizer_names:
+                return False
                 
             if self._is_taint_source_call(node):
                 return True

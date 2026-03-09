@@ -58,9 +58,11 @@ def safe_xss_1():
 
 def safe_xss_2():
     """Safe DOM manipulation using textContent instead of innerHTML"""
+    import json
     content = request.form.get("content")
-    # textContent automatically escapes HTML
-    script = f"document.getElementById('content').textContent = '{content}'"
+    # json.dumps() safely escapes quotes and newlines for JavaScript
+    safe_js_string = json.dumps(content) 
+    script = f"document.getElementById('content').textContent = {safe_js_string}"
     return script
 
 def safe_xss_3():

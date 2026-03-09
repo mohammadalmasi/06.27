@@ -38,7 +38,7 @@ class StaticXSSScanner:
             request_like_names={"request", "req", "flask_request", "environ", "window", "location"},
             sink_attrs={"send", "write", "send_file"},
             sink_names={"render_template_string", "Markup", "mark_safe", "HttpResponse", "eval"},
-            sanitizer_names={"escape", "escape_html", "bleach", "clean"},
+            sanitizer_names={"escape", "escape_html", "bleach", "clean", "dumps"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
             returns_are_sinks=True,
