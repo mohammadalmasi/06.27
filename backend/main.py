@@ -50,7 +50,8 @@ def scan_sql_injection():
             return jsonify({'error': 'Invalid scanType'}), 400
 
         vulnerabilities = []
-        for v in vulns:
+        vulns_list = vulns.get("vulnerabilities", []) if isinstance(vulns, dict) else vulns
+        for v in vulns_list:
             vulnerabilities.append({
                 "code_snippet": v.get("code_snippet"),
                 "confidence": v.get("confidence"),
@@ -82,7 +83,8 @@ def ml_sql_injection():
             return jsonify({'error': 'Invalid scanType'}), 400
 
         vulnerabilities = []
-        for v in vulns:
+        vulns_list = vulns.get("vulnerabilities", []) if isinstance(vulns, dict) else vulns
+        for v in vulns_list:
             vulnerabilities.append({
                 "code_snippet": v.get("code_snippet"),
                 "confidence": v.get("confidence"),
