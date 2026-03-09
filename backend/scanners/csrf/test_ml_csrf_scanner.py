@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from ml_csrf_scanner import MLCsrfDetector
+from ml_csrf_scanner import MLCSRFDetector
 
 
 def _print_results(label: str, vulnerabilities: list) -> None:
@@ -21,7 +21,7 @@ if __name__ == "__main__":
         
     mode = sys.argv[1]
     argument = sys.argv[2]
-    detector = MLCsrfDetector()
+    detector = MLCSRFDetector()
 
     try:
         if mode == "0":

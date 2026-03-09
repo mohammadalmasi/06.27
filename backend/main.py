@@ -19,7 +19,7 @@ from scanners.xss.ml_xss_scanner import MLXSSDetector
 from scanners.command_injection.static_command_injection_scanner import StaticCommandInjectionScanner
 from scanners.command_injection.ml_command_injection_scanner import MLCommandInjectionDetector
 from scanners.csrf.static_csrf_scanner import StaticCSRFScanner
-from scanners.csrf.ml_csrf_scanner import MLCsrfDetector
+from scanners.csrf.ml_csrf_scanner import MLCSRFDetector
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
@@ -270,7 +270,7 @@ def ml_csrf():
     url = data.get('url')
     scan_type = data.get('scanType')
     
-    detector = MLCsrfDetector()
+    detector = MLCSRFDetector()
     if scan_type == 1:
         vulns = detector.scan_source(code, source_name='Direct input')
     elif scan_type == 2:
