@@ -24,18 +24,18 @@ if __name__ == "__main__":
     detector = MLCSRFDetector()
 
     try:
-        if mode == "0":
+        if mode == "1":
             vulns = detector.scan_source(argument)
             _print_results("", vulns)
-        elif mode == "1":
+        elif mode == "2":
             path = Path(argument)
             vulns = detector.scan_file(str(path))
             _print_results(f"File: {path}\n", vulns)
-        elif mode == "2":
+        elif mode == "3":
             vulns = detector.scan_url(argument)
             _print_results(f"URL: {argument}\n", vulns)
         else:
-            print("Unknown mode. Use 0 for source, 1 for file, 2 for URL.")
+            print("Unknown mode. Use 1 for source, 2 for file, 3 for URL.")
             sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")
