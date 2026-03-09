@@ -3,9 +3,6 @@ import config from '../config.js';
 export interface ScannerConfig {
   scanners: {
     sql_injection: number;
-    xss: number;
-    command_injection: number;
-    csrf: number;
   };
   description: string;
 }
@@ -22,10 +19,7 @@ export const fetchScannerConfig = async (): Promise<ScannerConfig> => {
     // Return default config if fetch fails
     return {
       scanners: {
-        sql_injection: 1,
-        xss: 1,
-        command_injection: 1,
-        csrf: 1
+        sql_injection: 1
       },
       description: 'Default configuration'
     };
@@ -33,10 +27,8 @@ export const fetchScannerConfig = async (): Promise<ScannerConfig> => {
 };
 
 export const isScannerEnabled = (config: ScannerConfig, scannerType: string): boolean => {
-  const scannerKey = scannerType === 'sql' ? 'sql_injection' : 
-                    scannerType === 'xss' ? 'xss' : 
-                    scannerType === 'command' ? 'command_injection' : 
-                    scannerType === 'csrf' ? 'csrf' : '';
+  const scannerKey = scannerType === 'sql' ? 'sql_injection' : '';
   
+  if (!scannerKey) return false;
   return config.scanners[scannerKey as keyof typeof config.scanners] === 1;
 }; 

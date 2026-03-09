@@ -4,8 +4,6 @@ import os
 import sqlite3
 import json
 from datetime import datetime, timedelta
-# import jwt
-# from functools import wraps
 import tempfile
 import zipfile
 import uuid
@@ -13,79 +11,20 @@ import subprocess
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-# Import XSS scanner functions
-from scanners.xss.static_xss_scanner import (
-    StaticXSSScanner,
-    api_generate_xss_report,
-)
-from scanners.xss.xss_scanner import highlight_xss_vulnerabilities
-from scanners.xss.ml_xss_scanner import MLXSSDetector
-
 # Import SQL injection scanner functions
 from scanners.sql_injection.static_sql_injection_scanner import (
     StaticSqlInjectionScanner,
-    api_generate_sql_injection_report,
 )
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector, _github_blob_to_raw
 
-# Import Command injection scanner functions
-from scanners.command_injection.command_injection_scanner import (
-    api_scan_command_injection,
-    api_generate_command_injection_report,
-    highlight_command_injection_vulnerabilities_html,
-)
-from scanners.command_injection.ml_command_injection_scanner import MLCommandInjectionDetector
-
-# Import CSRF scanner functions
-from scanners.csrf.csrf_scanner import (
-    api_scan_csrf,
-    api_generate_csrf_report,
-    csrf_vulnerability_to_dict,
-    _highlight_csrf_vulnerabilities,
-)
-from scanners.csrf.ml_csrf_scanner import MLCSRFDetector
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB upload limit
-# app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'sql-injection-scanner-secret-key-2024')
 
 # Enable CORS for all origins (production and development)
 CORS(app, origins=["*"], 
      methods=["GET", "POST", "OPTIONS"], 
      allow_headers=["Content-Type", "Authorization"])
-
-# Authentication configuration
-# ADMIN_USERNAME = "admin"
-# ADMIN_PASSWORD = "a"
-
-# def token_required(f):
-#     @wraps(f)
-#     def decorated(*args, **kwargs):
-#         token = None
-#         
-#         # JWT is passed in the request header
-#         if 'Authorization' in request.headers:
-#             auth_header = request.headers['Authorization']
-#             try:
-#                 token = auth_header.split(" ")[1]  # Bearer <token>
-#             except IndexError:
-#                 return jsonify({'error': 'Token is missing!'}), 401
-#         
-#         if not token:
-#             return jsonify({'error': 'Token is missing!'}), 401
-#         
-#         try:
-#             # Decode the token
-#             data = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=["HS256"])
-#             current_user = data['username']
-#         except IndexError
-#             return jsonify({'error': 'Token has expired!'}), 401
-#         except jwt.InvalidTokenError:
-#             return jsonify({'error': 'Token is invalid!'}), 401
-#         
-#         return f(current_user, *args, **kwargs)
-#     
-#     return decorated
 
 def ensure_dirs():
     # Use /tmp directory which is writable on App Engine
@@ -93,83 +32,6 @@ def ensure_dirs():
     # Ensure ML upload directory exists
     ml_uploads = Path(__file__).parent / 'ml' / 'api' / 'uploads'
     ml_uploads.mkdir(parents=True, exist_ok=True)
-
-# @app.route('/api/login', methods=['POST'])
-# def login():
-#     try:
-#         data = request.get_json()
-#         username = data.get('username')
-#         password = data.get('password')
-#         
-#         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-#             # Generate JWT token with 1 hour expiration
-#             token = jwt.encode({
-#                 'username': username,
-#                 'exp': datetime.utcnow() + timedelta(hours=1)
-#             }, app.config['JWT_SECRET_KEY'], algorithm="HS256")
-#             
-#             return jsonify({
-#                 'message': 'Login successful',
-#                 'token': token,
-#                 'username': username
-#             })
-#         else:
-#             return jsonify({'error': 'Invalid credentials'}), 401
-#     except Exception as e:
-#         return jsonify({'error': f'Login error: {str(e)}'}), 500
-
-# @app.route('/api/logout', methods=['POST'])
-# def logout():
-#     return jsonify({'message': 'Logged out successfully'})
-
-# @app.route('/api/verify-token', methods=['POST'])
-# @token_required
-# def verify_token(current_user):
-#     return jsonify({
-#         'message': 'Token is valid',
-#         'username': current_user
-#     })
-
-# XSS Scanner API endpoints
-@app.route('/api/scan-xss', methods=['POST'])
-# @token_required
-def scan_xss():
-    """XSS vulnerability scanning endpoint"""
-    try:
-        data = request.get_json()
-        code_content = data.get('code')
-        url = data.get('url')
-        scanner = StaticXSSScanner()
-        if code_content:
-            results = scanner.scan_code_content(code_content, 'Direct input')
-        elif url:
-            if "github.com" in url and url.endswith(".py"):
-                raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-                try:
-                    req = Request(raw_url, headers={"User-Agent": "XSS-Scanner/1.0"})
-                    with urlopen(req, timeout=10) as resp:
-                        text = resp.read().decode("utf-8", errors="replace")
-                    results = scanner.scan_code_content(text, url)
-                except Exception as e:
-                    return jsonify({'error': f'Error fetching URL: {str(e)}'}), 400
-            else:
-                return jsonify({'error': 'Invalid GitHub Python file URL'}), 400
-        else:
-            return jsonify({'error': 'Invalid scan parameters'}), 400
-        if results.get('vulnerabilities') and results.get('code'):
-            results['highlighted_code'] = highlight_xss_vulnerabilities(
-                results['code'], results['vulnerabilities']
-            )
-        return jsonify(results)
-    except Exception as e:
-        return jsonify({'error': f'Error during XSS scan: {str(e)}'}), 500
-
-@app.route('/api/generate-xss-report', methods=['POST'])
-# @token_required
-def generate_xss_report():
-    """Generate Word report for XSS vulnerabilities"""
-    return api_generate_xss_report("anonymous")
-
 
 # SQL Injection Scanner API endpoints
 @app.route('/api/scan-sql-injection', methods=['POST'])
@@ -202,39 +64,6 @@ def scan_sql_injection():
     except Exception as e:
         return jsonify({'error': f'Error during SQL injection scan: {str(e)}'}), 500
 
-@app.route('/api/generate-sql-injection-report', methods=['POST'])
-# @token_required
-def generate_sql_injection_report():
-    """Generate Word report for SQL injection vulnerabilities"""
-    return api_generate_sql_injection_report("anonymous")
-
-
-# Command Injection Scanner API endpoints
-@app.route('/api/scan-command-injection', methods=['POST'])
-# @token_required
-def scan_command_injection():
-    """Command injection vulnerability scanning endpoint"""
-    return api_scan_command_injection("anonymous")
-
-@app.route('/api/generate-command-injection-report', methods=['POST'])
-# @token_required
-def generate_command_injection_report():
-    """Generate Word report for command injection vulnerabilities"""
-    return api_generate_command_injection_report("anonymous")
-
-
-# CSRF Scanner API endpoints
-@app.route('/api/scan-csrf', methods=['POST'])
-# @token_required
-def scan_csrf():
-    """CSRF vulnerability scanning endpoint"""
-    return api_scan_csrf("anonymous")
-
-@app.route('/api/generate-csrf-report', methods=['POST'])
-# @token_required
-def generate_csrf_report():
-    """Generate Word report for CSRF vulnerabilities"""
-    return api_generate_csrf_report("anonymous")
 
 
 # Configuration endpoint
@@ -265,17 +94,14 @@ def scan_ml():
 
         # Map UI types to model modes
         mode_map = {
-            'sql': 'sql',
-            'xss': 'xss',
-            'command': 'command_injection',
-            'csrf': 'xsrf'
+            'sql': 'sql'
         }
         if vuln_type not in mode_map:
             return jsonify({'error': f'Unsupported type: {vuln_type}'}), 400
         mode = mode_map[vuln_type]
 
-        # For ML analysis: sql, xss, command, csrf all accept code or URL.
-        if vuln_type in ('sql', 'xss', 'command', 'csrf') and not code and not url:
+        # For ML analysis: sql accepts code or URL.
+        if vuln_type == 'sql' and not code and not url:
             return jsonify({'error': 'type and either code or url are required'}), 400
 
         # SQL: use integrated ML SQL scanner (BiLSTM), return vulnerabilities + highlighted code
@@ -331,138 +157,6 @@ def scan_ml():
                 'lines_to_highlight': lines_to_highlight,
                 'code': effective_code,
                 'highlighted_code': effective_code,
-                'original_code': effective_code,
-                'total_issues': len(vulns),
-                'high_severity': high,
-                'medium_severity': medium,
-                'low_severity': low,
-            })
-
-        # XSS: use integrated ML XSS scanner (BiLSTM), return vulnerabilities + highlighted code
-        if vuln_type == 'xss':
-            try:
-                detector = MLXSSDetector()
-                effective_code = code
-                vuln_source_name = filename
-
-                if not effective_code and url:
-                    fetch_url = _github_blob_to_raw(url)
-                    req = Request(fetch_url, headers={"User-Agent": "ML-XSS-Scanner/1.0"})
-                    with urlopen(req, timeout=30) as resp:
-                        effective_code = resp.read().decode("utf-8", errors="replace")
-                    vuln_source_name = url
-
-                vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
-            except Exception as e:
-                return jsonify({
-                    'status': 'error',
-                    'type': vuln_type,
-                    'mode': mode,
-                    'message': f'ML XSS scan failed: {str(e)}',
-                }), 500
-
-            vuln_dicts = [v.to_dict() for v in vulns]
-            high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
-            medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
-            low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
-            highlighted = highlight_xss_vulnerabilities(effective_code, vulns)
-
-            return jsonify({
-                'status': 'completed',
-                'type': vuln_type,
-                'mode': mode,
-                'filename': filename,
-                'file_name': filename,
-                'vulnerabilities': vuln_dicts,
-                'highlighted_code': highlighted,
-                'original_code': effective_code,
-                'total_issues': len(vulns),
-                'high_severity': high,
-                'medium_severity': medium,
-                'low_severity': low,
-            })
-
-        # Command injection: use integrated ML command injection scanner (BiLSTM)
-        if vuln_type == 'command':
-            try:
-                detector = MLCommandInjectionDetector()
-                effective_code = code
-                vuln_source_name = filename
-
-                if not effective_code and url:
-                    fetch_url = _github_blob_to_raw(url)
-                    req = Request(fetch_url, headers={"User-Agent": "ML-Command-Injection-Scanner/1.0"})
-                    with urlopen(req, timeout=30) as resp:
-                        effective_code = resp.read().decode("utf-8", errors="replace")
-                    vuln_source_name = url
-
-                vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
-            except Exception as e:
-                return jsonify({
-                    'status': 'error',
-                    'type': vuln_type,
-                    'mode': mode,
-                    'message': f'ML Command Injection scan failed: {str(e)}',
-                }), 500
-
-            vuln_dicts = [v.to_dict() for v in vulns]
-            high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
-            medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
-            low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
-            highlighted = highlight_command_injection_vulnerabilities_html(effective_code, vulns)
-
-            return jsonify({
-                'status': 'completed',
-                'type': vuln_type,
-                'mode': mode,
-                'filename': filename,
-                'file_name': filename,
-                'vulnerabilities': vuln_dicts,
-                'highlighted_code': highlighted,
-                'original_code': effective_code,
-                'total_issues': len(vulns),
-                'high_severity': high,
-                'medium_severity': medium,
-                'low_severity': low,
-            })
-
-        # CSRF: use integrated ML CSRF scanner (BiLSTM)
-        if vuln_type == 'csrf':
-            try:
-                detector = MLCSRFDetector()
-                effective_code = code
-                vuln_source_name = filename
-
-                if not effective_code and url:
-                    fetch_url = _github_blob_to_raw(url)
-                    req = Request(fetch_url, headers={"User-Agent": "ML-CSRF-Scanner/1.0"})
-                    with urlopen(req, timeout=30) as resp:
-                        effective_code = resp.read().decode("utf-8", errors="replace")
-                    vuln_source_name = url
-
-                vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
-            except Exception as e:
-                return jsonify({
-                    'status': 'error',
-                    'type': vuln_type,
-                    'mode': mode,
-                    'message': f'ML CSRF scan failed: {str(e)}',
-                }), 500
-
-            vuln_dicts = [csrf_vulnerability_to_dict(v, vuln_source_name) for v in vulns]
-            high = sum(1 for v in vulns if (v.severity or '').lower() == 'high')
-            medium = sum(1 for v in vulns if (v.severity or '').lower() == 'medium')
-            low = sum(1 for v in vulns if (v.severity or '').lower() == 'low')
-            highlighted = _highlight_csrf_vulnerabilities(effective_code, vuln_dicts)
-
-            return jsonify({
-                'status': 'completed',
-                'type': vuln_type,
-                'mode': mode,
-                'filename': filename,
-                'file_name': filename,
-                'vulnerabilities': vuln_dicts,
-                'highlighted_code': highlighted,
                 'original_code': effective_code,
                 'total_issues': len(vulns),
                 'high_severity': high,
@@ -609,7 +303,7 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'version': '1.0.0',
-        'scanners': ['xss', 'sql_injection', 'command_injection', 'csrf']
+        'scanners': ['sql_injection']
     })
 
 # Initialize directories on startup

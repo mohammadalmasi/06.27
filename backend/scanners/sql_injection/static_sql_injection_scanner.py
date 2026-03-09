@@ -12,7 +12,6 @@ from docx.oxml.shared import OxmlElement, qn
 from datetime import datetime
 import json
 
-
 class StaticSqlInjectionScanner:
     """SQL injection detector: taint + sink analysis. All scan and helper methods live here."""
     def __init__(self):
@@ -156,102 +155,6 @@ class StaticSqlInjectionScanner:
         for pattern in patterns:
             highlighted = re.sub(pattern, lambda m: f"[SQL-INJECTION-VULNERABLE:{m.group(0)}]", highlighted, flags=re.IGNORECASE | re.DOTALL)
         return highlighted
-
-
-def highlight_sql_injection_vulnerabilities_word(code):
-    """Highlight SQL injection patterns for Word documents."""
-    return StaticSqlInjectionScanner().highlight_word(code)
-
-
-def api_generate_sql_injection_report(current_user):
-    try:
-        data = request.get_json()
-        vulnerabilities = data.get('vulnerabilities', [])
-        source = data.get('source', 'Unknown')
-        
-        if not vulnerabilities:
-            return jsonify({'error': 'No vulnerabilities provided'}), 400
-
-        doc = Document()
-        title = doc.add_heading('SQL Injection Security Analysis Report', 0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        doc.add_heading('Report Information', level=1)
-        info_table = doc.add_table(rows=4, cols=2)
-        info_table.style = 'Table Grid'
-        
-        info_table.cell(0, 0).text = 'Source'
-        info_table.cell(0, 1).text = source
-        info_table.cell(1, 0).text = 'Report Generated'
-        info_table.cell(1, 1).text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        info_table.cell(2, 0).text = 'Total Vulnerabilities'
-        info_table.cell(2, 1).text = str(len(vulnerabilities))
-        info_table.cell(3, 0).text = 'Risk Level'
-        info_table.cell(3, 1).text = 'High' if len(vulnerabilities) > 0 else 'Low'
-        doc.add_heading('Executive Summary', level=1)
-        summary_text = f"""
-This report presents the results of a comprehensive SQL injection vulnerability analysis performed on the provided code. 
-The analysis identified {len(vulnerabilities)} potential SQL injection vulnerabilities that could allow attackers to manipulate 
-database queries and potentially gain unauthorized access to sensitive data.
-
-SQL injection vulnerabilities can lead to data breaches, data modification, data deletion, and in some cases, complete system compromise.
-These vulnerabilities should be addressed immediately to prevent potential attacks against the application's database.
-        """
-        doc.add_paragraph(summary_text.strip())
-        doc.add_heading('Vulnerability Details', level=1)
-        
-        for i, vuln in enumerate(vulnerabilities, 1):
-            doc.add_heading(f'SQL Injection Vulnerability #{i}', level=2)
-            vuln_table = doc.add_table(rows=5, cols=2)
-            vuln_table.style = 'Table Grid'
-            
-            vuln_table.cell(0, 0).text = 'Line Number'
-            vuln_table.cell(0, 1).text = str(vuln.get('line_number', 'N/A'))
-            vuln_table.cell(1, 0).text = 'Severity'
-            vuln_table.cell(1, 1).text = vuln.get('severity', 'Medium').title()
-            vuln_table.cell(2, 0).text = 'CWE References'
-            vuln_table.cell(2, 1).text = ', '.join(vuln.get('cwe_references', []))
-            vuln_table.cell(3, 0).text = 'OWASP References'
-            vuln_table.cell(3, 1).text = ', '.join(vuln.get('owasp_references', []))
-            vuln_table.cell(4, 0).text = 'Description'
-            vuln_table.cell(4, 1).text = vuln.get('description', 'SQL injection vulnerability detected')
-            doc.add_paragraph('Vulnerable Code:', style='Heading 3')
-            code_para = doc.add_paragraph()
-            code_run = code_para.add_run(vuln.get('code_snippet', ''))
-            code_run.font.name = 'Courier New'
-            code_run.font.size = Pt(10)
-            code_run.font.color.rgb = RGBColor(255, 0, 0)
-            doc.add_paragraph('Remediation:', style='Heading 3')
-            remediation_para = doc.add_paragraph(vuln.get('remediation', 'Use parameterized queries and proper input validation'))
-            doc.add_paragraph()
-
-        doc.add_heading('SQL Injection Prevention Recommendations', level=1)
-        recommendations = """
-1. Parameterized Queries: Always use parameterized queries or prepared statements instead of string concatenation.
-2. Input Validation: Validate all user inputs on both client and server side.
-3. Least Privilege: Use database accounts with minimal necessary privileges.
-4. Stored Procedures: Use stored procedures when possible, but ensure they are also parameterized.
-5. Escape Special Characters: If parameterized queries are not possible, properly escape special characters.
-6. ORM Usage: Use Object-Relational Mapping (ORM) frameworks that handle parameterization automatically.
-7. Database Firewalls: Implement database firewalls to detect and block SQL injection attempts.
-8. Regular Security Testing: Conduct regular security testing including automated SQL injection scanning.
-9. Code Reviews: Implement thorough code review processes to catch SQL injection vulnerabilities.
-10. Security Training: Provide security awareness training to developers about SQL injection risks.
-        """
-        doc.add_paragraph(recommendations.strip())
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
-        doc.save(temp_file.name)
-        temp_file.close()
-        
-        return send_file(
-            temp_file.name,
-            as_attachment=True,
-            download_name=f'sql_injection_security_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.docx',
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
-        
-    except Exception as e:
-        return jsonify({'error': f'Error generating SQL injection report: {str(e)}'}), 500
-
 
 if __name__ == "__main__":
     import sys

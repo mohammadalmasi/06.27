@@ -74,14 +74,7 @@ REACT_APP_API_BASE_URL=http://localhost:5001
 
 - `GET /api/health`
 - `GET /api/scanner-config`
-- `POST /api/scan-xss`
 - `POST /api/scan-sql-injection`
-- `POST /api/scan-command-injection`
-- `POST /api/scan-csrf`
-- `POST /api/generate-xss-report`
-- `POST /api/generate-sql-injection-report`
-- `POST /api/generate-command-injection-report`
-- `POST /api/generate-csrf-report`
 - `POST /api/scan-ml` (optional; requires ML analyzer/assets)
 
 ## ML endpoint note

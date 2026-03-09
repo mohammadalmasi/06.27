@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-
 from scanners.sql_injection.ml_sql_injection_scanner import MLSQLInjectionDetector
 
 

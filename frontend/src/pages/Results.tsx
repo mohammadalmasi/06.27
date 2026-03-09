@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   FileText,
   Code,
-  Shield,
   AlertCircle,
   Bug
 } from 'lucide-react';
@@ -53,7 +52,7 @@ interface ScanResults {
   scan_timestamp: string;
   source?: string;
   scan_type?: string;
-  scannerType?: 'sql' | 'xss' | 'command' | 'csrf';
+  scannerType?: 'sql';
   analysisMode?: 'static' | 'ml';
   image_url?: string;
   upload_id?: string;
@@ -120,24 +119,10 @@ const Results: React.FC = () => {
   };
 
   const getScannerTitle = () => {
-    if (results?.scannerType === 'xss') {
-      return 'XSS Security Scan Results';
-    } else if (results?.scannerType === 'command') {
-      return 'Command Injection Security Scan Results';
-    } else if (results?.scannerType === 'csrf') {
-      return 'CSRF Security Scan Results';
-    }
     return 'SQL Injection Security Scan Results';
   };
 
   const getScannerIcon = () => {
-    if (results?.scannerType === 'xss') {
-      return <Shield className="h-8 w-8 text-primary-600 mr-3" />;
-    } else if (results?.scannerType === 'command') {
-      return <AlertTriangle className="h-8 w-8 text-primary-600 mr-3" />;
-    } else if (results?.scannerType === 'csrf') {
-      return <Shield className="h-8 w-8 text-primary-600 mr-3" />;
-    }
     return <Bug className="h-8 w-8 text-primary-600 mr-3" />;
   };
 
@@ -150,81 +135,11 @@ const Results: React.FC = () => {
     if (!results) return;
     
     try {
-      const reportData = {
-        vulnerabilities: results.vulnerabilities,
-        summary: results.summary,
-        scan_info: {
-          scan_timestamp: new Date().toISOString(),
-          input_type: scanInput?.type || 'unknown',
-          file_name: scanInput?.filename || scanInput?.type || 'N/A',
-          scanner_type: results.scannerType || 'sql'
-        },
-        original_code: results.original_code || ''
-      };
-
-      // Get JWT token from localStorage
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json'
-      };
-
-      // Choose the appropriate report endpoint based on scanner type
-      let endpoint: string;
-      if (results.scannerType === 'xss') {
-        endpoint = '/api/generate-xss-report';
-      } else if (results.scannerType === 'command') {
-        endpoint = '/api/generate-command-injection-report';
-      } else if (results.scannerType === 'csrf') {
-        endpoint = '/api/generate-csrf-report';
+      if (results.scannerType === 'sql') {
+        throw new Error('Report generation is not supported for SQL injection');
       } else {
-        endpoint = '/api/generate-sql-injection-report';
+        throw new Error('Invalid scanner type');
       }
-
-      const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(reportData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
-      }
-
-      // The API now returns the file directly
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
-      // Extract filename from response headers or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let scanType: string;
-      if (results.scannerType === 'xss') {
-        scanType = 'xss';
-      } else if (results.scannerType === 'command') {
-        scanType = 'command-injection';
-      } else if (results.scannerType === 'csrf') {
-        scanType = 'csrf';
-      } else {
-        scanType = 'sql-injection';
-      }
-      let filename = `${scanType}-security-report.docx`;
-      
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (match) {
-          filename = match[1];
-        }
-      } else {
-        // Generate filename with timestamp
-        const timestamp = new Date().toISOString().split('T')[0];
-        filename = `${scanType}-security-report-${timestamp}.docx`;
-      }
-      
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
       // Fallback to JSON if Word generation fails
@@ -241,9 +156,7 @@ const Results: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const scanType = results?.scannerType === 'xss' ? 'xss' : 
-                      results?.scannerType === 'command' ? 'command-injection' : 
-                      results?.scannerType === 'csrf' ? 'csrf' : 'sql-injection';
+      const scanType = 'sql-injection';
       a.download = `${scanType}-security-report-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
@@ -283,13 +196,15 @@ const Results: React.FC = () => {
               </h1>
             </div>
             
-            <button
-              onClick={downloadReport}
-              className="btn-primary flex items-center"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Report
-            </button>
+            {results.scannerType !== 'sql' && (
+              <button
+                onClick={downloadReport}
+                className="btn-primary flex items-center"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Report
+              </button>
+            )}
           </div>
           
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
@@ -298,9 +213,7 @@ const Results: React.FC = () => {
             </span>
             <span><strong>Source:</strong> {scanInput?.filename || scanInput?.type || 'N/A'}</span>
             <span><strong>Scanner:</strong> {
-              results.scannerType === 'xss' ? 'XSS' :
-              results.scannerType === 'command' ? 'Command Injection' :
-              results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'
+              results.scannerType === 'sql' ? 'SQL Injection' : 'Unknown Scanner'
             }</span>
             <span><strong>Scanned:</strong> {new Date().toLocaleString()}</span>
           </div>
@@ -479,9 +392,7 @@ const Results: React.FC = () => {
                       {results.file_name || scanInput?.filename || 'scanned_code.py'}
                     </span>
                     <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
-                      {results.analysisMode === 'ml' ? 'ML' : 'Static'} — {results.scannerType === 'xss' ? 'XSS' :
-                      results.scannerType === 'command' ? 'Command Injection' :
-                      results.scannerType === 'csrf' ? 'CSRF' : 'SQL Injection'}
+                      {results.analysisMode === 'ml' ? 'ML' : 'Static'} — SQL Injection
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -738,11 +649,7 @@ const Results: React.FC = () => {
                 </h3>
                 <p className="text-gray-600">
                   {filterSeverity === 'all' 
-                    ? `Great! Your code appears to be secure from ${
-                        results.scannerType === 'xss' ? 'XSS' : 
-                        results.scannerType === 'command' ? 'command injection' : 
-                        results.scannerType === 'csrf' ? 'CSRF' : 'SQL injection'
-                      } vulnerabilities.`
+                    ? `Great! Your code appears to be secure from SQL injection vulnerabilities.`
                     : `There are no ${filterSeverity} severity vulnerabilities in your code.`
                   }
                 </p>
@@ -758,9 +665,7 @@ const Results: React.FC = () => {
                         {getSeverityIcon(vulnerability.severity)}
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                            {results.scannerType === 'xss' ? 'XSS Vulnerability' : 
-                             results.scannerType === 'command' ? 'Command Injection Vulnerability' : 
-                             results.scannerType === 'csrf' ? 'CSRF Vulnerability' : 'SQL Injection Vulnerability'} - Line {vulnerability.line_number}
+                            SQL Injection Vulnerability - Line {vulnerability.line_number}
                           </h3>
                           <p className="text-gray-600 mb-4">
                             {vulnerability.description}

@@ -23,7 +23,7 @@ interface ScanInput {
   filename?: string;
 }
 
-type ScannerType = 'sql' | 'xss' | 'command' | 'csrf';
+type ScannerType = 'sql';
 
 type IconComponent = React.ComponentType<{ className?: string }>;
 
@@ -52,12 +52,6 @@ const Scanner: React.FC = () => {
         // Set the first enabled scanner as default
         if (isScannerEnabled(config, 'sql')) {
           setScannerType('sql');
-        } else if (isScannerEnabled(config, 'xss')) {
-          setScannerType('xss');
-        } else if (isScannerEnabled(config, 'command')) {
-          setScannerType('command');
-        } else if (isScannerEnabled(config, 'csrf')) {
-          setScannerType('csrf');
         }
       } catch (error) {
         console.error('Failed to load scanner configuration:', error);
@@ -175,12 +169,6 @@ const Scanner: React.FC = () => {
         let endpoint: string;
         if (scannerType === 'sql') {
           endpoint = '/api/scan-sql-injection';
-        } else if (scannerType === 'xss') {
-          endpoint = '/api/scan-xss';
-        } else if (scannerType === 'command') {
-          endpoint = '/api/scan-command-injection';
-        } else if (scannerType === 'csrf') {
-          endpoint = '/api/scan-csrf';
         } else {
           throw new Error('Invalid scanner type');
         }
@@ -229,12 +217,6 @@ const Scanner: React.FC = () => {
       let vulnerabilityType: string;
       if (scannerType === 'sql') {
         vulnerabilityType = 'SQL injection vulnerabilities';
-      } else if (scannerType === 'xss') {
-        vulnerabilityType = 'XSS vulnerabilities';
-      } else if (scannerType === 'command') {
-        vulnerabilityType = 'Command injection vulnerabilities';
-      } else if (scannerType === 'csrf') {
-        vulnerabilityType = 'CSRF vulnerabilities';
       } else {
         vulnerabilityType = 'vulnerabilities';
       }
@@ -280,12 +262,6 @@ const Scanner: React.FC = () => {
   const getScannerTitle = () => {
     if (scannerType === 'sql') {
       return 'SQL Injection Scanner';
-    } else if (scannerType === 'xss') {
-      return 'XSS Scanner';
-    } else if (scannerType === 'command') {
-      return 'Command Injection Scanner';
-    } else if (scannerType === 'csrf') {
-      return 'CSRF Scanner';
     }
     return '';
   };
@@ -297,24 +273,6 @@ const Scanner: React.FC = () => {
           label: 'SQL Injection',
           description: 'Find unsafe SQL query construction patterns and injection sinks.',
           Icon: Bug,
-        };
-      case 'xss':
-        return {
-          label: 'XSS',
-          description: 'Detect potentially unsafe HTML/JS rendering and injection points.',
-          Icon: Shield,
-        };
-      case 'command':
-        return {
-          label: 'Command Injection',
-          description: 'Identify dangerous OS command execution patterns and tainted inputs.',
-          Icon: AlertTriangle,
-        };
-      case 'csrf':
-        return {
-          label: 'CSRF',
-          description: 'Spot missing CSRF defenses in state-changing requests and forms.',
-          Icon: Shield,
         };
       default:
         return {
@@ -574,11 +532,7 @@ const Scanner: React.FC = () => {
                         onKeyDown={handleScanKeyDown}
                         placeholder={scannerType === 'sql' 
                           ? "# Paste your code here (SQL injection analysis)..."
-                          : scannerType === 'xss'
-                          ? "# Paste your code here (XSS analysis)..."
-                          : scannerType === 'command'
-                          ? "# Paste your code here (command injection analysis)..."
-                          : "# Paste your code here (CSRF analysis)..."
+                          : "# Paste your code here..."
                         }
                         rows={18}
                         className="textarea-field font-mono text-sm min-h-[420px]"
@@ -614,48 +568,6 @@ const Scanner: React.FC = () => {
                         >
                           <Bug className={`h-4 w-4 ${scannerType === 'sql' ? 'text-primary-700' : 'text-slate-600'}`} />
                           SQL
-                        </button>
-                      )}
-                      {isScannerEnabled(scannerConfig, 'xss') && (
-                        <button
-                          onClick={() => setScannerType('xss')}
-                          type="button"
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                            scannerType === 'xss'
-                              ? 'border-primary-500 bg-primary-50 text-primary-800'
-                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-                          }`}
-                        >
-                          <Shield className={`h-4 w-4 ${scannerType === 'xss' ? 'text-primary-700' : 'text-slate-600'}`} />
-                          XSS
-                        </button>
-                      )}
-                      {isScannerEnabled(scannerConfig, 'command') && (
-                        <button
-                          onClick={() => setScannerType('command')}
-                          type="button"
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                            scannerType === 'command'
-                              ? 'border-primary-500 bg-primary-50 text-primary-800'
-                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-                          }`}
-                        >
-                          <AlertTriangle className={`h-4 w-4 ${scannerType === 'command' ? 'text-primary-700' : 'text-slate-600'}`} />
-                          Command
-                        </button>
-                      )}
-                      {isScannerEnabled(scannerConfig, 'csrf') && (
-                        <button
-                          onClick={() => setScannerType('csrf')}
-                          type="button"
-                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                            scannerType === 'csrf'
-                              ? 'border-primary-500 bg-primary-50 text-primary-800'
-                              : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50'
-                          }`}
-                        >
-                          <Shield className={`h-4 w-4 ${scannerType === 'csrf' ? 'text-primary-700' : 'text-slate-600'}`} />
-                          CSRF
                         </button>
                       )}
                     </div>
