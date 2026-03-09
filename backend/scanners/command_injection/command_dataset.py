@@ -107,19 +107,21 @@ def vulnerable_code11():
 
 
 def vulnerable_code12():
-    """Safe-ish: shlex.quote before shell execution"""
+    """os.system with request args (no sanitization)"""
     import os
-    import shlex
     from flask import request
     
     filename = request.args.get("file", "test.txt")
-    safe_filename = shlex.quote(filename)
-    # Safer: quoted argument reduces shell metacharacter injection risk
-    os.system(f"cat {safe_filename}")
+    # Vulnerable: attacker-controlled string reaches a shell command
+    os.system(f"cat {filename}")
 
 
 def vulnerable_code13():
-    """Safe: subprocess.run with constant argv"""
+    """subprocess.run with user-controlled command in argv"""
     import subprocess
+    from flask import request
     
-    subprocess.run(["echo", "hello"], check=True)
+    cmd = request.args.get("cmd", "ls")
+    arg = request.args.get("arg", "-l")
+    # Vulnerable: attacker can control which binary runs / arguments
+    subprocess.run([cmd, arg], check=True)
