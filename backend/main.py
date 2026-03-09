@@ -38,7 +38,7 @@ def scan_sql_injection():
         url = (data.get('url'))
         scan_type = data.get('scanType')
         
-        detector = MLSQLInjectionDetector()
+        detector = StaticSqlInjectionScanner()
       
         if scan_type == 1:
             vulns = detector.scan_source(code, source_name='Direct input')
