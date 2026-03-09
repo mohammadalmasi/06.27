@@ -97,6 +97,70 @@ def ml_sql_injection():
             'code': code
         })
 
+@app.route('/api/static-xss', methods=['POST'])
+def static_xss():
+    data = request.get_json(force=True)
+    code = data.get('code')
+    url = data.get('url')
+    scan_type = data.get('scanType')
+    
+    detector = StaticXSSScanner()
+    if scan_type == 1:
+        vulns = detector.scan_source(code, source_name='Direct input')
+    elif scan_type == 2:
+        vulns = detector.scan_file(code)
+    elif scan_type == 3:
+        vulns = detector.scan_url(url)
+    else:
+        return jsonify({'error': 'Invalid scanType'}), 400
+        
+    vulnerabilities = []
+    vulns_list = vulns.get("vulnerabilities", []) if isinstance(vulns, dict) else vulns
+    for v in vulns_list:
+        vulnerabilities.append({
+            "code_snippet": v.get("code_snippet"),
+            "confidence": v.get("confidence"),
+            "line_number": v.get("line_number"),
+            "severity": v.get("severity")
+        })
+
+    return jsonify({
+        'vulnerabilities': vulnerabilities,
+        'code': code
+    })
+
+@app.route('/api/ml-xss', methods=['POST'])
+def ml_xss():
+    data = request.get_json(force=True)
+    code = data.get('code')
+    url = data.get('url')
+    scan_type = data.get('scanType')
+    
+    detector = MLXSSDetector()
+    if scan_type == 1:
+        vulns = detector.scan_source(code, source_name='Direct input')
+    elif scan_type == 2:
+        vulns = detector.scan_file(code)
+    elif scan_type == 3:
+        vulns = detector.scan_url(url)
+    else:
+        return jsonify({'error': 'Invalid scanType'}), 400
+        
+    vulnerabilities = []
+    vulns_list = vulns.get("vulnerabilities", []) if isinstance(vulns, dict) else vulns
+    for v in vulns_list:
+        vulnerabilities.append({
+            "code_snippet": v.get("code_snippet"),
+            "confidence": v.get("confidence"),
+            "line_number": v.get("line_number"),
+            "severity": v.get("severity")   
+        })
+
+    return jsonify({
+        'vulnerabilities': vulnerabilities,
+        'code': code
+    })
+
 # Initialize directories on startup
 ensure_dirs()
 
