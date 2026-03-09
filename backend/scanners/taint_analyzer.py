@@ -4,7 +4,7 @@ Reusable for SQL injection, XSS, and other vulnerability types.
 Pass in taint sources, sinks, and a factory to build vulnerability objects.
 """
 import ast
-
+import symtable
 
 class TaintAnalyzer:
     """
@@ -40,32 +40,50 @@ class TaintAnalyzer:
         self._tainted = set()
 
     def analyze(self, tree):
+        try:
+            self.st = symtable.symtable(self.source_code, self.filename, "exec")
+        except Exception:
+            self.st = None
+
         self._collect_assignments_and_sinks(tree)
         self._compute_tainted_fixpoint()
         self._report_tainted_sinks()
 
-    def _collect_assignments_and_sinks(self, node):
+    def _collect_assignments_and_sinks(self, node, current_st=None):
+        if current_st is None:
+            current_st = getattr(self, "st", None)
+
+        new_st = current_st
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if current_st is not None:
+                for child in current_st.get_children():
+                    if child.get_name() == node.name and child.get_lineno() == node.lineno:
+                        new_st = child
+                        break
+        
+        scope_id = id(new_st) if new_st else 0
+
         if isinstance(node, ast.Assign):
             targets = []
             for t in node.targets:
                 if isinstance(t, ast.Name):
                     targets.append(t.id)
             if targets:
-                self._assignments.append((getattr(node, "lineno", 0), targets, node.value))
+                self._assignments.append((getattr(node, "lineno", 0), targets, node.value, scope_id))
         elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
-            self._assignments.append((getattr(node, "lineno", 0), [node.target.id], node.value))
+            self._assignments.append((getattr(node, "lineno", 0), [node.target.id], node.value, scope_id))
         elif isinstance(node, ast.Call):
             line = getattr(node, "lineno", 0)
             if isinstance(node.func, ast.Attribute):
                 attr = getattr(node.func, "attr", None)
                 if attr in self.sink_attrs and node.args:
-                    self._sink_calls.append((line, node, self.sink_arg_index))
+                    self._sink_calls.append((line, node, self.sink_arg_index, scope_id))
             elif isinstance(node.func, ast.Name):
                 name = getattr(node.func, "id", None)
                 if name in self.sink_names and node.args:
-                    self._sink_calls.append((line, node, self.sink_arg_index))
+                    self._sink_calls.append((line, node, self.sink_arg_index, scope_id))
         for child in ast.iter_child_nodes(node):
-            self._collect_assignments_and_sinks(child)
+            self._collect_assignments_and_sinks(child, new_st)
 
     def _is_taint_source_call(self, node):
         if not isinstance(node, ast.Call):
@@ -95,39 +113,39 @@ class TaintAnalyzer:
                 return self._is_request_like(node.value)
         return False
 
-    def _expr_tainted(self, node):
+    def _expr_tainted(self, node, scope_id):
         if node is None:
             return False
         if isinstance(node, ast.Name):
-            return getattr(node, "id", None) in self._tainted
+            return (getattr(node, "id", None), scope_id) in self._tainted
         if isinstance(node, ast.Call):
             if self._is_taint_source_call(node):
                 return True
             for a in node.args:
-                if self._expr_tainted(a):
+                if self._expr_tainted(a, scope_id):
                     return True
             for k in getattr(node, "keywords", []) or []:
-                if self._expr_tainted(k.value):
+                if self._expr_tainted(k.value, scope_id):
                     return True
             return False
         if isinstance(node, ast.BinOp) and isinstance(getattr(node, "op", None), ast.Add):
-            return self._expr_tainted(node.left) or self._expr_tainted(node.right)
+            return self._expr_tainted(node.left, scope_id) or self._expr_tainted(node.right, scope_id)
         if isinstance(node, ast.JoinedStr):
             for v in node.values:
-                if isinstance(v, ast.FormattedValue) and self._expr_tainted(v.value):
+                if isinstance(v, ast.FormattedValue) and self._expr_tainted(v.value, scope_id):
                     return True
             return False
         if isinstance(node, ast.Attribute):
-            return self._expr_tainted(node.value) if hasattr(node, "value") else False
+            return self._expr_tainted(node.value, scope_id) if hasattr(node, "value") else False
         if isinstance(node, ast.Subscript):
             if self._is_request_like(node.value):
                 return True
-            return self._expr_tainted(node.value) or self._expr_tainted(
-                node.slice if isinstance(node.slice, ast.AST) else None
+            return self._expr_tainted(node.value, scope_id) or self._expr_tainted(
+                node.slice if isinstance(node.slice, ast.AST) else None, scope_id
             )
         if isinstance(node, (ast.List, ast.Tuple)):
             for e in getattr(node, "elts", []) or []:
-                if self._expr_tainted(e):
+                if self._expr_tainted(e, scope_id):
                     return True
             return False
         return False
@@ -136,20 +154,20 @@ class TaintAnalyzer:
         changed = True
         while changed:
             changed = False
-            for _line, targets, value in self._assignments:
-                if not self._expr_tainted(value):
+            for _line, targets, value, scope_id in self._assignments:
+                if not self._expr_tainted(value, scope_id):
                     continue
                 for name in targets:
-                    if name not in self._tainted:
-                        self._tainted.add(name)
+                    if (name, scope_id) not in self._tainted:
+                        self._tainted.add((name, scope_id))
                         changed = True
 
     def _report_tainted_sinks(self):
-        for line, call_node, arg_idx in self._sink_calls:
+        for line, call_node, arg_idx, scope_id in self._sink_calls:
             if arg_idx >= len(call_node.args):
                 continue
             arg = call_node.args[arg_idx]
-            if not self._expr_tainted(arg):
+            if not self._expr_tainted(arg, scope_id):
                 continue
             snippet = self._get_code_snippet(call_node)
             vuln = self.vulnerability_factory(line=line, call_node=call_node, code_snippet=snippet, file_path=self.filename)
