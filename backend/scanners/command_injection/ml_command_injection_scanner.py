@@ -339,6 +339,8 @@ class MLCommandInjectionDetector:
             pred = self._model.predict(X, verbose=0)
             prob = float(pred.ravel()[0])
 
+            print(f"[DEBUG ML Command Injection] Window starting at line {token_index_to_line_number(source_code, start)} has prob: {prob:.6f}")
+
             if self.verbose:
                 line_number = token_index_to_line_number(source_code, start)
                 print(f"[ML Command Injection]   Window {window_index + 1}/{num_windows}: tokens [{start}:{end}] -> line ~{line_number}, prob={prob:.3f}")
