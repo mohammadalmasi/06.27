@@ -78,44 +78,6 @@ class StaticSqlInjectionScanner:
             code = resp.read().decode("utf-8", errors="replace")
         return self.scan_source(code, source_name=url)
 
-    def highlight_word(self, code):
-        """Highlight SQL injection patterns for Word documents."""
-        patterns = [
-            r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{\}.*?[\'\"]\s*\.format\s*\([^)]*\))',
-            r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?%[sd].*?[\'\"]\s*%\s*[^;]+)',
-            r'(f[\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*?\{[^}]*\}.*?[\'"])',
-            r'([\'\"]\s*.*(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|EXEC|EXECUTE).*[\'\"]\s*\+\s*\w+)',
-            r'(\w+\s*\+\s*[\'"].*(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM|JOIN|UNION).*[\'"])',
-            r'(cursor\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'(\.execute\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'(cursor\.execute\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-            r'(\.raw\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'(\.raw\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-            r'(text\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'(text\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-            r'([\'"]WHERE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'([\'"]LIKE\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'([\'"]ORDER\s+BY\s+[^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'(request\.args\.get\([^)]*\))',
-            r'(request\.form\.get\([^)]*\))',
-            r'(request\.(?:form|args)\[[^]]*\])',
-            r'([\'\"]\s*(?:SELECT|INSERT|UPDATE|DELETE)[^\'\"]*[\'\"]\s*\+[^+]*\+[^+]*\+)',
-            r'([\'\"]\s*WHERE[^\'\"]*[\'\"]\s*\+[^+]*\+)',
-            r'([\'\"]\s*FROM[^\'\"]*[\'\"]\s*\+[^+]*\+)',
-            r'(collection\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
-            r'(\.find\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input)[^}]*\})',
-            r'(db\.eval\s*\(\s*f[\'"][^\'\"]*\{[^}]*\}[^\'\"]*[\'"])',
-            r'(db\.eval\s*\(\s*[\'"][^\'\"]*[\'"]\s*\+\s*\w+)',
-            r'(db\.eval\s*\([^)]*(?:request\.|username|user_input|\w+_input))',
-            r'(\.(?:find_one|update|delete|remove|insert)\s*\(\s*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
-            r'(\{[^}]*[\'"]:\s*request\.(?:form|args|json)\[[^]]*\][^}]*\})',
-            r'(aggregate\s*\(\s*\[[^]]*\{[^}]*[\'"]:\s*(?:request\.|username|user_input|\w+_input))',
-        ]
-        highlighted = code
-        for pattern in patterns:
-            highlighted = re.sub(pattern, lambda m: f"[SQL-INJECTION-VULNERABLE:{m.group(0)}]", highlighted, flags=re.IGNORECASE | re.DOTALL)
-        return highlighted
-
 if __name__ == "__main__":
     import sys
     

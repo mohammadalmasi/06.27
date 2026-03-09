@@ -85,26 +85,19 @@ def scan_sql_injection():
             return jsonify({'error': 'Invalid scanType'}), 400
 
         vulns = raw_results.get('vulnerabilities', [])
-        source_name = raw_results.get('source_name', 'unknown')
         
-        high = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'high')
-        medium = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'medium')
-        low = sum(1 for v in vulns if (v.get('severity') or '').lower() == 'low')
-        lines_to_highlight = [{'line_number': v['line_number'], 'severity': (v.get('severity') or 'high').lower()} for v in vulns]
-        
+        simplified_vulns = []
+        for v in vulns:
+            simplified_vulns.append({
+                "code_snippet": v.get("code_snippet"),
+                "confidence": v.get("confidence"),
+                "line_number": v.get("line_number"),
+                "severity": v.get("severity")
+            })
+
         results = {
-            'status': 'completed',
-            'vulnerabilities': vulns,
-            'lines_to_highlight': lines_to_highlight,
-            'code': effective_code,
-            'highlighted_code': effective_code,
-            'original_code': effective_code,
-            'total_issues': len(vulns),
-            'high_severity': high,
-            'medium_severity': medium,
-            'low_severity': low,
-            'source': source_name,
-            'scan_type': 'sql_injection'
+            'vulnerabilities': simplified_vulns,
+            'code': effective_code
         }
         
         return jsonify(results)

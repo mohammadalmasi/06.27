@@ -124,9 +124,16 @@ const Results: React.FC = () => {
     return <Bug className="h-8 w-8 text-primary-600 mr-3" />;
   };
 
+  const totalIssues = results?.vulnerabilities?.length ?? 0;
+  const highSeverity = results?.vulnerabilities?.filter(v => (v.severity || '').toLowerCase() === 'high').length ?? 0;
+  const mediumSeverity = results?.vulnerabilities?.filter(v => (v.severity || '').toLowerCase() === 'medium').length ?? 0;
+  const lowSeverity = results?.vulnerabilities?.filter(v => (v.severity || '').toLowerCase() === 'low').length ?? 0;
+  
+  const linesToHighlight = results?.vulnerabilities?.map(v => ({ line_number: v.line_number, severity: (v.severity || '').toLowerCase() })) || [];
+
   const filteredVulnerabilities = results?.vulnerabilities?.filter(vuln => {
     if (filterSeverity === 'all') return true;
-    return vuln.severity.toLowerCase() === filterSeverity.toLowerCase();
+    return (vuln.severity || '').toLowerCase() === filterSeverity.toLowerCase();
   }) || [];
 
   const downloadReport = async () => {
@@ -238,7 +245,7 @@ const Results: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Findings</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {typeof results.total_issues === 'number' ? results.total_issues : (results.vulnerabilities?.length ?? 0)}
+                    {totalIssues}
                   </p>
                 </div>
               </div>
@@ -255,7 +262,7 @@ const Results: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Issues</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {results.total_issues || results.summary?.total_vulnerabilities || 0}
+                    {totalIssues}
                   </p>
                 </div>
               </div>
@@ -267,7 +274,7 @@ const Results: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">High Severity</p>
                   <p className="text-2xl font-bold text-danger-600">
-                    {results.high_severity || results.summary?.high_severity || 0}
+                    {highSeverity}
                   </p>
                 </div>
               </div>
@@ -279,7 +286,7 @@ const Results: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Medium Severity</p>
                   <p className="text-2xl font-bold text-warning-600">
-                    {results.medium_severity || results.summary?.medium_severity || 0}
+                    {mediumSeverity}
                   </p>
                 </div>
               </div>
@@ -291,7 +298,7 @@ const Results: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Low Severity</p>
                   <p className="text-2xl font-bold text-success-600">
-                    {results.low_severity || results.summary?.low_severity || 0}
+                    {lowSeverity}
                   </p>
                 </div>
               </div>
@@ -310,13 +317,13 @@ const Results: React.FC = () => {
                   const getCount = (sev: string) => {
                     switch (sev) {
                       case 'high':
-                        return results.high_severity || results.summary?.high_severity || 0;
+                        return highSeverity;
                       case 'medium':
-                        return results.medium_severity || results.summary?.medium_severity || 0;
+                        return mediumSeverity;
                       case 'low':
-                        return results.low_severity || results.summary?.low_severity || 0;
+                        return lowSeverity;
                       default:
-                        return results.total_issues || results.summary?.total_vulnerabilities || 0;
+                        return totalIssues;
                     }
                   };
                   
@@ -358,7 +365,7 @@ const Results: React.FC = () => {
                   ? 'Code as analyzed by the ML model.'
                   : 'Vulnerable lines are highlighted by severity (red = high, orange = medium, green = low).'
                 }
-                {results.scannerType === 'sql' && results.analysisMode !== 'ml' && results.lines_to_highlight?.length
+                {results.scannerType === 'sql' && results.analysisMode !== 'ml' && linesToHighlight.length
                   ? ' Tainted data flowing to SQL sinks is marked.'
                   : ''}
               </p>
@@ -399,7 +406,7 @@ const Results: React.FC = () => {
 
                     {/* Code: UI highlighting when lines_to_highlight present, else raw/HTML */}
                     <div className="flex-1 overflow-x-auto">
-                      {results.lines_to_highlight?.length && (results.code || results.original_code) ? (
+                      {linesToHighlight.length > 0 && (results.code || results.original_code) ? (
                         <pre
                           className="text-sm text-gray-100 font-mono leading-6 code-content p-4"
                           style={{
@@ -414,7 +421,7 @@ const Results: React.FC = () => {
                         >
                           {(results.code || results.original_code || '').split('\n').map((line, index) => {
                             const lineNum = index + 1;
-                            const hit = results.lines_to_highlight?.find(h => h.line_number === lineNum);
+                            const hit = linesToHighlight.find(h => h.line_number === lineNum);
                             const severityClass = hit ? `sql-injection-vuln-${(hit.severity || 'high').toLowerCase()}` : '';
                             return (
                               <div key={index} className={severityClass ? `leading-6 ${severityClass}` : 'leading-6'}>
@@ -639,17 +646,17 @@ const Results: React.FC = () => {
               filteredVulnerabilities.map((vulnerability, index) => (
                 <div key={index} className="bg-white rounded-lg shadow overflow-hidden">
                   <div 
-                    className={`p-6 border-l-4 ${getSeverityColor(vulnerability.severity).replace('bg-', 'border-').replace('-50', '-500')}`}
+                    className={`p-6 border-l-4 ${getSeverityColor(vulnerability.severity || 'unknown').replace('bg-', 'border-').replace('-50', '-500')}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-3">
-                        {getSeverityIcon(vulnerability.severity)}
+                        {getSeverityIcon(vulnerability.severity || 'unknown')}
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
                             SQL Injection Vulnerability - Line {vulnerability.line_number}
                           </h3>
                           <p className="text-gray-600 mb-4">
-                            {vulnerability.description}
+                            {vulnerability.description || "Potential vulnerability detected in code snippet."}
                           </p>
                           
                           {/* Vulnerability Details */}
@@ -685,11 +692,11 @@ const Results: React.FC = () => {
                       </div>
                       
                       <div className="flex items-center space-x-2">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(vulnerability.severity)}`}>
-                          {vulnerability.severity.toUpperCase()}
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(vulnerability.severity || 'unknown')}`}>
+                          {(vulnerability.severity || 'unknown').toUpperCase()}
                         </span>
                         <span className="text-sm text-gray-500">
-                          {Math.round(vulnerability.confidence * 100)}% confidence
+                          {Math.round((vulnerability.confidence || 0) * 100)}% confidence
                         </span>
                       </div>
                     </div>
