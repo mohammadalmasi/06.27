@@ -385,27 +385,3 @@ class MLSQLInjectionDetector:
         if not lines or line_number < 1 or line_number > len(lines):
             return ""
         return lines[line_number - 1].strip()
-
-
-if __name__ == "__main__":
-    import sys
-    import tempfile
-
-    mode = sys.argv[1]
-    argument = sys.argv[2]
-
-    detector = MLSQLInjectionDetector()
-
-    if mode == "0":
-        vulns = detector.scan_source(argument)
-
-    elif mode == "1":
-        vulns = detector.scan_file(argument)
-
-    else:
-        print("Unknown mode. Use 0 for file, 1 for source code.")
-        sys.exit(1)
-
-    print("Vulnerabilities found:", len(vulns))
-    for v in vulns:
-        print("  Line", v["line_number"], ":", v.get("description", ""), "| confidence:", v.get("confidence"))
