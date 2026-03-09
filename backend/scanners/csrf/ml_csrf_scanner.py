@@ -338,6 +338,10 @@ class MLCSRFDetector:
             # Step 5: Ask the model: is this chunk vulnerable?
             pred = self._model.predict(X, verbose=0)
             prob = float(pred.ravel()[0])
+            
+            # ALWAYS print the probability for debugging purposes
+            line_number = token_index_to_line_number(source_code, start)
+            print(f"[DEBUG ML CSRF] Window starting at line {line_number} has prob: {prob:.6f}")
 
             if self.verbose:
                 line_number = token_index_to_line_number(source_code, start)
