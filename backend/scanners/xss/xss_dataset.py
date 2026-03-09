@@ -35,6 +35,7 @@ def vulnerable_xss_medium_2():
 def vulnerable_xss_medium_3():
     """URL parameter usage"""
     search_term = URLSearchParams(window.location.search)
+    return search_term
 
 def vulnerable_xss_medium_4():
     """jQuery .append() with HTML"""
@@ -48,7 +49,9 @@ def vulnerable_xss_medium_4():
 def vulnerable_xss_low_1():
     """Simple string concatenation"""
     greeting = user_name + " welcome"
+    return greeting
 
 def vulnerable_xss_low_2():
     """Template string building"""
     message_template = "Hello " + username
+    return message_template
