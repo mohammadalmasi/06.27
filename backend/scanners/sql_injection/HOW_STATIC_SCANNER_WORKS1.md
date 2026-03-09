@@ -1,42 +1,27 @@
-# How the Static SQL Injection Scanner Works
+# How the Static Scanners Work
 
-This section describes how the **static analysis** SQL injection scanner works. It is suitable for inclusion in a thesis or technical report. The scanner does **not** use machine learning; it uses **data-flow analysis** (often called *taint analysis*) on the source code to find places where user input can reach the database.
-
----
-
-## 1. Main Idea (In Simple Terms)
-
-**SQL injection** happens when code builds an SQL command using **user input** (e.g. from a web form) without proper safety checks. An attacker can then change the SQL by typing special characters in the form.
-
-The static scanner answers one question:
-
-> **“Can any user-controlled data end up inside an SQL execution call?”**
-
-To do that, it:
-
-1. Finds **where user input enters** the program (e.g. `request.form["user_id"]`, `request.args.get("name")`, `input()`).
-2. Finds **where SQL is executed** (e.g. `cursor.execute(...)`, `cursor.raw(...)`).
-3. **Tracks how data moves** from (1) into variables and then into (2).
-4. If user input can reach an SQL execution call, it **reports a vulnerability** at that line.
-
-So: **user input** = “tainted” data; **SQL execution** = “sink”. The scanner reports when tainted data flows into a sink.
+This document describes how the **static analysis** scanners work. It is suitable for inclusion in a thesis or technical report. The scanners do **not** use machine learning; instead, they rely on source code parsing techniques like **data-flow analysis** (often called *taint analysis*) for injection vulnerabilities, and **structural Abstract Syntax Tree (AST) analysis** for configuration vulnerabilities like CSRF.
 
 ---
 
-## 2. Key Terms (Short Glossary)
+## Part 1: Injection Vulnerabilities (Taint Analysis)
+
+For most vulnerabilities (such as SQL Injection, Cross-Site Scripting (XSS), and Command Injection), the scanner uses "Taint Analysis". Taint analysis tracks the flow of untrusted user data (the **Source**) through the code until it hits a dangerous function (the **Sink**). 
+
+If tainted data touches a sink without being sanitized, the scanner flags it as a vulnerability.
+
+### 1.1 Key Terms (Short Glossary)
 
 | Term | Meaning |
 |------|--------|
 | **Static analysis** | Analyzing the source code without running it. |
 | **Taint / tainted data** | Data that comes from the user (or other untrusted source) and is not yet sanitized. |
 | **Taint source** | A place in the code where user input is read (e.g. `request.form`, `request.args.get`, `input()`). |
-| **Sink** | A place where a string is used as SQL (e.g. `cursor.execute(query)`). |
+| **Sink** | A place where data is executed dangerously (e.g. `cursor.execute(query)` for SQLi). |
 | **Sanitizer** | A function that cleans or safely casts tainted data (e.g., `int()`, `escape()`), removing the taint. |
 | **Data flow** | How values move from one variable to another through assignments and operations. |
 
----
-
-## 3. Example: One Vulnerable Snippet
+### 1.2 Example: SQL Injection Vulnerability
 
 Consider this small Python function:
 
@@ -51,21 +36,19 @@ def get_user():
 - **Line 3:** The program builds an SQL string by concatenating `user_id` into it. So the variable `query` now may contain whatever the user typed.
 - **Line 4:** The program runs that string as SQL with `cursor.execute(query)`. This is a **sink**: the first argument is the SQL string.
 
-Because **user input** flows into **the argument of `cursor.execute`**, this is a SQL injection vulnerability. The static scanner is designed to find exactly this kind of pattern.
+Because **user input** flows into **the argument of `cursor.execute`**, this is a SQL injection vulnerability. The generic `TaintAnalyzer` is designed to find exactly this kind of pattern by mapping variables from Source to Sink.
 
----
+### 1.3 How the Taint Analyzer Works (Step by Step)
 
-## 4. How the Scanner Works (Step by Step)
-
-### Step 1: Parse the source code and build Symbol Tables
+#### Step 1: Parse the source code and build Symbol Tables
 
 The scanner turns the Python source code into a **syntax tree** (AST: Abstract Syntax Tree). This is a structured representation of the program (assignments, function calls, etc.) that the analyzer can walk through. 
 
 Alongside the AST, the scanner uses Python's built-in `symtable` library to build a **Symbol Table**. This is crucial for *scoping*. It allows the scanner to understand that a variable named `query` inside `Function A` is completely separate from a variable named `query` inside `Function B`. This prevents false positives where tainted data in one function incorrectly flags safe code in another function.
 
-### Step 2: Define “sources” and “sinks”
+#### Step 2: Define "sources" and "sinks"
 
-The analyzer is configured with two lists:
+The analyzer is configured with two lists (using SQLi as an example):
 
 - **Taint sources** — expressions that are treated as user input, for example:
   - `request.form`, `request.args`, `request.args.get(...)`, `request.json`, etc.
@@ -74,58 +57,109 @@ The analyzer is configured with two lists:
   - `cursor.execute(...)`, `cursor.executemany(...)`, `cursor.raw(...)`
   - In some setups, `text(...)` (e.g. SQLAlchemy)
 
-For sinks, the analyzer only cares about the **first argument** of the call, because that is the SQL string.
-
-### Step 3: Collect assignments and sink calls (with Scope Context)
+#### Step 3: Collect assignments and sink calls (with Scope Context)
 
 The analyzer goes through the syntax tree and records:
 
 - **Every assignment:** e.g. `user_id = request.form["user_id"]`, `query = "SELECT ..." + user_id + "..."`. It records the variable name, its value, and **the unique scope ID** where the assignment occurred.
 - **Every sink call:** e.g. `cursor.execute(query)` at line 4, also recording the scope ID.
 
-### Step 4: Mark which variables hold user input (taint propagation)
+#### Step 4: Mark which variables hold user input (taint propagation)
 
 The analyzer determines which variables can hold **user input** within their specific scopes:
 
 - If the right-hand side of an assignment is a **taint source** (e.g. `request.form["user_id"]`), then the variable on the left (`user_id`) is marked as **tainted** for that specific function scope.
-- If the right-hand side uses **string concatenation** (`+`) or **f-strings** and any part of it is tainted within that scope, then the result is tainted. So if `user_id` is tainted and `query = "SELECT ..." + user_id + "'"`, then `query` is also tainted for that scope.
+- If the right-hand side uses **string concatenation** (`+`) or **f-strings** and any part of it is tainted within that scope, then the result is tainted.
 - **Sanitization:** If a tainted variable is passed through a known safe function (e.g., `int()`, `escape()`), the analyzer removes the taint tag. This prevents false positives when data has been properly sanitized before being used.
 - This is repeated over all assignments until no new variable becomes tainted (a so-called *fixpoint*).
 
-In our example:
+#### Step 5: Check each sink and report vulnerabilities
 
-- `user_id` is tainted in the `get_user` scope (it comes from `request.form`).
-- `query` is tainted in the `get_user` scope (it is built from a string plus `user_id`).
+For each sink call, the analyzer checks:
+- Is the **argument** marked as tainted **within the current function's scope**?
 
-### Step 5: Check each sink and report vulnerabilities
+If **yes**, it reports a vulnerability at that line, with a description such as: *“Tainted data (user input) flows to SQL sink (execute) – SQL injection risk.”*
 
-For each sink call (e.g. `cursor.execute(query)`), the analyzer checks:
-
-- Is the **first argument** (here, `query`) marked as tainted **within the current function's scope**?
-
-If **yes**, it reports one SQL injection vulnerability at that line, with a description such as: *“Tainted data (user input) flows to SQL sink (execute) – SQL injection risk.”*
-
-In our example, `query` is tainted and is passed to `cursor.execute(query)`, so the scanner reports **one vulnerability at line 4**.
-
-### Step 6: Return the results
+#### Step 6: Return the results
 
 The scanner returns a list of such findings (line number, description, severity, code snippet, remediation advice, etc.). The rest of the system uses this list to show results in the UI or to generate reports (e.g. Word export).
 
 ---
 
-## 5. Summary (For Your Report)
+## Part 2: Cross-Site Request Forgery (CSRF) Analysis
 
-You can summarize the static SQL injection scanner as follows:
+While taint analysis works perfectly for injection attacks, CSRF vulnerabilities are **fundamentally different**. There is no "untrusted user input" flowing into a "dangerous function". 
 
-- **Goal:** Find places where **user-controlled data** can reach an **SQL execution call** (e.g. `cursor.execute`), which indicates a possible SQL injection vulnerability.
-- **Method:** Static **taint analysis**: identify taint sources (user input), identify sinks (SQL execution), track data flow through assignments and string operations, and report when tainted data reaches a sink.
-- **Output:** A list of vulnerabilities, each with a line number, description, severity, and remediation (e.g. “Use parameterized queries”).
+Instead, CSRF vulnerabilities are caused by **Configuration Flaws** and **Architectural Mistakes**.
 
-This approach is **rule-based and deterministic**: it does not use machine learning, and the same code always produces the same set of reported issues. By combining Abstract Syntax Trees (AST) with Python's Symbol Tables (`symtable`), it performs context-aware analysis that significantly reduces false positives by isolating variables to their specific function scopes.
+### 2.1 Why Taint Analysis is Impossible for CSRF
+
+#### Scenario A: Disabling CSRF Protections
+Most web frameworks (like Django) have CSRF protection enabled by default. A vulnerability occurs when a developer explicitly turns it off using a decorator.
+
+```python
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt  # <-- THE VULNERABILITY IS HERE!
+def update_password(request):
+    new_pass = request.POST.get("password")
+    request.user.set_password(new_pass)
+    request.user.save()
+```
+**Why Taint Analysis Fails here:**
+There is no data flowing from a source to a sink. The vulnerability is the presence of the `@csrf_exempt` decorator on the function itself. A generic taint analyzer cannot detect this because it only tracks variables.
+
+#### Scenario B: State Changes on a GET Request
+By standard web conventions, `GET` requests should only retrieve data. Frameworks typically only check for CSRF tokens on `POST`, `PUT`, `DELETE`, etc. If a developer modifies a database during a `GET` request, they bypass CSRF protections completely.
+
+```python
+@app.route('/transfer', methods=['GET']) # <-- Only allows GET
+def transfer_money():
+    amount = request.args.get('amount')
+    user = get_current_user()
+    
+    user.balance -= int(amount)
+    user.save() # <-- THE VULNERABILITY IS HERE! State change on a GET request.
+```
+**Why Taint Analysis Fails here:**
+The data flow here (`amount` to `user.balance`) isn't inherently dangerous. What makes it dangerous is the **context**: calling a state-changing method (`.save()`) inside a route restricted to `GET` requests. Taint analysis does not understand HTTP verb contexts.
+
+### 2.2 How the Custom CSRF AST Visitor Solves This
+
+To catch CSRF flaws, the scanner uses a custom Abstract Syntax Tree (AST) Visitor. An AST visitor reads the Python code as a structural tree rather than tracking variable data flows.
+
+When the scanner reads a function definition, it performs two specific structural checks:
+
+#### Check 1: Decorator Analysis
+It looks at the decorators attached to the function.
+```python
+for dec in node.decorator_list:
+    if isinstance(dec, ast.Name):
+        # If the decorator is named 'csrf_exempt' or 'disable_csrf', flag it!
+        if dec.id in ('csrf_exempt', 'disable_csrf'):
+            self.vulnerabilities.append(...)
+```
+
+#### Check 2: Context-Aware State Change Analysis
+It checks the route definitions to see if the function is restricted strictly to `GET` requests. If it is, it scans the body of the function for database commits or saves.
+```python
+# If the route is restricted to GET:
+if 'GET' in methods and 'POST' not in methods:
+    has_route_get = True
+
+# Scan the inner code of the function
+if has_route_get:
+    for child in ast.walk(node):
+        # If we see a method call like .save(), .delete(), or .commit(), flag it!
+        if isinstance(child.func, ast.Attribute) and child.func.attr in ('save', 'delete', 'update', 'commit'):
+            self.vulnerabilities.append(...)
+```
 
 ---
 
-## 6. How You Can Run the Scanner
+## Part 3: Running the Scanners
+
+Both taint analyzers and AST visitors share the same API for execution:
 
 - **Direct code (string):** `scan_source(code, source_name)` — e.g. when the user pastes code in the UI or when using CLI mode `"0"`.
 - **File:** `scan_file(path)` — scan a Python file on disk (e.g. CLI mode `"1"`).
@@ -134,24 +168,24 @@ This approach is **rule-based and deterministic**: it does not use machine learn
 
 ---
 
-## 7. Limitations and Future Work
+## Part 4: Limitations and Future Work
 
-While the current AST and `symtable`-based `TaintAnalyzer` is highly effective for intra-procedural analysis (tracking vulnerabilities within the boundaries of a single function or class), building a compiler-grade static analysis tool from scratch in Python carries inherent limitations. 
+While the current AST and `symtable`-based scanners are highly effective for intra-procedural analysis (tracking vulnerabilities within the boundaries of a single function or class) and structural checks, building a compiler-grade static analysis tool from scratch in Python carries inherent limitations. 
 
-To scale this scanner for enterprise-grade, full-codebase analysis, future iterations of this project will involve the following architectural improvements:
+To scale these scanners for enterprise-grade, full-codebase analysis, future iterations of this project will involve the following architectural improvements:
 
-### 7.1 Current Limitations
+### 4.1 Current Limitations
 1. **Inter-procedural Analysis:** Currently, if tainted data is passed from one function into a separate helper function (e.g., `execute_query(tainted_data)`), the analyzer may lose the taint trace. Building a global Call Graph is required to track data across multiple files and function calls.
 2. **External Library Reflection:** When tainted data interacts with third-party libraries or dynamic execution (e.g., `getattr()`, `eval()`), a static AST parser struggles to predict the runtime behavior, which can lead to false negatives.
 
-### 7.2 Proposed Future Architecture: Integrating Industry-Standard Engines
+### 4.2 Proposed Future Architecture: Integrating Industry-Standard Engines
 Rather than rewriting a Python interpreter from scratch, the future roadmap involves delegating the heavy lifting of AST parsing and global Call Graph generation to an established static analysis engine. 
 
 **Semgrep** is the primary candidate for this upgrade. Semgrep is an industry-standard, lightweight static analysis framework that natively understands Python's semantics, cross-file tracking, and deep taint propagation. 
 
 By integrating Semgrep:
-- The core logic of **Sources** (e.g., `request.args`) and **Sinks** (e.g., `cursor.execute()`) defined in this thesis can be ported into lightweight YAML rules.
-- The Python backend will execute the Semgrep CLI programmatically to perform deep, whole-codebase taint tracking.
+- The core logic of **Sources** (e.g., `request.args`), **Sinks** (e.g., `cursor.execute()`), and **Structural checks** (e.g., `@csrf_exempt`) defined in this thesis can be ported into lightweight YAML rules.
+- The Python backend will execute the Semgrep CLI programmatically to perform deep, whole-codebase analysis.
 - The backend will parse the structured JSON output from Semgrep to seamlessly feed into the existing frontend UI, Machine Learning pipeline, and Word reporting modules developed in this project. 
 
 Other viable alternatives for the analysis engine include **Bandit** (the PyCQA standard pattern-matcher) or Meta’s **Pysa/Pyre** (for highly advanced, compiled data-flow tracking). Integrating these tools would allow the scanner to handle complex architectural patterns while maintaining the custom vulnerability definitions established in this research.
