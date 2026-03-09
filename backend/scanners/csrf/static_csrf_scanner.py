@@ -26,7 +26,7 @@ class CSRFVisitor(ast.NodeVisitor):
                 if dec.id in ('csrf_exempt', 'disable_csrf'):
                     self.vulnerabilities.append({
                         "line_number": node.lineno,
-                        "severity": "high" if dec.id == "csrf_exempt" else "medium",
+                        "severity": "high",
                         "code_snippet": f"@{dec.id}",
                         "confidence": 0.9,
                     })
