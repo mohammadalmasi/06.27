@@ -30,6 +30,30 @@ def vulnerable_sql_medium_3():
     query = "SELECT * FROM logs WHERE id = '" + comment_input + "'"
     cursor.execute(query)
 
+def vulnerable_sql_medium_4():
+    """String formatting using .format()"""
+    username = request.args.get("user")
+    query = "SELECT * FROM users WHERE username = '{}'".format(username)
+    cursor.execute(query)
+
+def vulnerable_sql_medium_5():
+    """String formatting using % operator"""
+    item_id = request.form.get("item")
+    query = "DELETE FROM items WHERE id = '%s'" % item_id
+    cursor.execute(query)
+
+def vulnerable_sql_medium_4():
+    """String formatting using .format()"""
+    username = request.args.get("user")
+    query = "SELECT * FROM users WHERE username = '{}'".format(username)
+    cursor.execute(query)
+
+def vulnerable_sql_medium_5():
+    """String formatting using % operator"""
+    item_id = request.form.get("item")
+    query = "DELETE FROM items WHERE id = '%s'" % item_id
+    cursor.execute(query)
+
 def vulnerable_sql_low_1():
     """LOW SEVERITY: Simple string concatenation - user prefix flows into LIKE pattern"""
     prefix_name = request.form.get("prefix", "") + suffix
@@ -68,3 +92,25 @@ def safe_sql_4():
     user_id = request.args.get("user_id")
     # ORMs automatically escape inputs
     user = User.query.filter_by(id=user_id).first()
+
+def safe_sql_5():
+    """Using input validation/casting before query"""
+    # Even with string concatenation, this is safe because int() prevents injection
+    user_id_str = request.form.get("id")
+    try:
+        user_id = int(user_id_str)
+        query = f"SELECT * FROM users WHERE id = {user_id}"
+        cursor.execute(query)
+    except ValueError:
+        pass
+
+def safe_sql_6():
+    """Safe table name selection using an allowlist"""
+    # Table names can't be parameterized, so an allowlist must be used
+    table_choice = request.args.get("type")
+    
+    ALLOWED_TABLES = {"users", "admins", "guests"}
+    
+    if table_choice in ALLOWED_TABLES:
+        query = f"SELECT * FROM {table_choice}"
+        cursor.execute(query)

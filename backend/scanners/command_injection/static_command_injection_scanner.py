@@ -38,6 +38,7 @@ class StaticCommandInjectionScanner:
             request_like_names={"request", "req", "flask_request", "environ"},
             sink_attrs={"system", "popen", "spawn", "popen2", "popen3", "popen4", "call", "check_call", "check_output", "run"},
             sink_names={"system", "popen", "spawn", "popen2", "popen3", "popen4", "call", "check_call", "check_output", "run", "eval", "exec"},
+            sanitizer_names={"shlex_quote", "quote", "escape"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
         )

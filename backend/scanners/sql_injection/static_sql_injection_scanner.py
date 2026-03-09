@@ -38,6 +38,7 @@ class StaticSqlInjectionScanner:
             request_like_names={"request", "req", "flask_request", "environ"},
             sink_attrs={"execute", "executemany", "raw"},
             sink_names={"text"},
+            sanitizer_names={"int", "float", "bool", "str", "escape", "quote", "quote_plus"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
         )

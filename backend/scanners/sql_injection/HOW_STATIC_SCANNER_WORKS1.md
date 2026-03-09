@@ -31,6 +31,7 @@ So: **user input** = “tainted” data; **SQL execution** = “sink”. The sca
 | **Taint / tainted data** | Data that comes from the user (or other untrusted source) and is not yet sanitized. |
 | **Taint source** | A place in the code where user input is read (e.g. `request.form`, `request.args.get`, `input()`). |
 | **Sink** | A place where a string is used as SQL (e.g. `cursor.execute(query)`). |
+| **Sanitizer** | A function that cleans or safely casts tainted data (e.g., `int()`, `escape()`), removing the taint. |
 | **Data flow** | How values move from one variable to another through assignments and operations. |
 
 ---
@@ -88,6 +89,7 @@ The analyzer determines which variables can hold **user input** within their spe
 
 - If the right-hand side of an assignment is a **taint source** (e.g. `request.form["user_id"]`), then the variable on the left (`user_id`) is marked as **tainted** for that specific function scope.
 - If the right-hand side uses **string concatenation** (`+`) or **f-strings** and any part of it is tainted within that scope, then the result is tainted. So if `user_id` is tainted and `query = "SELECT ..." + user_id + "'"`, then `query` is also tainted for that scope.
+- **Sanitization:** If a tainted variable is passed through a known safe function (e.g., `int()`, `escape()`), the analyzer removes the taint tag. This prevents false positives when data has been properly sanitized before being used.
 - This is repeated over all assignments until no new variable becomes tainted (a so-called *fixpoint*).
 
 In our example:

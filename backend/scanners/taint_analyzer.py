@@ -22,6 +22,7 @@ class TaintAnalyzer:
         request_like_names,
         sink_attrs,
         sink_names,
+        sanitizer_names,
         vulnerability_factory,
         sink_arg_index=0,
     ):
@@ -32,6 +33,7 @@ class TaintAnalyzer:
         self.request_like_names = frozenset(request_like_names)
         self.sink_attrs = frozenset(sink_attrs)
         self.sink_names = frozenset(sink_names)
+        self.sanitizer_names = frozenset(sanitizer_names) if sanitizer_names else frozenset()
         self.vulnerability_factory = vulnerability_factory
         self.sink_arg_index = sink_arg_index
         self.vulnerabilities = []
@@ -119,6 +121,10 @@ class TaintAnalyzer:
         if isinstance(node, ast.Name):
             return (getattr(node, "id", None), scope_id) in self._tainted
         if isinstance(node, ast.Call):
+            # Check if this function cleans the data
+            if isinstance(node.func, ast.Name) and getattr(node.func, "id", None) in self.sanitizer_names:
+                return False
+                
             if self._is_taint_source_call(node):
                 return True
             for a in node.args:
