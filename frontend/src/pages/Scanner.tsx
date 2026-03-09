@@ -143,7 +143,7 @@ const Scanner: React.FC = () => {
         // Choose the appropriate API endpoint based on scanner type
         let endpoint: string;
         if (scannerType === 'sql') {
-          endpoint = '/api/scan-sql-injection';
+          endpoint = '/api/static-sql-injection';
         } else {
           throw new Error('Invalid scanner type');
         }

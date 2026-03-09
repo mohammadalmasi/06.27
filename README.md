@@ -66,7 +66,7 @@ REACT_APP_API_BASE_URL=http://localhost:5001
 
 ## Backend API (main endpoints)
 
-- `POST /api/scan-sql-injection`
+- `POST /api/static-sql-injection`
 - `POST /api/scan-ml` (optional; requires ML analyzer/assets)
 
 ## ML endpoint note

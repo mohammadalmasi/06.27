@@ -31,7 +31,7 @@ def ensure_dirs():
     ml_uploads.mkdir(parents=True, exist_ok=True)
 
 
-@app.route('/api/scan-sql-injection', methods=['POST'])
+@app.route('/api/static-sql-injection', methods=['POST'])
 def scan_sql_injection():
     """SQL injection vulnerability scanning endpoint"""
     try:
