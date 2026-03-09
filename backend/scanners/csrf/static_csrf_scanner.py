@@ -12,43 +12,71 @@ from flask import request, jsonify, send_file
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 
+class CSRFVisitor(ast.NodeVisitor):
+    def __init__(self, filename):
+        self.filename = filename
+        self.vulnerabilities = []
+
+    def visit_FunctionDef(self, node):
+        has_route_get = False
+        
+        # 1. Check decorators for csrf_exempt / disable_csrf
+        for dec in node.decorator_list:
+            if isinstance(dec, ast.Name):
+                if dec.id in ('csrf_exempt', 'disable_csrf'):
+                    self.vulnerabilities.append({
+                        "line_number": node.lineno,
+                        "severity": "high" if dec.id == "csrf_exempt" else "medium",
+                        "code_snippet": f"@{dec.id}",
+                        "confidence": 0.9,
+                    })
+            elif isinstance(dec, ast.Call):
+                if isinstance(dec.func, ast.Attribute) and dec.func.attr == 'route':
+                    for keyword in dec.keywords:
+                        if keyword.arg == 'methods':
+                            if isinstance(keyword.value, ast.List):
+                                # check if it only has GET, or GET is present without POST
+                                methods = []
+                                for el in keyword.value.elts:
+                                    if isinstance(el, ast.Constant):
+                                        methods.append(el.value)
+                                    elif isinstance(el, ast.Str): # Python 3.7 compatibility
+                                        methods.append(el.s)
+                                
+                                if 'GET' in methods and 'POST' not in methods:
+                                    has_route_get = True
+        
+        # 2. Check for state changes inside GET routes
+        if has_route_get:
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
+                    if child.func.attr in ('save', 'delete', 'update', 'commit'):
+                        try:
+                            snippet = ast.unparse(child)
+                        except Exception:
+                            snippet = f"Line {child.lineno}"
+                        self.vulnerabilities.append({
+                            "line_number": child.lineno,
+                            "severity": "high",
+                            "code_snippet": snippet,
+                            "confidence": 0.8,
+                        })
+                        break
+
+        self.generic_visit(node)
+
 class StaticCSRFScanner:
-    """CSRF detector: taint + sink analysis. All scan and helper methods live here."""
+    """CSRF detector: Custom AST visitor to find disabled CSRF protection."""
     def __init__(self):
         pass
-
-    def _vuln_result(self, *, line, call_node, code_snippet, file_path):
-        return {
-            "line_number": line,
-            "severity": "high",
-            "code_snippet": code_snippet,
-            "confidence": 0.9,
-        }
-
-    def _make_taint_analyzer(self, filename, source_code):
-        from scanners.taint_analyzer import TaintAnalyzer
-        return TaintAnalyzer(
-            filename=filename,
-            source_code=source_code,
-            taint_source_attrs={
-                "args", "form", "cookies", "headers", "json", "data", "values",
-                "get", "getlist", "get_json", "get_data",
-            },
-            taint_source_names={"input"},
-            request_like_names={"request", "req", "flask_request", "environ"},
-            sink_attrs={"csrf_exempt", "exempt", "disable_csrf"},
-            sink_names={"csrf_exempt", "disable_csrf", "exempt"},
-            vulnerability_factory=self._vuln_result,
-            sink_arg_index=0,
-        )
 
     def scan_source(self, source_code, source_name="<source>"):
         """Scan source code string. Returns dict with 'vulnerabilities' and 'source_name'."""
         try:
             tree = ast.parse(source_code)
-            analyzer = self._make_taint_analyzer(source_name, source_code)
-            analyzer.analyze(tree)
-            return {"vulnerabilities": analyzer.vulnerabilities, "source_name": source_name}
+            visitor = CSRFVisitor(source_name)
+            visitor.visit(tree)
+            return {"vulnerabilities": visitor.vulnerabilities, "source_name": source_name}
         except SyntaxError:
             return {"vulnerabilities": [], "source_name": source_name}
 
