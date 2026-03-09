@@ -106,35 +106,20 @@ def scan_sql_injection():
 
 @app.route('/api/ml-sql-injection', methods=['POST'])
 def ml_sql_injection():
-    """Run machine learning based analysis using LSTM models (Atiqullah Ahmadzai’s project) for SQL injection."""
-    try:
         data = request.get_json(force=True)
-        code = data.get('code') or ''
-        url = (data.get('url') or '').strip()
-
-        if not code and not url:
-            return jsonify({'error': 'either code or url is required'}), 400
+        code = data.get('code')  
+        url = (data.get('url')).strip()
 
         detector = MLSQLInjectionDetector()
-        effective_code = code
-        vuln_source_name = 'code.py'
-
-        # If no code was provided but a URL was, fetch the source from the URL.
-        if not effective_code and url:
-            fetch_url = _github_blob_to_raw(url)
-            try:
-                req = Request(fetch_url, headers={"User-Agent": "ML-SQL-Scanner/1.0"})
-                with urlopen(req, timeout=30) as resp:
-                    effective_code = resp.read().decode("utf-8", errors="replace")
-                vuln_source_name = url
-            except Exception as e:
-                return jsonify({
-                    'status': 'error',
-                    'message': f'Failed to fetch source from URL: {str(e)}',
-                }), 400
-
-        detector = MLSQLInjectionDetector()
-        vulns = detector.scan_source(effective_code, source_name=vuln_source_name)
+      
+        if scan_type == 1:
+            vulns = detector.scan_source(code, source_name='Direct input')
+        elif scan_type == 2:
+            vulns = detector.scan_file(code)
+        elif scan_type == 3:
+            vulns = detector.scan_url(url)
+        else:
+            return jsonify({'error': 'Invalid scanType'}), 400
 
         vuln_dicts = []
         for v in vulns:
@@ -147,11 +132,9 @@ def ml_sql_injection():
 
         return jsonify({
             'vulnerabilities': vuln_dicts,
-            'code': effective_code
+            'code': code
         })
 
-    except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 # Initialize directories on startup
 ensure_dirs()
