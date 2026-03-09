@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Bug
 } from 'lucide-react';
-import config from '../config.js';
 
 interface Vulnerability {
   file_path: string;

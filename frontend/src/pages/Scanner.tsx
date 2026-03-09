@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { 
@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import config from '../config.js';
-import { fetchScannerConfig, isScannerEnabled, ScannerConfig } from '../services/configService';
 
 interface ScanInput {
   type: 'url' | 'file' | 'code';
@@ -33,36 +32,12 @@ const Scanner: React.FC = () => {
   const [scannerType, setScannerType] = useState<ScannerType>('sql');
   const [isScanning, setIsScanning] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<'static' | 'ml'>('static');
-  const [scannerConfig, setScannerConfig] = useState<ScannerConfig | null>(null);
-  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [scanInput, setScanInput] = useState<ScanInput>({
     type: 'code',
     content: '',
     filename: ''
   });
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-
-  // Fetch scanner configuration on component mount
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const config = await fetchScannerConfig();
-        setScannerConfig(config);
-        
-        // Set the first enabled scanner as default
-        if (isScannerEnabled(config, 'sql')) {
-          setScannerType('sql');
-        }
-      } catch (error) {
-        console.error('Failed to load scanner configuration:', error);
-        toast.error('Failed to load scanner configuration');
-      } finally {
-        setIsLoadingConfig(false);
-      }
-    };
-    
-    loadConfig();
-  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const validFiles = acceptedFiles.filter(file => {
@@ -288,44 +263,6 @@ const Scanner: React.FC = () => {
     if (activeTab === 'file') return { title: 'Upload a file', subtitle: 'Upload a single source file (max 2MB). You can preview it before scanning.' };
     return { title: 'Scan from GitHub URL', subtitle: 'Paste a direct link to a file on GitHub.' };
   };
-
-  // Show loading state while fetching configuration
-  if (isLoadingConfig) {
-    return (
-      <div className="min-h-screen py-6">
-        <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
-          <div className="card p-8 text-center">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary-600" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Scanner Configuration</h2>
-            <p className="text-gray-600">Please wait while we load the available scanners...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show message if no scanners are enabled
-  if (!scannerConfig || !Object.values(scannerConfig.scanners).some(enabled => enabled === 1)) {
-    return (
-      <div className="min-h-screen py-6">
-        <div className="w-full px-4 sm:px-6 lg:px-8 2xl:px-12">
-          <div className="card p-8 text-center">
-            <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No Scanners Available</h2>
-            <p className="text-gray-600 mb-4">
-              All scanners are currently disabled. Please contact your administrator to enable scanners.
-            </p>
-            <button
-              onClick={() => navigate('/scanner')}
-              className="btn-primary"
-            >
-              Back to Scanner
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const meta = getScannerMeta(scannerType);
   const inputHeader = getInputHeader();
@@ -556,7 +493,6 @@ const Scanner: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-slate-700 mb-2">Scanner</p>
                     <div className="flex flex-wrap gap-2">
-                      {isScannerEnabled(scannerConfig, 'sql') && (
                         <button
                           onClick={() => setScannerType('sql')}
                           type="button"
@@ -569,7 +505,6 @@ const Scanner: React.FC = () => {
                           <Bug className={`h-4 w-4 ${scannerType === 'sql' ? 'text-primary-700' : 'text-slate-600'}`} />
                           SQL
                         </button>
-                      )}
                     </div>
                   </div>
 

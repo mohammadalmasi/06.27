@@ -1,6 +1,0 @@
-{
-  "scanners": {
-    "sql_injection": 1
-  },
-  "description": "Configuration file to enable/disable scanners. 1 = enabled, 0 = disabled"
-} 

@@ -30,16 +30,6 @@ def ensure_dirs():
     ml_uploads = Path(__file__).parent / 'ml' / 'api' / 'uploads'
     ml_uploads.mkdir(parents=True, exist_ok=True)
 
-@app.route('/api/scanner-config', methods=['GET'])
-def get_scanner_config():
-    """Get scanner configuration"""
-    try:
-        config_path = os.path.join(os.path.dirname(__file__), 'scanner_config.json')
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-        return jsonify(config)
-    except Exception as e:
-        return jsonify({'error': f'Failed to load configuration: {str(e)}'}), 500
 
 @app.route('/api/scan-sql-injection', methods=['POST'])
 def scan_sql_injection():
