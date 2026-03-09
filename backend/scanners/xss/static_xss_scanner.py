@@ -36,8 +36,8 @@ class StaticXSSScanner:
             },
             taint_source_names={"input"},
             request_like_names={"request", "req", "flask_request", "environ"},
-            sink_attrs={"execute", "executemany", "raw"},
-            sink_names={"text"},
+            sink_attrs={"send", "write", "send_file"},
+            sink_names={"render_template_string", "Markup", "mark_safe", "HttpResponse", "eval"},
             vulnerability_factory=self._vuln_result,
             sink_arg_index=0,
         )
