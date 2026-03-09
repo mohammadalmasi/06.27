@@ -339,8 +339,11 @@ class MLXSSDetector:
             pred = self._model.predict(X, verbose=0)
             prob = float(pred.ravel()[0])
 
+            # ALWAYS PRINT PROBABILITY
+            line_number = token_index_to_line_number(source_code, start)
+            print(f"Line ~{line_number} Probability: {prob:.4f}")
+
             if self.verbose:
-                line_number = token_index_to_line_number(source_code, start)
                 print(f"[ML XSS]   Window {window_index + 1}/{num_windows}: tokens [{start}:{end}] -> line ~{line_number}, prob={prob:.3f}")
             window_index += 1
 
