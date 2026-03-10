@@ -155,6 +155,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-# cd /Users/mohammadalmasi/thesis/06.27/backend
-# python scanners/sql_injection/compare_ml_vs_static_sql.py
