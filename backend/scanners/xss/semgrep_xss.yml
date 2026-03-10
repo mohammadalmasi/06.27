@@ -1,0 +1,22 @@
+rules:
+  - id: py-xss-unescaped-html
+    languages: [python]
+    message: Possible XSS via unescaped HTML or JavaScript output
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-79"
+      confidence: medium
+    pattern-either:
+      # F-string HTML returned directly (e.g. vulnerable_code_auto_* in dataset)
+      - pattern: return f"...{...}..."
+
+      # F-string HTML sent via Django HttpResponse
+      - pattern: HttpResponse(f"...{...}...")
+
+      # Direct use of Markup(...) which can trust input
+      - pattern: Markup($X)
+
+      # Flask render_template_string with f-string template (user data baked into template)
+      - pattern: render_template_string(f"...{...}...")
+
