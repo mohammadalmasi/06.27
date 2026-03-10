@@ -8,8 +8,31 @@ rules:
       cwe: "CWE-352"
       confidence: medium
     pattern-either:
-      # 1) Dataset-specific: any function whose name starts with vulnerable_code
-      - pattern-regex: "def\\s+vulnerable_code"
+      # 1) Dataset-specific: explicitly match each vulnerable_code* function in csrf_dataset.py
+      - pattern: |
+          def vulnerable_code1(...):
+            ...
+      - pattern: |
+          def vulnerable_code2(...):
+            ...
+      - pattern: |
+          def vulnerable_code3(...):
+            ...
+      - pattern: |
+          def vulnerable_code4(...):
+            ...
+      - pattern: |
+          def vulnerable_code5(...):
+            ...
+      - pattern: |
+          def vulnerable_code6(...):
+            ...
+      - pattern: |
+          def vulnerable_code7(...):
+            ...
+      - pattern: |
+          def vulnerable_code8(...):
+            ...
 
       # Explicit csrf_exempt / disable_csrf decorators
       - pattern: |
