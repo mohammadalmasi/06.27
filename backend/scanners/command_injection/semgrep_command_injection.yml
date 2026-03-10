@@ -1,0 +1,24 @@
+rules:
+  - id: py-command-injection-shell-usage
+    languages: [python]
+    message: Possible command injection via shell execution
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-78"
+      confidence: high
+    pattern-either:
+      # os.system with dynamic string
+      - pattern: os.system("..." + ...)
+      - pattern: os.system(f"...{...}...")
+
+      # os.popen with dynamic string
+      - pattern: os.popen("..." + ...)
+      - pattern: os.popen(f"...{...}...")
+
+      # subprocess.* with shell=True and untrusted string command
+      - pattern: subprocess.run("...", shell=True, ...)
+      - pattern: subprocess.Popen("...", shell=True, ...)
+      - pattern: subprocess.call("...", shell=True, ...)
+      - pattern: subprocess.check_output("...", shell=True, ...)
+
