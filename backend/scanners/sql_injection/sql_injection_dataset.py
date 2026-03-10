@@ -2786,7 +2786,8 @@ def safe_code_auto_200():
     query = "SELECT * FROM users WHERE name = :name"
     cursor.execute(query, {"name": name_200})
 
-    def safe_code_auto_201():
+
+def safe_code_auto_201():
     """Using parameterized query with ? placeholder (e.g., sqlite3)"""
     user_id = request.form.get("user_id")
     query = "SELECT * FROM users WHERE id = ?"
