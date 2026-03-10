@@ -1,5 +1,6 @@
 # CSRF VULNERABLE CODE
-def vulnerable_code1():
+
+def vulnerable_code_auto_1():
     """Missing CSRF protection on state-changing endpoint"""
     from django.views.decorators.csrf import csrf_exempt
     from django.http import HttpResponse
@@ -13,7 +14,7 @@ def vulnerable_code1():
             request.user.save()
             return HttpResponse("Password updated")
 
-def vulnerable_code2():
+def vulnerable_code_auto_2():
     """State change via GET request"""
     from flask import request
     
@@ -27,7 +28,7 @@ def vulnerable_code2():
         user.save()
         return "Funds transferred"
 
-def vulnerable_code3():
+def vulnerable_code_auto_3():
     """Custom CSRF exemption mechanisms"""
     
     # Vulnerable: Custom decorator or mechanism that bypasses standard CSRF
@@ -38,7 +39,7 @@ def vulnerable_code3():
         request.user.save()
         return "Email changed"
 
-def vulnerable_code4():
+def vulnerable_code_auto_4():
     """Safe state change with proper method and default CSRF"""
     
     # Safe: Standard POST endpoint in a framework with default CSRF middleware enabled
@@ -49,7 +50,7 @@ def vulnerable_code4():
             request.user.save()
             return HttpResponse("Profile updated")
 
-def vulnerable_code5():
+def vulnerable_code_auto_5():
     """POST without CSRF token validation"""
     from flask import request
 
@@ -60,7 +61,7 @@ def vulnerable_code5():
         user.delete()
         return "Account deleted"
 
-def vulnerable_code6():
+def vulnerable_code_auto_6():
     """State change via GET with sensitive action"""
     from django.http import HttpResponse
 
@@ -72,7 +73,7 @@ def vulnerable_code6():
             user.save()
             return HttpResponse("Unsubscribed")
 
-def vulnerable_code7():
+def vulnerable_code_auto_7():
     """Custom token check that always passes"""
     from django.http import HttpResponse
 
@@ -86,7 +87,7 @@ def vulnerable_code7():
             request.user.save()
             return HttpResponse("Settings updated")
 
-def vulnerable_code8():
+def vulnerable_code_auto_8():
     """Relies only on Referer/Origin without token"""
     from flask import request
 
@@ -100,9 +101,9 @@ def vulnerable_code8():
         return "Forbidden", 403
 
 
-# SAFE CODE
+# CSRF SAFE CODE -------------------------------------------------------------
 
-def safe_code1():
+def safe_code_auto_1():
     """Explicit CSRF token validation in Django"""
     from django.http import HttpResponse
     from django.middleware.csrf import get_token
@@ -117,7 +118,7 @@ def safe_code1():
         return HttpResponse("Avatar updated")
 
 
-def safe_code2():
+def safe_code_auto_2():
     """Flask with CSRF protection via extension"""
     from flask_wtf.csrf import CSRFProtect
 
@@ -132,7 +133,7 @@ def safe_code2():
         return "Username updated"
 
 
-def safe_code3():
+def safe_code_auto_3():
     """Idempotent GET read-only; state change only via protected POST"""
     from django.http import JsonResponse
 
@@ -151,7 +152,7 @@ def safe_code3():
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
 
-def safe_code4():
+def safe_code_auto_4():
     """Double-submit cookie / custom token check implemented correctly"""
     from django.http import HttpResponse
     import secrets
