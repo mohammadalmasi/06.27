@@ -1,0 +1,51 @@
+rules:
+  - id: py-sql-injection-string-building
+    languages: [python]
+    message: Possible SQL injection via dynamic SQL string building
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-89"
+      confidence: high
+    pattern-either:
+      # Direct concatenation passed to execute
+      - pattern: cursor.execute($Q + $X)
+
+      # Concatenation assigned to a variable, then executed
+      - patterns:
+          - pattern-inside: |
+              $QUERY = $Q + $X
+              ...
+              cursor.execute($QUERY)
+          - pattern: $QUERY = $Q + $X
+
+      # F-string used directly in execute
+      - pattern: cursor.execute(f"...{...}...")
+
+      # F-string assigned then executed
+      - patterns:
+          - pattern-inside: |
+              $QUERY = f"...{...}..."
+              ...
+              cursor.execute($QUERY)
+          - pattern: $QUERY = f"...{...}..."
+
+      # .format or % formatting used directly in execute
+      - pattern: cursor.execute("..." .format(...))
+      - pattern: cursor.execute("..." % ...)
+
+      # .format or % formatting assigned then executed
+      - patterns:
+          - pattern-inside: |
+              $QUERY = "..." .format(...)
+              ...
+              cursor.execute($QUERY)
+          - pattern: $QUERY = "..." .format(...)
+
+      - patterns:
+          - pattern-inside: |
+              $QUERY = "..." % $X
+              ...
+              cursor.execute($QUERY)
+          - pattern: $QUERY = "..." % $X
+
