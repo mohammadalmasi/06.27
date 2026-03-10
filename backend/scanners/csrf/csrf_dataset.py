@@ -1,115 +1,8 @@
 # CSRF VULNERABLE CODE
 
-def vulnerable_code_auto_1():
-    """Missing CSRF protection on state-changing endpoint"""
-    from django.views.decorators.csrf import csrf_exempt
-    from django.http import HttpResponse
-    
-    # Vulnerable: Explicitly disabling CSRF protection on a POST view
-    @csrf_exempt
-    def update_password(request):
-        if request.method == "POST":
-            new_pass = request.POST.get("password")
-            request.user.set_password(new_pass)
-            request.user.save()
-            return HttpResponse("Password updated")
-
-
-def vulnerable_code_auto_2():
-    """State change via GET request"""
-    from flask import request
-    
-    # Vulnerable: State modification using a GET request (CSRF tokens usually aren't checked on GET)
-    @app.route('/transfer_funds', methods=['GET'])
-    def transfer():
-        amount = request.args.get('amount')
-        to_account = request.args.get('to')
-        user = get_current_user()
-        user.balance -= int(amount)
-        user.save()
-        return "Funds transferred"
-
-
-def vulnerable_code_auto_3():
-    """Custom CSRF exemption mechanisms"""
-    
-    # Vulnerable: Custom decorator or mechanism that bypasses standard CSRF
-    @disable_csrf
-    def change_email(request):
-        email = request.POST.get("email")
-        request.user.email = email
-        request.user.save()
-        return "Email changed"
-
-
-def vulnerable_code_auto_4():
-    """Safe state change with proper method and default CSRF"""
-    
-    # Safe: Standard POST endpoint in a framework with default CSRF middleware enabled
-    def update_profile(request):
-        if request.method == "POST":
-            # Assuming Django CSRF middleware is active
-            request.user.bio = request.POST.get("bio")
-            request.user.save()
-            return HttpResponse("Profile updated")
-
-
-def vulnerable_code_auto_5():
-    """POST without CSRF token validation"""
-    from flask import request
-
-    # Vulnerable: Accepts POST but never checks CSRF token
-    @app.route("/delete_account", methods=["POST"])
-    def delete_account():
-        user = get_current_user()
-        user.delete()
-        return "Account deleted"
-
-
-def vulnerable_code_auto_6():
-    """State change via GET with sensitive action"""
-    from django.http import HttpResponse
-
-    # Vulnerable: GET used for destructive action (no CSRF protection on GET)
-    def unsubscribe(request):
-        if request.method == "GET":
-            user = request.user
-            user.newsletter_subscribed = False
-            user.save()
-            return HttpResponse("Unsubscribed")
-
-
-def vulnerable_code_auto_7():
-    """Custom token check that always passes"""
-    from django.http import HttpResponse
-
-    # Vulnerable: Fake or broken CSRF check
-    def validate_csrf(request):
-        return True  # Always returns True
-
-    def update_settings(request):
-        if request.method == "POST" and validate_csrf(request):
-            request.user.settings = request.POST.get("settings")
-            request.user.save()
-            return HttpResponse("Settings updated")
-
-
-def vulnerable_code_auto_8():
-    """Relies only on Referer/Origin without token"""
-    from flask import request
-
-    # Vulnerable: No CSRF token; only checks origin (can be spoofed in some setups)
-    @app.route("/confirm_order", methods=["POST"])
-    def confirm_order():
-        if request.headers.get("Origin") == "https://mysite.com":
-            order_id = request.form.get("order_id")
-            confirm_order_in_db(order_id)
-            return "Order confirmed"
-        return "Forbidden", 403
 
 
 # CSRF SAFE CODE -------------------------------------------------------------
-
 
 def safe_code_auto_1():
     """Explicit CSRF token validation in Django"""
@@ -2844,8 +2737,116 @@ def vulnerable_code_auto_200():
         return "Forbidden", 403
 
 
-# CSRF SAFE CODE -------------------------------------------------------------
+def vulnerable_code_auto_201():
+    """Missing CSRF protection on state-changing endpoint"""
+    from django.views.decorators.csrf import csrf_exempt
+    from django.http import HttpResponse
+    
+    # Vulnerable: Explicitly disabling CSRF protection on a POST view
+    @csrf_exempt
+def update_password(request):
+        if request.method == "POST":
+            new_pass = request.POST.get("password")
+            request.user.set_password(new_pass)
+            request.user.save()
+            return HttpResponse("Password updated")
 
+
+def vulnerable_code_auto_202():
+    """State change via GET request"""
+    from flask import request
+    
+    # Vulnerable: State modification using a GET request (CSRF tokens usually aren't checked on GET)
+    @app.route('/transfer_funds', methods=['GET'])
+    def transfer():
+        amount = request.args.get('amount')
+        to_account = request.args.get('to')
+        user = get_current_user()
+        user.balance -= int(amount)
+        user.save()
+        return "Funds transferred"
+
+
+def vulnerable_code_auto_203():
+    """Custom CSRF exemption mechanisms"""
+    
+    # Vulnerable: Custom decorator or mechanism that bypasses standard CSRF
+    @disable_csrf
+    def change_email(request):
+        email = request.POST.get("email")
+        request.user.email = email
+        request.user.save()
+        return "Email changed"
+
+
+def vulnerable_code_auto_204():
+    """Safe state change with proper method and default CSRF"""
+    
+    # Safe: Standard POST endpoint in a framework with default CSRF middleware enabled
+    def update_profile(request):
+        if request.method == "POST":
+            # Assuming Django CSRF middleware is active
+            request.user.bio = request.POST.get("bio")
+            request.user.save()
+            return HttpResponse("Profile updated")
+
+
+def vulnerable_code_auto_205():
+    """POST without CSRF token validation"""
+    from flask import request
+
+    # Vulnerable: Accepts POST but never checks CSRF token
+    @app.route("/delete_account", methods=["POST"])
+    def delete_account():
+        user = get_current_user()
+        user.delete()
+        return "Account deleted"
+
+
+def vulnerable_code_auto_206():
+    """State change via GET with sensitive action"""
+    from django.http import HttpResponse
+
+    # Vulnerable: GET used for destructive action (no CSRF protection on GET)
+    def unsubscribe(request):
+        if request.method == "GET":
+            user = request.user
+            user.newsletter_subscribed = False
+            user.save()
+            return HttpResponse("Unsubscribed")
+
+
+def vulnerable_code_auto_207():
+    """Custom token check that always passes"""
+    from django.http import HttpResponse
+
+    # Vulnerable: Fake or broken CSRF check
+    def validate_csrf(request):
+        return True  # Always returns True
+
+    def update_settings(request):
+        if request.method == "POST" and validate_csrf(request):
+            request.user.settings = request.POST.get("settings")
+            request.user.save()
+            return HttpResponse("Settings updated")
+
+
+def vulnerable_code_auto_8():
+    """Relies only on Referer/Origin without token"""
+    from flask import request
+
+    # Vulnerable: No CSRF token; only checks origin (can be spoofed in some setups)
+    @app.route("/confirm_order", methods=["POST"])
+    def confirm_order():
+        if request.headers.get("Origin") == "https://mysite.com":
+            order_id = request.form.get("order_id")
+            confirm_order_in_db(order_id)
+            return "Order confirmed"
+        return "Forbidden", 403
+
+
+
+# CSRF SAFE CODE -------------------------------------------------------------
 
 def safe_code_auto_5():
     """Explicit CSRF token validation in Django"""
