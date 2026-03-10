@@ -70,12 +70,13 @@ def _summarize(label: str, funcs: List[FuncInfo], attr: str) -> None:
 
     precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
     accuracy = (tp + tn) / max(1, len(funcs))
 
     print(
         f"\n=== {label} ===\n"
         f"TP={tp}, FP={fp}, FN={fn}, TN={tn}, total={len(funcs)}\n"
-        f"Precision={precision:.3f}, Recall={recall:.3f}, Accuracy={accuracy:.3f}"
+        f"Precision={precision:.3f}, Recall={recall:.3f}, F1={f1:.3f}, Accuracy={accuracy:.3f}"
     )
 
 
