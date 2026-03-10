@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-from ml_sql_injection_scanner import MLSQLInjectionDetector  # kept for consistency, not used here
-from static_sql_injection_scanner import StaticSqlInjectionScanner
+from scanners.sql_injection.static_sql_injection_scanner import StaticSqlInjectionScanner
 
 
 DATASET_PATH = Path(__file__).resolve().parent / "sql_injection_dataset.py"
