@@ -1,4 +1,5 @@
 import ast
+import csv
 import json
 import sys
 from dataclasses import dataclass
@@ -129,21 +130,32 @@ def _summarize(label: str, funcs: List[FuncInfo], attr: str) -> dict:
     return summary
 
 
-def _write_markdown(funcs: List[FuncInfo], path: Path) -> None:
+def _write_csv(funcs: List[FuncInfo], path: Path) -> None:
     """
-    Write per-function comparison results as a Markdown table.
+    Write per-function comparison results as CSV.
     """
-    lines: List[str] = []
-    lines.append("| Function | Start line | End line | Ground truth vulnerable | Semgrep hit | ML hit |")
-    lines.append("|---------|------------|----------|-------------------------|------------|--------|")
-    for fn in funcs:
-        gt = "1" if fn.is_vulnerable else "0"
-        semgrep_val = "1" if fn.semgrep_hit else "0"
-        ml_val = "1" if fn.ml_hit else "0"
-        lines.append(
-            f"| {fn.name} | {fn.start} | {fn.end} | {gt} | {semgrep_val} | {ml_val} |"
-        )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    fieldnames = [
+        "function",
+        "start_line",
+        "end_line",
+        "ground_truth_vulnerable",
+        "semgrep_hit",
+        "ml_hit",
+    ]
+    with path.open("w", newline="", encoding="utf-8") as fp:
+        writer = csv.DictWriter(fp, fieldnames=fieldnames)
+        writer.writeheader()
+        for fn in funcs:
+            writer.writerow(
+                {
+                    "function": fn.name,
+                    "start_line": fn.start,
+                    "end_line": fn.end,
+                    "ground_truth_vulnerable": int(fn.is_vulnerable),
+                    "semgrep_hit": int(fn.semgrep_hit),
+                    "ml_hit": int(fn.ml_hit),
+                }
+            )
 
 
 def main() -> None:
@@ -186,11 +198,11 @@ def main() -> None:
 
     # Export artifacts next to this script
     out_dir = Path(__file__).resolve().parent
-    md_path = out_dir / "comparison_semgrep_vs_ml_sql.md"
+    csv_path = out_dir / "comparison_semgrep_vs_ml_sql.csv"
 
-    _write_markdown(funcs, md_path)
+    _write_csv(funcs, csv_path)
 
-    print(f"\nWrote Markdown per-function results to: {md_path}")
+    print(f"\nWrote CSV per-function results to: {csv_path}")
 
 
 if __name__ == "__main__":
