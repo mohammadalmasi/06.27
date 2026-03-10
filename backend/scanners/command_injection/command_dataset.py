@@ -126,19 +126,17 @@ def vulnerable_code_auto_13():
     # Vulnerable: attacker can control which binary runs / arguments
     subprocess.run([cmd, arg], check=True)
 
+ 
+# COMMAND INJECTION SAFE CODE -------------------------------------------------------------
 
-# =============================================================================
-# COMMAND INJECTION SAFE CODE
-# =============================================================================
-
-def safe_code1():
+def safe_code_auto_1():
     """Safe: constant argv list, no shell, no user input"""
     import subprocess
     
     subprocess.run(["ls", "-l", "/tmp"], check=True)
 
 
-def safe_code2():
+def safe_code_auto_2():
     """Safe: sanitize user input before shell execution (shlex.quote)"""
     import os
     import shlex
@@ -149,7 +147,7 @@ def safe_code2():
     os.system(f"cat {safe_filename}")
 
 
-def safe_code3():
+def safe_code_auto_3():
     """Safe: execute a fixed binary; user input not used in command"""
     import subprocess
     from flask import request
@@ -158,7 +156,7 @@ def safe_code3():
     subprocess.run(["echo", "hello"], check=True)
 
 
-def safe_code4():
+def safe_code_auto_4():
     """Safe: sanitize user input even when passed as argv"""
     import shlex
     import subprocess
@@ -169,7 +167,7 @@ def safe_code4():
     subprocess.run(["grep", "-F", safe_pattern, "/etc/passwd"], check=True)
 
 
-def safe_code5():
+def safe_code_auto_5():
     """Safe: send user data via stdin; argv is constant"""
     import subprocess
     from flask import request
@@ -178,7 +176,7 @@ def safe_code5():
     subprocess.run(["wc", "-c"], input=data, text=True, check=True, capture_output=True)
 
 
-def safe_code6():
+def safe_code_auto_6():
     """Safe: build a shell command using shlex.quote for the dynamic part"""
     import shlex
     import subprocess
@@ -189,7 +187,7 @@ def safe_code6():
     subprocess.run(f"cat {safe_filename}", shell=True, check=True)
 
 
-def safe_code7():
+def safe_code_auto_7():
     """Safe: constant argv list with absolute path"""
     import subprocess
     
