@@ -1,0 +1,218 @@
+import ast
+import csv
+import json
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List
+
+from scanners.csrf.ml_csrf_scanner import MLCSRFDetector
+
+
+DATASET_PATH = Path(__file__).resolve().parent / "csrf_dataset.py"
+SEMGREP_CONFIG = Path(__file__).resolve().parent / "semgrep_csrf.yml"
+
+
+@dataclass
+class FuncInfo:
+    name: str
+    start: int
+    end: int
+    is_vulnerable: bool
+    semgrep_hit: bool = False
+    ml_hit: bool = False
+
+
+def _load_functions(path: Path) -> List[FuncInfo]:
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
+
+    funcs: List[FuncInfo] = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            start = node.lineno
+            end = getattr(node, "end_lineno", node.lineno)
+            is_vuln = node.name.startswith("vulnerable_code")
+            funcs.append(
+                FuncInfo(
+                    name=node.name,
+                    start=start,
+                    end=end,
+                    is_vulnerable=is_vuln,
+                )
+            )
+    return funcs
+
+
+def _run_semgrep(path: Path) -> list:
+    """
+    Run Semgrep on the given file and return the JSON results["results"] list.
+    """
+    import subprocess
+
+    semgrep_executable = Path(sys.executable).with_name("semgrep")
+    cmd = [
+        str(semgrep_executable),
+        "--config",
+        str(SEMGREP_CONFIG),
+        str(path),
+        "--json",
+    ]
+    env = os.environ.copy()
+    log_path = Path(__file__).resolve().parent / ".semgrep_csrf.log"
+    env["SEMGREP_USER_LOG_FILE"] = str(log_path)
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    if proc.returncode not in (0, 1):
+        raise RuntimeError(f"Semgrep failed with code {proc.returncode}: {proc.stderr}")
+
+    if not proc.stdout.strip():
+        return []
+
+    data = json.loads(proc.stdout)
+    return data.get("results", [])
+
+
+def _map_hits_to_functions(funcs: List[FuncInfo], hits: list, attr: str) -> None:
+    for hit in hits:
+        start_line = hit.get("start", {}).get("line")
+        if start_line is None:
+            continue
+        for fn in funcs:
+            if fn.start <= start_line <= fn.end:
+                setattr(fn, attr, True)
+                break
+
+
+def _run_ml_scanner(path: Path, detector: MLCSRFDetector) -> list:
+    source = path.read_text(encoding="utf-8")
+    vulnerabilities = detector.scan_source(source, source_name=str(path))
+    return vulnerabilities
+
+
+def _summarize(label: str, funcs: List[FuncInfo], attr: str) -> dict:
+    tp = fp = tn = fn = 0
+    for fn_info in funcs:
+        predicted = getattr(fn_info, attr)
+        actual = fn_info.is_vulnerable
+
+        if predicted and actual:
+            tp += 1
+        elif predicted and not actual:
+            fp += 1
+        elif not predicted and actual:
+            fn += 1
+        else:
+            tn += 1
+
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+    accuracy = (tp + tn) / max(1, len(funcs))
+
+    summary = {
+        "tool": label,
+        "tp": tp,
+        "fp": fp,
+        "fn": fn,
+        "tn": tn,
+        "total": len(funcs),
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "accuracy": accuracy,
+    }
+
+    print(
+        f"\n=== {label} ===\n"
+        f"TP={tp}, FP={fp}, FN={fn}, TN={tn}, total={len(funcs)}\n"
+        f"Precision={precision:.3f}, Recall={recall:.3f}, F1={f1:.3f}, Accuracy={accuracy:.3f}"
+    )
+    return summary
+
+
+def _write_csv(funcs: List[FuncInfo], path: Path) -> None:
+    """
+    Write per-function comparison results as CSV.
+    """
+    fieldnames = [
+        "index",
+        "function",
+        "start_line",
+        "end_line",
+        "ground_truth_vulnerable",
+        "semgrep_hit",
+        "ml_hit",
+    ]
+    with path.open("w", newline="", encoding="utf-8") as fp:
+        writer = csv.DictWriter(fp, fieldnames=fieldnames)
+        writer.writeheader()
+        for idx, fn in enumerate(funcs, start=1):
+            writer.writerow(
+                {
+                    "index": idx,
+                    "function": fn.name,
+                    "start_line": fn.start,
+                    "end_line": fn.end,
+                    "ground_truth_vulnerable": int(fn.is_vulnerable),
+                    "semgrep_hit": int(fn.semgrep_hit),
+                    "ml_hit": int(fn.ml_hit),
+                }
+            )
+
+
+def main() -> None:
+    funcs = _load_functions(DATASET_PATH)
+
+    print(f"Loaded {len(funcs)} functions from {DATASET_PATH}")
+    print("Ground truth (all vulnerabilities are treated as high severity):")
+    for f in funcs:
+        label = "VULN" if f.is_vulnerable else "SAFE"
+        print(f"  {f.name}: {label} (lines {f.start}-{f.end})")
+
+    # Run Semgrep
+    print("\nRunning Semgrep (CSRF)...")
+    semgrep_results = _run_semgrep(DATASET_PATH)
+    _map_hits_to_functions(funcs, semgrep_results, "semgrep_hit")
+
+    # Run ML CSRF detector
+    print("\nRunning ML CSRF detector...")
+    detector = MLCSRFDetector(verbose=False)
+    ml_results = _run_ml_scanner(DATASET_PATH, detector)
+    ml_hits = [
+        {"start": {"line": v.get("line_number")}}
+        for v in ml_results
+        if v.get("line_number") is not None
+    ]
+    _map_hits_to_functions(funcs, ml_hits, "ml_hit")
+
+    # Per-function report
+    print("\nPer-function results (1 = hit, 0 = no hit):")
+    for f in funcs:
+        gt = 1 if f.is_vulnerable else 0
+        print(
+            f"  {f.name:25} "
+            f"GT={gt}  Semgrep={int(f.semgrep_hit)}  ML={int(f.ml_hit)}"
+        )
+
+    # Summaries
+    _summarize("Semgrep CSRF", funcs, "semgrep_hit")
+    _summarize("ML CSRF detector", funcs, "ml_hit")
+
+    out_dir = Path(__file__).resolve().parent
+    csv_path = out_dir / "comparison_semgrep_vs_ml_csrf.csv"
+
+    _write_csv(funcs, csv_path)
+
+    print(f"\nWrote CSV per-function results to: {csv_path}")
+
+
+if __name__ == "__main__":
+    main()
+

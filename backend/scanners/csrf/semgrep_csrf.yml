@@ -1,0 +1,31 @@
+rules:
+  - id: py-csrf-disabled-or-missing
+    languages: [python]
+    message: Possible missing or disabled CSRF protection
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: "CWE-352"
+      confidence: medium
+    pattern-either:
+      # Explicit csrf_exempt / disable_csrf decorators
+      - pattern: |
+          @csrf_exempt
+          def $F(...):
+            ...
+      - pattern: |
+          @disable_csrf
+          def $F(...):
+            ...
+
+      # Flask route with POST method and no CSRF token usage in body (heuristic)
+      - patterns:
+          - pattern: |
+              @app.route($ROUTE, methods=["POST"])
+              def $F(...):
+                ...
+          - pattern-not: |
+              @app.route($ROUTE, methods=["POST"])
+              def $F(...):
+                ...csrf...
+
