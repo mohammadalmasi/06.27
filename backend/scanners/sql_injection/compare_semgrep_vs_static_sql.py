@@ -132,6 +132,7 @@ def _summarize(label: str, funcs: List[FuncInfo], attr: str) -> dict:
 
 def _write_csv(funcs: List[FuncInfo], path: Path) -> None:
     fieldnames = [
+        "index",
         "function",
         "start_line",
         "end_line",
@@ -142,9 +143,10 @@ def _write_csv(funcs: List[FuncInfo], path: Path) -> None:
     with path.open("w", newline="", encoding="utf-8") as fp:
         writer = csv.DictWriter(fp, fieldnames=fieldnames)
         writer.writeheader()
-        for fn in funcs:
+        for idx, fn in enumerate(funcs, start=1):
             writer.writerow(
                 {
+                    "index": idx,
                     "function": fn.name,
                     "start_line": fn.start,
                     "end_line": fn.end,
