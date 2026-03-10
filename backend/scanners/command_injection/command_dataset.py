@@ -1,6 +1,6 @@
 # COMMAND INJECTION VULNERABLE CODE
 
-def vulnerable_code1():
+def vulnerable_code_auto_1():
     """os.system with user input"""
     import os
     from flask import request
@@ -9,7 +9,7 @@ def vulnerable_code1():
     # Vulnerable: directly passing user input to system command
     os.system(f"ping -c 4 {user_input}")
 
-def vulnerable_code2():
+def vulnerable_code_auto_2():
     """subprocess.Popen with shell=True"""
     import subprocess
     from flask import request
@@ -18,14 +18,14 @@ def vulnerable_code2():
     # Vulnerable: shell=True and untrusted input
     subprocess.Popen("cat " + filename, shell=True)
 
-def vulnerable_code3():
+def vulnerable_code_auto_3():
     """eval() with user input"""
     from flask import request
     user_code = request.args.get("calc")
     # Vulnerable: evaluating untrusted string
     result = eval(user_code)
 
-def vulnerable_code4():
+def vulnerable_code_auto_4():
     """subprocess.call with potentially unsafe arguments"""
     import subprocess
     from flask import request
@@ -35,7 +35,7 @@ def vulnerable_code4():
     # Vulnerable if cmd/arg aren't properly validated, though no shell=True
     subprocess.call([cmd, arg])
 
-def vulnerable_code5():
+def vulnerable_code_auto_5():
     """os.popen reading from untrusted source"""
     import os
     from flask import request
@@ -45,7 +45,7 @@ def vulnerable_code5():
     stream = os.popen('ls -l ' + dir_path)
     output = stream.read()
 
-def vulnerable_code6():
+def vulnerable_code_auto_6():
     """Safe usage but looks suspicious to static analyzers"""
     import subprocess
     
@@ -53,7 +53,7 @@ def vulnerable_code6():
     command = ["ls", "-l", "/tmp"]
     subprocess.run(command)
 
-def vulnerable_code7():
+def vulnerable_code_auto_7():
     """Input validation before execution"""
     import os
     import re
@@ -65,7 +65,7 @@ def vulnerable_code7():
         os.system(f"ping -c 4 {ip}")
 
 
-def vulnerable_code8():
+def vulnerable_code_auto_8():
     """subprocess.run with shell=True and query param"""
     import subprocess
     from flask import request
@@ -75,7 +75,7 @@ def vulnerable_code8():
     subprocess.run(cmd, shell=True)
 
 
-def vulnerable_code9():
+def vulnerable_code_auto_9():
     """subprocess.check_output with string formatting + shell=True"""
     import subprocess
     from flask import request
@@ -86,7 +86,7 @@ def vulnerable_code9():
     subprocess.check_output(f"grep {pattern} {file_path}", shell=True)
 
 
-def vulnerable_code10():
+def vulnerable_code_auto_10():
     """sh -c wrapper (command injection)"""
     import subprocess
     from flask import request
@@ -96,7 +96,7 @@ def vulnerable_code10():
     subprocess.run(["sh", "-c", user_cmd])
 
 
-def vulnerable_code11():
+def vulnerable_code_auto_11():
     """os.system with headers input"""
     import os
     from flask import request
@@ -106,7 +106,7 @@ def vulnerable_code11():
     os.system("ping -c 1 " + host)
 
 
-def vulnerable_code12():
+def vulnerable_code_auto_12():
     """os.system with request args (no sanitization)"""
     import os
     from flask import request
@@ -116,7 +116,7 @@ def vulnerable_code12():
     os.system(f"cat {filename}")
 
 
-def vulnerable_code13():
+def vulnerable_code_auto_13():
     """subprocess.run with user-controlled command in argv"""
     import subprocess
     from flask import request
