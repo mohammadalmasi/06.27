@@ -487,7 +487,7 @@ Baseline is the model's overall risk score (max across windows). The threshold s
 \subsubsection{Portability Note}
 \label{sec:ml_portability}
 
-If a different pretrained model is adopted in the future (e.g., token-based embeddings rather than character one-hot encoding), the \texttt{input\_shape} will differ and preprocessing must be updated accordingly. The current implementation uses character-level encoding; token-based approaches (Word2Vec, BPE) could be integrated with appropriate preprocessing modifications.
+If a different pretrained model is adopted in the future (e.g., token-based embeddings rather than character one-hot encoding), the \texttt{input\_shape} differs and preprocessing must be updated accordingly. The current implementation uses character-level encoding; token-based approaches (Word2Vec, BPE) integrate with appropriate preprocessing modifications.
 
 \subsection{Advantages and Limitations Comparison}
 \label{sec:advantages_limitations_comparison}

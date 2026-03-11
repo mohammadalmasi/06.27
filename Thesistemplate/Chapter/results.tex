@@ -233,13 +233,71 @@
 
 \begin{enumerate}
   \item \textbf{Comparison: ML vs static analysis.}\\
-  % Content to be provided.
+  On the CSRF benchmark, the ML detector flags 10 vulnerable functions with 3 false
+  positives and 2 false negatives (TP=10, FP=3, FN=2, TN=0; Precision=0.77, Recall=0.83,
+  F1=0.80, Accuracy=0.03). The static CSRF detector identifies 175 vulnerable functions
+  with no false positives and 25 false negatives (TP=175, FP=0, FN=25, TN=200;
+  Precision=1.00, Recall=0.88, F1=0.93, Accuracy=0.94). Static analysis therefore achieves
+  both higher recall and perfect precision on this dataset, while the ML detector remains
+  more limited in coverage and overall accuracy.
+
+  \begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \textbf{Detector} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
+      \hline
+      ML CSRF detector & 0.77 & 0.83 & 0.80 & 0.03 \\
+      Static CSRF detector & 1.00 & 0.88 & 0.93 & 0.94 \\
+    \end{tabular}
+    \caption{CSRF detection performance: ML CSRF detector versus the static CSRF detector.}
+    \label{tab:csrf_ml_vs_static}
+  \end{table}
 
   \item \textbf{Comparison: Semgrep vs ML.}\\
-  % Content to be provided.
+  When comparing Semgrep to the ML CSRF detector, Semgrep does not flag any functions
+  as vulnerable (TP=0, FP=0, FN=200, TN=200; Precision=0.00, Recall=0.00, F1=0.00,
+  Accuracy=0.50), whereas the ML detector reports 10 true positives with 3 false
+  positives and 2 false negatives (TP=10, FP=3, FN=2, TN=0; Precision=0.77, Recall=0.83,
+  F1=0.80, Accuracy=0.03). Semgrep's configuration for this experiment behaves like a
+  safe-only baseline: it never reports CSRF, so it attains moderate accuracy by correctly
+  classifying safe functions but misses all 200 vulnerable ones. The ML detector, in
+  contrast, recovers a small subset of CSRF cases at the cost of some false positives.
+
+  \begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \textbf{Detector} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
+      \hline
+      Semgrep CSRF detector & 0.00 & 0.00 & 0.00 & 0.50 \\
+      ML CSRF detector & 0.77 & 0.83 & 0.80 & 0.03 \\
+    \end{tabular}
+    \caption{CSRF detection performance: Semgrep CSRF detector versus the ML CSRF detector.}
+    \label{tab:csrf_semgrep_vs_ml}
+  \end{table}
 
   \item \textbf{Comparison: Semgrep vs static analysis.}\\
-  % Content to be provided.
+  Comparing Semgrep directly with the static CSRF detector emphasizes the impact of
+  tailored structural rules. Semgrep behaves like a safe-only baseline with TP=0, FP=0,
+  FN=200, TN=200 (Precision=0.00, Recall=0.00, F1=0.00, Accuracy=0.50), while the static
+  detector finds 175 of the 200 CSRF vulnerabilities without raising any false positives
+  (TP=175, FP=0, FN=25, TN=200; Precision=1.00, Recall=0.88, F1=0.93, Accuracy=0.94).
+  Static analysis thus provides meaningful CSRF coverage on this benchmark, whereas the
+  Semgrep configuration used here fails to detect any of the vulnerable patterns.
+
+  \begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \textbf{Detector} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
+      \hline
+      Semgrep CSRF detector & 0.00 & 0.00 & 0.00 & 0.50 \\
+      Static CSRF detector & 1.00 & 0.88 & 0.93 & 0.94 \\
+    \end{tabular}
+    \caption{CSRF detection performance: Semgrep CSRF detector versus the static CSRF detector.}
+    \label{tab:csrf_semgrep_vs_static}
+  \end{table}
 \end{enumerate}
 
 \section{Platform Screenshot}
