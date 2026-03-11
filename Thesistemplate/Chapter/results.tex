@@ -158,13 +158,74 @@
 
 \begin{enumerate}
   \item \textbf{Comparison: ML vs static analysis.}\\
-  % Content to be provided.
+  On the command injection benchmark, the ML detector reports 15 true positives with
+  10 false positives and 5 false negatives (TP=15, FP=10, FN=5, TN=10; Precision=0.60,
+  Recall=0.75, F1=0.67, Accuracy=0.06). The static command injection analyzer detects
+  185 vulnerable functions with no false positives and 15 false negatives (TP=185, FP=0,
+  FN=15, TN=200; Precision=1.00, Recall=0.93, F1=0.96, Accuracy=0.96). Static analysis
+  therefore achieves both much higher recall and dramatically better overall accuracy,
+  while the ML detector remains conservative and misses a substantial portion of the
+  injected-command patterns in this dataset.
+
+  \begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \textbf{Detector} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
+      \hline
+      ML command injection detector & 0.60 & 0.75 & 0.67 & 0.06 \\
+      Static command injection analyzer & 1.00 & 0.93 & 0.96 & 0.96 \\
+    \end{tabular}
+    \caption{Command injection detection performance: ML detector versus the static analyzer.}
+    \label{tab:cmd_ml_vs_static}
+  \end{table}
 
   \item \textbf{Comparison: Semgrep vs ML.}\\
-  % Content to be provided.
+  Comparing Semgrep to the ML command injection detector, Semgrep reports 77 true
+  positives with 29 false positives and 123 false negatives (TP=77, FP=29, FN=123,
+  TN=171; Precision=0.73, Recall=0.39, F1=0.50, Accuracy=0.62). The ML detector reports
+  15 true positives with 10 false positives and 5 false negatives (TP=15, FP=10, FN=5,
+  TN=10; Precision=0.60, Recall=0.75, F1=0.67, Accuracy=0.06). In this configuration,
+  Semgrep exhibits higher recall and accuracy but a lower F1 Score, while the ML detector
+  favors precision and achieves a more balanced trade-off between false positives and
+  missed vulnerabilities within the subset of functions it analyzes.
+
+  \begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \textbf{Detector} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
+      \hline
+      Semgrep command injection detector & 0.73 & 0.39 & 0.50 & 0.62 \\
+      ML command injection detector & 0.60 & 0.75 & 0.67 & 0.06 \\
+    \end{tabular}
+    \caption{Command injection detection performance: Semgrep versus the ML detector.}
+    \label{tab:cmd_semgrep_vs_ml}
+  \end{table}
 
   \item \textbf{Comparison: Semgrep vs static analysis.}\\
-  % Content to be provided.
+  Finally, comparing Semgrep directly with the static command injection analyzer shows
+  that both tools contribute different strengths. Semgrep detects 77 vulnerable functions
+  with 29 false positives and 123 false negatives (TP=77, FP=29, FN=123, TN=171;
+  Precision=0.73, Recall=0.39, F1=0.50, Accuracy=0.62), whereas the static analyzer
+  detects 185 vulnerable functions with no false positives and 15 false negatives
+  (TP=185, FP=0, FN=15, TN=200; Precision=1.00, Recall=0.93, F1=0.96, Accuracy=0.96).
+  The static analyzer therefore achieves substantially higher recall, perfect precision on
+  this dataset, and markedly better F1 and accuracy, making it more reliable for command
+  injection detection in this context.
+
+  \begin{table}[htbp]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \textbf{Detector} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
+      \hline
+      Semgrep command injection detector & 0.73 & 0.39 & 0.50 & 0.62 \\
+      Static command injection analyzer & 1.00 & 0.93 & 0.96 & 0.96 \\
+    \end{tabular}
+    \caption{Command injection detection performance: Semgrep versus the static analyzer.}
+    \label{tab:cmd_semgrep_vs_static}
+  \end{table}
 \end{enumerate}
 
 \section{CSRF}
