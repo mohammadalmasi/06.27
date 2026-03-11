@@ -1,6 +1,28 @@
 \chapter{Results and Comparison}
 \label{ch:results}
 
+\section{Evaluation Metrics}
+\label{sec:evaluation_metrics}
+
+This section summarizes the evaluation metrics used throughout this chapter.
+
+\subsection*{Why F1 Score and Recall Are Key Metrics}
+
+\textbf{Recall as a primary security metric.}
+Recall is arguably the most important metric for security-focused static analysis because
+undetected vulnerabilities (false negatives) pose direct security risks. Security teams
+require comprehensive coverage, many standards and compliance frameworks require
+comprehensive vulnerability assessment, and high recall minimizes the probability that
+exploitable vulnerabilities remain undetected.
+
+\textbf{F1 Score as a balanced performance indicator.}
+The F1 Score serves as a key metric because it ensures tools do not optimize for one
+dimension at the expense of the other. Tools with high F1 typically provide the best
+balance between security effectiveness and operational practicality. The metric enables
+fair comparison, the harmonic mean is more sensitive to low values than the arithmetic
+mean, and it is a widely recognized standard in information retrieval and machine
+learning.
+
 \section{SQL Injection}
 \label{sec:results_sql}
 
