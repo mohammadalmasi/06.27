@@ -1,377 +1,67 @@
 \chapter{Results and Comparison}
 \label{ch:results}
 
-This chapter explains all evaluation results and comparisons, with separate sections for static analysis and machine learning. The structure is: (1) Static analysis performance; (2) Machine learning performance; (3) Comparison of static analysis with Semgrep and Bandit; (4) Comparison of ML methods with other ML-based detectors; (5) Comparison of the web-based platform with tools such as SonarQube.
+\section{SQL Injection}
+\label{sec:results_sql}
 
-\section{Static Analysis Performance}
-\label{sec:static_analysis_performance}
+\begin{enumerate}
+  \item \textbf{Comparison: ML vs static analysis.}\\
+  % Content to be provided.
 
-The proposed static analyzer is evaluated across four vulnerability types: SQL Injection, XSS, Command Injection, and CSRF. Table~\ref{tab:eval_metrics_summary} summarizes the results. Command Injection achieves the highest precision (1.00) and F1 (0.85); SQL Injection achieves the highest recall (0.93); CSRF and XSS show lower performance. The evaluation uses Precision, Recall, F1 Score, and Accuracy.
+  \item \textbf{Comparison: Semgrep vs ML.}\\
+  % Content to be provided.
 
-\subsection{Evaluation Metrics and Results}
-\label{sec:evaluation_results}
+  \item \textbf{Comparison: Semgrep vs static analysis.}\\
+  % Content to be provided.
+\end{enumerate}
 
-The evaluation of static analysis tools requires comprehensive metrics that accurately reflect the tool's ability to identify security vulnerabilities while minimizing false positives and false negatives. This section presents the evaluation methodology used to assess the performance of the proposed static analysis system across four critical vulnerability types: SQL Injection, Cross-Site Scripting (XSS), Command Injection, and Cross-Site Request Forgery (CSRF).
+\section{XSS}
+\label{sec:results_xss}
 
-The evaluation framework uses established metrics from information retrieval and machine learning: Precision, Recall, F1 Score, and Accuracy. These metrics collectively provide a multi-dimensional assessment of the tool's effectiveness, enabling both quantitative comparison and qualitative analysis of detection capabilities.
+\begin{enumerate}
+  \item \textbf{Comparison: ML vs static analysis.}\\
+  % Content to be provided.
 
-\subsection{Evaluation Results Overview}
-\label{sec:eval_results_overview}
+  \item \textbf{Comparison: Semgrep vs ML.}\\
+  % Content to be provided.
 
-Figure~\ref{fig:eval_overview} presents a comprehensive overview of the static analysis tool's performance across the four vulnerability types. The bar chart illustrates the comparative performance metrics, revealing significant variations in detection effectiveness across different vulnerability categories.
+  \item \textbf{Comparison: Semgrep vs static analysis.}\\
+  % Content to be provided.
+\end{enumerate}
 
-\begin{figure}[htbp]
-	\centering
-	% Insert evaluation chart image here: bar chart with Precision, Recall, F1 Score, Accuracy for SQL Injection, XSS, Command Injection, CSRF
-	\fbox{\parbox{0.8\linewidth}{\centering \small [Insert Figure: Static Analysis Evaluation Overview --- Bar chart showing Precision, Recall, F1 Score, and Accuracy for the four vulnerability types]}}
-	\caption{Static analysis evaluation overview: Precision, Recall, F1 Score, and Accuracy for SQL Injection, XSS, Command Injection, and CSRF.}
-	\label{fig:eval_overview}
-\end{figure}
+\section{Command Injection}
+\label{sec:results_cmd}
 
-The evaluation results demonstrate that Command Injection detection achieves the highest precision (1.00), indicating perfect accuracy in identifying true vulnerabilities without false positives. SQL Injection detection exhibits the highest recall (0.93), suggesting exceptional coverage in identifying actual vulnerabilities. Conversely, CSRF detection shows the lowest overall performance, with precision and accuracy values of 0.40 and 0.33 respectively, indicating substantial room for improvement in this domain.
+\begin{enumerate}
+  \item \textbf{Comparison: ML vs static analysis.}\\
+  % Content to be provided.
 
-\begin{table}[htbp]
-	\centering
-	\begin{tabular}{lcccc}
-		\textbf{Vulnerability Type} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} & \textbf{Accuracy} \\
-		\hline
-		SQL Injection & 0.74 & 0.93 & 0.82 & 0.80 \\
-		XSS & 0.50 & 0.40 & 0.44 & 0.50 \\
-		Command Injection & 1.00 & 0.75 & 0.85 & 0.87 \\
-		CSRF & 0.40 & 0.67 & 0.50 & 0.33 \\
-	\end{tabular}
-	\caption{Summary of evaluation metrics across vulnerability types}
-	\label{tab:eval_metrics_summary}
-\end{table}
+  \item \textbf{Comparison: Semgrep vs ML.}\\
+  % Content to be provided.
 
-\subsection{Rationale for Metric Selection in Static Analysis}
-\label{sec:rationale_metrics}
+  \item \textbf{Comparison: Semgrep vs static analysis.}\\
+  % Content to be provided.
+\end{enumerate}
 
-The selection of evaluation metrics for static analysis tools requires careful consideration of the unique characteristics of security vulnerability detection. Static analysis for security must balance: comprehensive vulnerability coverage, minimization of false positives to maintain developer trust, and practical utility in real-world development environments.
+\section{CSRF}
+\label{sec:results_csrf}
 
-\subsubsection{Why These Metrics for Static Analysis}
-\label{sec:why_these_metrics}
+\begin{enumerate}
+  \item \textbf{Comparison: ML vs static analysis.}\\
+  % Content to be provided.
 
-The framework uses four main metrics, each chosen for its relevance to static analysis tool evaluation.
+  \item \textbf{Comparison: Semgrep vs ML.}\\
+  % Content to be provided.
 
-\textbf{Precision.} Precision is critical because false positives directly impact developer productivity and tool adoption. Research by \cite{Christakis2016} and \cite{Johnson2013} demonstrates that high false positive rates are among the primary barriers to static analysis tool adoption. In operational contexts, developers must manually investigate each flagged vulnerability; excessive false positives lead to alert fatigue. Precision answers: ``Can developers trust the tool's warnings?''
+  \item \textbf{Comparison: Semgrep vs static analysis.}\\
+  % Content to be provided.
+\end{enumerate}
 
-\textbf{Recall.} Recall is paramount in security contexts because false negatives represent undetected vulnerabilities that may be exploited. Missing a vulnerability can have severe consequences including data breaches, unauthorized access, and system compromise. Recall measures comprehensive security coverage, addressing: ``Does the tool find all vulnerabilities?''
-
-\textbf{F1 Score.} The F1 Score provides a balanced assessment that accounts for both precision and recall. Static analysis tools must achieve high recall and acceptable precision; the F1 Score penalizes tools that excel in one dimension while failing in the other. It enables fair comparison between tools or configurations.
-
-\textbf{Accuracy.} Accuracy provides an overall measure of correctness. Its interpretation in static analysis requires caution due to typically imbalanced datasets (vulnerabilities represent a small proportion of code). Accuracy remains useful when considered alongside precision and recall, particularly when comparing tools under similar evaluation conditions.
-
-\subsubsection{Why F1 Score and Recall are Key Metrics}
-\label{sec:f1_recall_key}
-
-\textbf{Recall as a Primary Security Metric:} Recall is arguably the most important metric for security-focused static analysis because: undetected vulnerabilities (false negatives) pose direct security risks; security teams require comprehensive coverage; many standards and compliance frameworks require comprehensive vulnerability assessment; and high recall minimizes the probability that exploitable vulnerabilities remain undetected.
-
-\textbf{F1 Score as a Balanced Performance Indicator:} The F1 Score serves as a key metric because: it ensures tools cannot optimize for one dimension at the expense of the other; tools with high F1 typically provide the best balance between security effectiveness and operational practicality; it enables fair comparison; the harmonic mean is more sensitive to low values; and it is a widely recognized standard in information retrieval and machine learning.
-
-\subsubsection{Trade-offs in Static Analysis Metrics}
-\label{sec:metric_tradeoffs}
-
-\begin{itemize}
-	\item \textbf{High recall, lower precision:} More false positives, but comprehensive coverage; often preferred in security-critical contexts.
-	\item \textbf{High precision, lower recall:} Fewer false positives but may miss vulnerabilities; may be preferred when developer time is very limited.
-	\item \textbf{Balanced approach (high F1):} Optimal balance for most operational contexts.
-\end{itemize}
-
-The selection of F1 Score and Recall as key metrics reflects the security-first nature of static analysis tools.
-
-\subsection{Evaluation Metrics Overview}
-\label{sec:metrics_overview}
-
-The evaluation framework uses four main metrics from the confusion matrix, which groups predictions into four outcomes based on predicted vs.\ actual vulnerability states.
-
-\subsubsection{Confusion Matrix Fundamentals}
-\label{sec:confusion_matrix}
-
-The confusion matrix categorizes predictions into four outcomes:
-
-\begin{center}
-\begin{tabular}{|l|c|c|}
-	\hline
-	& \textbf{Predicted: Vulnerable} & \textbf{Predicted: Safe} \\
-	\hline
-	\textbf{Actual: Vulnerable} & True Positive (TP) & False Negative (FN) \\
-	\hline
-	\textbf{Actual: Safe} & False Positive (FP) & True Negative (TN) \\
-	\hline
-\end{tabular}
-\end{center}
-
-\textbf{True Positive (TP):} Tool correctly identifies an actual vulnerability. \textbf{False Positive (FP):} Tool incorrectly classifies safe code as vulnerable; elevates false positive rates and consumes resources. \textbf{False Negative (FN):} Tool fails to detect an actual vulnerability; poses significant security risks. \textbf{True Negative (TN):} Tool correctly identifies safe code as non-vulnerable.
-
-\subsection{Precision}
-\label{sec:metric_precision}
-
-Precision (Positive Predictive Value) quantifies the proportion of positive predictions that are correct: when the tool flags a location as vulnerable, what percentage are actual vulnerabilities?
-
-\textbf{Formula:} Precision = TP / (TP + FP). Range 0--1: 1.0 = perfect (no false positives); 0.5 = half of positives incorrect; 0.0 = no value.
-
-\textbf{Significance:} High precision is essential for developer trust and efficient resource utilization. \cite{Johnson2013} show that high false positive rates are a primary barrier to static analysis adoption.
-
-\textbf{Illustrative calculation:} If the tool flags 100 locations and 74 are true vulnerabilities (TP=74, FP=26): Precision = 74/(74+26) = 0.74 (74\%).
-
-\subsection{Recall (Sensitivity)}
-\label{sec:metric_recall}
-
-Recall (Sensitivity, True Positive Rate) quantifies the tool's ability to identify all actual vulnerabilities: of all genuine vulnerabilities, what proportion are detected?
-
-\textbf{Formula:} Recall = TP / (TP + FN). Range 0--1: 1.0 = all detected; 0.5 = half missed; 0.0 = ineffective.
-
-\textbf{Significance:} High recall is paramount in security; false negatives may be exploited. Practitioners often prioritize recall over precision, accepting more false positives for comprehensive coverage.
-
-\textbf{Illustrative calculation:} If 100 actual vulnerabilities exist and the tool detects 93 (TP=93, FN=7): Recall = 93/(93+7) = 0.93 (93\%).
-
-\subsection{F1 Score}
-\label{sec:metric_f1}
-
-The F1 Score is the harmonic mean of Precision and Recall, balancing both aspects and penalizing extreme imbalances.
-
-\textbf{Formula:} F1 = 2 $\times$ (Precision $\times$ Recall) / (Precision + Recall). Range 0--1.
-
-\textbf{Significance:} The harmonic mean is more sensitive to low values than the arithmetic mean. A tool with 100\% precision but 10\% recall yields F1 $\approx$ 0.18, reflecting poor overall performance.
-
-\textbf{Illustrative calculation:} With Precision = 0.74 and Recall = 0.93: F1 = 2$\times$(0.74$\times$0.93)/(0.74+0.93) = 1.3764/1.67 $\approx$ 0.82.
-
-\subsection{Accuracy}
-\label{sec:metric_accuracy}
-
-Accuracy measures the proportion of all predictions (positive and negative) that are correct.
-
-\textbf{Formula:} Accuracy = (TP + TN) / (TP + TN + FP + FN). Range 0--1.
-
-\textbf{Illustrative calculation:} With TP=74, TN=800, FP=26, FN=7: Accuracy = (74+800)/(74+800+26+7) = 874/907 $\approx$ 0.80 (80\%).
-
-\subsection{Evaluation Results Analysis}
-\label{sec:eval_results_analysis}
-
-\subsubsection{SQL Injection Detection Performance}
-\label{sec:eval_sqli}
-
-Precision: 0.74 (74\%); Recall: 0.93 (93\%); F1: 0.82 (82\%); Accuracy: 0.80 (80\%).
-
-The SQL Injection module demonstrates robust performance. Recall of 0.93 indicates the tool identifies 93\% of actual SQL injection vulnerabilities, which is significant for database security. Precision of 0.74 means 74\% of positive predictions are correct; the false positive rate is acceptable given the high recall. The F1 of 0.82 reflects a strong balance. The high recall is paramount for SQL injection, as undetected vulnerabilities can lead to severe breaches. Moderate precision suggests room for improvement via enhanced AST analysis and context-aware filtering.
-
-\subsubsection{Cross-Site Scripting (XSS) Detection Performance}
-\label{sec:eval_xss}
-
-Precision: 0.50 (50\%); Recall: 0.40 (40\%); F1: 0.44 (44\%); Accuracy: 0.50 (50\%).
-
-The XSS detection module exhibits moderate performance. The tool identifies less than half of actual XSS vulnerabilities and generates false positives for about 50\% of positive predictions. The low recall (0.40) is a significant security concern (60\% of XSS vulnerabilities undetected). The low precision can lead to alert fatigue. XSS complexity contributes to these challenges: multiple contexts (HTML, JavaScript, CSS, attributes), framework encoding, DOM-based XSS, and JavaScript context injection. Improved context-aware analysis and framework-specific sanitization recognition could improve performance.
-
-\subsubsection{Command Injection Detection Performance}
-\label{sec:eval_cmd}
-
-Precision: 1.00 (100\%); Recall: 0.75 (75\%); F1: 0.85 (85\%); Accuracy: 0.87 (87\%).
-
-The Command Injection module achieves perfect precision (1.00): every flagged finding is a true vulnerability with zero false positives. Recall of 0.75 indicates three-quarters of command injection vulnerabilities are detected. The F1 of 0.85 is the highest across all vulnerability types. Perfect precision suggests command injection patterns are highly distinctive for static analysis. The 25\% false negatives may stem from obfuscated patterns or less common vectors; improving recall while maintaining precision can make this module a model for others.
-
-\subsubsection{Cross-Site Request Forgery (CSRF) Detection Performance}
-\label{sec:eval_csrf}
-
-Precision: 0.40 (40\%); Recall: 0.67 (67\%); F1: 0.50 (50\%); Accuracy: 0.33 (33\%).
-
-The CSRF detection module exhibits the weakest performance. Recall of 0.67 indicates moderate success in identifying actual CSRF vulnerabilities, but precision of 0.40 means 60\% of positive predictions are false positives, significantly impacting practical utility. The accuracy of 0.33 indicates the tool incorrectly classifies two-thirds of code locations, suggesting fundamental challenges in distinguishing vulnerable from secure CSRF-related patterns.
-
-\subsection{Static Analysis Performance Summary}
-\label{sec:static_analysis_results}
-
-The detailed results are summarized in Table~\ref{tab:eval_metrics_summary} and in Sections~\ref{sec:eval_sqli}--\ref{sec:eval_csrf}. Command Injection achieves the highest precision (1.00) and F1 (0.85); SQL Injection achieves the highest recall (0.93); CSRF and XSS show lower performance and require further improvement.
-
-\section{Machine Learning Performance}
-\label{sec:ml_performance}
-
-The machine learning module uses the BiLSTM model from the Python-Source-Code-Vulnerability-Detection repository~\cite{PythonVulnDetectionDataset,Farasat2024MLPython}, trained on the VulnerabilityDetection-master dataset (Wartschinski et al.). The model is the same as that evaluated in Farasat and Posegga~\cite{Farasat2024MLPython} (CODASPY~'24), which reports the following performance. Table~\ref{tab:ml_performance} presents the Accuracy, Precision, Recall, and F-Score for the BiLSTM model across the four vulnerability types; the values come directly from that paper.
-
-\begin{table}[htbp]
-	\centering
-	\begin{tabular}{lcccc}
-		\textbf{Vulnerability Type} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F-Score} \\
-		\hline
-		SQL Injection & 98.2\% & 96.8\% & 93.8\% & 95.3\% \\
-		XSS & 98.8\% & 94.8\% & 91.3\% & 93.0\% \\
-		Command Injection & 99.1\% & 97.8\% & 95.7\% & 96.7\% \\
-		CSRF (XSRF) & 98.3\% & 96.7\% & 90.7\% & 93.6\% \\
-		\hline
-		\textbf{Average} & \textbf{98.6\%} & \textbf{96.2\%} & \textbf{93.3\%} & \textbf{94.7\%} \\
-	\end{tabular}
-	\caption{BiLSTM model performance (source: Farasat and Posegga~\cite{Farasat2024MLPython}).}
-	\label{tab:ml_performance}
-\end{table}
-
-The BiLSTM model achieves a remarkable average Accuracy of 98.6\%, Precision of 96.2\%, Recall of 93.3\%, and F-Score of 94.7\%, establishing a new benchmark for vulnerability detection in Python source code~\cite{Farasat2024MLPython}. The model benefits from the large-scale training data (VulnerabilityDetection dataset), Word2Vec embeddings, and the sequence-based BiLSTM architecture that captures contextual patterns in code.
-
-\section{Comparison of Static Analysis with Semgrep and Bandit}
-\label{sec:static_comparison}
-
-This section compares the proposed static analysis component with Semgrep~\cite{Semgrep} and Bandit~\cite{Bandit}, two widely used Python security tools. Table~\ref{tab:static_tools_comparison} gives a concise comparison with existing static analysis tools.
-
-\begin{table}[htbp]
-	\centering
-	\small
-	\begin{tabular}{p{0.14\linewidth}p{0.12\linewidth}p{0.28\linewidth}p{0.12\linewidth}p{0.28\linewidth}}
-		\textbf{Tool} & \textbf{Python Support} & \textbf{Vulnerability Types} & \textbf{Open Source} & \textbf{Notes} \\
-		\hline
-		Bandit~\cite{Bandit} & Yes & SQLI, XSS, Command Injection & Yes & Widely used; rule-based; limited coverage \\
-		\hline
-		Semgrep~\cite{Semgrep} & Yes & SQLI, XSS, Command Injection, CSRF & Yes & Flexible patterns; can customize rules; may require manual tuning \\
-		\hline
-		Proposed Static Module & Yes & SQLI, XSS, Command Injection, CSRF & Yes & Integrated in web platform; AST-based; user-friendly reports \\
-	\end{tabular}
-	\caption{Comparison with existing tools (Static Analysis). SQLI = SQL Injection; XSS = Cross-Site Scripting; CSRF = Cross-Site Request Forgery.}
-	\label{tab:static_tools_comparison}
-\end{table}
-
-The comparison is structured in two further parts: (1) a quantitative performance comparison where metrics are available on a common evaluation framework; (2) a qualitative comparison of features, coverage, and integration.
-
-\subsection{Quantitative Performance Comparison}
-
-Table~\ref{tab:static_performance_comparison} presents the proposed static analyzer's Precision, Recall, and F1 Score per vulnerability type (from Table~\ref{tab:eval_metrics_summary}). Direct quantitative comparison with Semgrep and Bandit is limited because these tools use different evaluation setups: Semgrep and Bandit are typically benchmarked on their own rule sets and public repositories, not on the same four vulnerability types (SQL Injection, XSS, Command Injection, CSRF) and dataset used in this thesis. Semgrep reports strong coverage for Python with framework-specific rules and taint analysis; Bandit focuses on CWE-based Python patterns (e.g., B608 for SQL, B602/B603 for subprocess) but does not target web-specific vulnerabilities such as XSS or CSRF. Where comparable, the proposed analyzer achieves high recall for SQL Injection (0.93) and perfect precision for Command Injection (1.00).
-
-\begin{table}[htbp]
-	\centering
-	\small
-	\begin{tabular}{lp{0.18\linewidth}p{0.22\linewidth}p{0.22\linewidth}}
-		\textbf{Vulnerability} & \textbf{Proposed (P/R/F1)} & \textbf{Semgrep} & \textbf{Bandit} \\
-		\hline
-		SQL Injection & 0.74 / 0.93 / 0.82 & Covers (different eval.) & B608 (different eval.) \\
-		XSS & 0.50 / 0.40 / 0.44 & Covers (different eval.) & No XSS \\
-		Command Injection & 1.00 / 0.75 / 0.85 & Covers (different eval.) & B602, B603, B607 \\
-		CSRF & 0.40 / 0.67 / 0.50 & Covers (different eval.) & No CSRF \\
-	\end{tabular}
-	\caption{Static analysis performance comparison. Proposed: Precision/Recall/F1 from Table~\ref{tab:eval_metrics_summary}. Semgrep/Bandit: coverage and rule IDs; ``different eval.'' = no published P/R/F1 on this benchmark.}
-	\label{tab:static_performance_comparison}
-\end{table}
-
-\subsection{Qualitative Feature Comparison}
-
-\subsection{Summary of Static-to-Static Comparison}
-
-The proposed static analyzer offers Python-specific coverage for all four vulnerability types (SQL Injection, XSS, Command Injection, CSRF) with a unified web interface. Its strengths include: (1) integrated dual-mode analysis (static + ML) for side-by-side comparison; (2) web-based access without CLI setup; (3) coverage of web-specific vulnerabilities (XSS, CSRF) that Bandit does not target; (4) AST-based taint analysis similar in spirit to Semgrep's approach. Semgrep provides broader language support, a large rule registry, and strong CI/CD integration; Bandit is lightweight and Python-focused but has limited coverage for web-specific vulnerabilities. For users requiring Python web vulnerability detection with both static and ML analysis in one platform, the proposed tool fills a distinct niche.
-
-\section{Comparison of ML-Based Model with Other Models}
-\label{sec:ml_comparison}
-
-Table~\ref{tab:ml_model_comparison} presents the comparison of our ML-based model (BiLSTM) with other machine learning--based Python vulnerability detection approaches: Bagheri and Hegedűs~\cite{Bagheri2021PythonVuln}, Wartschinski et al.~\cite{VulnDetection}, Wang et al.~\cite{Wang2024DLPythonVuln}. The table shows Precision, Recall, F-Score, and Accuracy for seven vulnerability types. It is adapted from Farasat and Posegga~\cite{Farasat2024MLPython} (CODASPY~'24, Table~2); all models are evaluated on the VulnerabilityDetection dataset~\cite{VulnDetection}.
-
-\begin{table}[htbp]
-	\centering
-	\resizebox{\linewidth}{!}{%
-	\small
-	\begin{tabular}{@{}l l c c c c@{}}
-		\textbf{Vulnerabilities} & \textbf{Metrics} & \textbf{Bagheri \& H. [9]} & \textbf{Wartschinski [4]} & \textbf{Wang [7,17]} & \textbf{Our Model} \\
-		\hline
-		SQL injection & Precision & 82.2\% & 82.2\% & 84.4\% & 96.8\% \\
-		& Recall & 78.0\% & 78.0\% & 73.9\% & 93.8\% \\
-		& F-Score & 80.1\% & 80.1\% & 78.8\% & 95.3\% \\
-		& Accuracy & 92.5\% & 92.5\% & -- & 98.2\% \\
-		\hline
-		XSS & Precision & 91.9\% & 91.9\% & 97.0\% & 94.8\% \\
-		& Recall & 80.8\% & 80.8\% & 79.7\% & 91.3\% \\
-		& F-Score & 86.0\% & 86.0\% & 87.5\% & 93.0\% \\
-		& Accuracy & 93.8\% & 97.8\% & -- & 98.8\% \\
-		\hline
-		Command injection & Precision & 94.0\% & 94.0\% & 92.5\% & 97.8\% \\
-		& Recall & 87.2\% & 87.2\% & 85.2\% & 95.7\% \\
-		& F-Score & 90.5\% & 90.5\% & 88.7\% & 96.7\% \\
-		& Accuracy & 95.8\% & 97.8\% & -- & 99.1\% \\
-		\hline
-		CSRF (XSRF) & Precision & 92.9\% & 92.9\% & 88.0\% & 96.7\% \\
-		& Recall & 85.4\% & 85.4\% & 80.5\% & 90.7\% \\
-		& F-Score & 89.0\% & 89.0\% & 84.0\% & 93.6\% \\
-		& Accuracy & 92.2\% & 97.2\% & -- & 98.3\% \\
-		\hline
-		Remote code exec. & Precision & 96.0\% & 96.0\% & 93.5\% & 97.2\% \\
-		& Recall & 82.6\% & 82.2\% & 77.2\% & 95.9\% \\
-		& F-Score & 88.8\% & 88.8\% & 84.6\% & 96.5\% \\
-		& Accuracy & 91.1\% & 98.1\% & -- & 99.4\% \\
-		\hline
-		Path disclosure & Precision & 92.0\% & 92.0\% & 90.6\% & 97.7\% \\
-		& Recall & 84.4\% & 84.4\% & 82.7\% & 96.9\% \\
-		& F-Score & 88.1\% & 88.1\% & 86.5\% & 97.3\% \\
-		& Accuracy & 91.3\% & 97.3\% & -- & 99.3\% \\
-		\hline
-		Open redirect & Precision & -- & 91.0\% & 80.8\% & 92.5\% \\
-		& Recall & -- & 83.9\% & 84.3\% & 89.0\% \\
-		& F-Score & -- & 87.3\% & 82.5\% & 90.7\% \\
-		& Accuracy & -- & 96.8\% & -- & 97.5\% \\
-	\end{tabular}%
-	}
-	\caption{Comparison of our work with related work: ML-based model (BiLSTM) versus Bagheri and Hegedűs~\cite{Bagheri2021PythonVuln}, Wartschinski et al.~\cite{VulnDetection}, Wang et al.~\cite{Wang2024DLPythonVuln} (source: Farasat and Posegga~\cite{Farasat2024MLPython}, Table~2). All models evaluated on the VulnerabilityDetection dataset. ``--'' indicates unreported.}
-	\label{tab:ml_model_comparison}
-\end{table}
-
-Our model (BiLSTM) consistently achieves the highest or among the highest values across all seven vulnerability types and all four metrics. This establishes the BiLSTM as a new benchmark for Python source code vulnerability detection on this dataset~\cite{Farasat2024MLPython}.
-
-\section{Comparison of Web-Based Frameworks}
-\label{sec:web_framework_comparison}
-
-This section compares the proposed web-based platform with tools that provide both static analysis and machine learning--based vulnerability detection. Table~\ref{tab:web_tools_comparison} compares the proposed platform with SonarQube~\cite{SonarQube} (or similar tools such as Snyk Code~\cite{SnykCode}).
-
-\begin{table}[htbp]
-	\centering
-	\small
-	\begin{tabular}{p{0.28\linewidth}p{0.32\linewidth}p{0.34\linewidth}}
-		\textbf{Feature} & \textbf{Proposed Platform} & \textbf{SonarQube / Similar Tool} \\
-		\hline
-		Detection Methods & Static + ML & Mostly static, ML experimental \\
-		\hline
-		Programming Language Support & Python-focused & Multi-language \\
-		\hline
-		Input Methods & Direct, File, GitHub & Files, repositories \\
-		\hline
-		Open-Source & Yes & Partial, commercial license \\
-		\hline
-		User Interface & Interactive, web-based & Web-based, less developer-focused \\
-		\hline
-		Scalability & High, modular architecture & Moderate, enterprise-focused \\
-	\end{tabular}
-	\caption{Comparison with Web-Based Tools: Proposed Platform versus SonarQube or similar tools.}
-	\label{tab:web_tools_comparison}
-\end{table}
-
-The most relevant comparators are SonarQube~\cite{SonarQube} and Snyk Code~\cite{SnykCode}, which combine static analysis with AI/ML capabilities. CodeQL~\cite{GitHubCodeQL} and Coverity~\cite{Coverity} are included as established static analysis tools; they offer semantic analysis but do not integrate ML-based vulnerability detection in the same way. Table~\ref{tab:web_framework_comparison} gives a detailed feature comparison.
-
-\begin{table}[htbp]
-	\centering
-	\small
-	\begin{tabular}{p{0.14\linewidth}p{0.22\linewidth}p{0.22\linewidth}p{0.22\linewidth}p{0.18\linewidth}}
-		\textbf{Criterion} & \textbf{Proposed Platform} & \textbf{SonarQube} & \textbf{Snyk Code} & \textbf{CodeQL / Coverity} \\
-		\hline
-		Static Analysis & Yes (AST, taint) & Yes (rules, taint) & Yes (AST, data flow) & Yes (semantic, taint) \\
-		\hline
-		ML-Based Detection & Yes (BiLSTM) & Limited (AI fixes) & Yes (hybrid ML) & No \\
-		\hline
-		Dual Mode (Static + ML) & Yes (side-by-side) & Partial & Yes (integrated) & No \\
-		\hline
-		Web UI & Yes (React) & Yes (dashboard) & Yes (web, IDE) & Yes (web/IDE) \\
-		\hline
-		Python Focus & Yes (primary) & Multi-language & Multi-language & Multi-language \\
-		\hline
-		Cost & Free, open-source & Free tier / paid & Free tier / paid & Commercial \\
-		\hline
-		Input Methods & Paste, upload, GitHub URL & Repo scan, CI & Repo scan, CI, IDE & Repo scan, CI \\
-		\hline
-		Report Generation & Word (.docx) & Web, PDF, CSV & Web, SARIF & Web, SARIF \\
-		\hline
-		Target Users & Students, small teams, researchers & Enterprises, teams & Enterprises, teams & Enterprises \\
-	\end{tabular}
-	\caption{Comparison of the proposed web-based platform with tools that provide both static and ML-based vulnerability detection (SonarQube, Snyk Code) and established static analysis tools (CodeQL, Coverity).}
-	\label{tab:web_framework_comparison}
-\end{table}
-
-\subsection{Summary of Web Framework Comparison}
-
-The proposed platform is designed for accessibility: it is free, open-source, and provides a unified interface for both static and ML-based analysis in a single workflow. Users can run both modes side-by-side and compare results. \textbf{SonarQube}~\cite{SonarQube} offers static analysis for code quality and security across 35+ languages, with limited AI features (e.g., SonarCloud AI for code fix suggestions); it does not integrate a dedicated ML vulnerability detector as a distinct mode. \textbf{Snyk Code}~\cite{SnykCode} is an AI-powered SAST tool that combines ML and symbolic analysis, trained on millions of open source repositories; it provides both static and ML-based detection in an integrated pipeline but is commercial and targets enterprise workflows. \textbf{CodeQL}~\cite{GitHubCodeQL} and \textbf{Coverity}~\cite{Coverity} are primarily static analysis tools (semantic, taint-based) without ML-based vulnerability detection. The proposed tool fills a niche for Python-focused, dual-mode (static + ML) vulnerability analysis that is freely available to students and small development teams, with explicit side-by-side comparison of both approaches.
-
-\section{Platform Screenshots}
+\section{Platform Screenshot}
 \label{sec:platform_screenshots}
 
-This section shows representative UI screens from the web-based platform. Figure~\ref{fig:ui_scanner_screens} shows the scanner page for each vulnerability type, and Figure~\ref{fig:ui_results_screens} shows the corresponding results page.
+This section shows representative UI screens from the web-based platform for all
+four vulnerability types.
 
 \begin{figure}[htbp]
 	\centering
@@ -402,7 +92,7 @@ This section shows representative UI screens from the web-based platform. Figure
 		
 		\small CSRF scanner
 	\end{minipage}
-	\caption{Scanner screens for SQL Injection, XSS, Command Injection, and CSRF in the proposed platform.}
+	\caption{Scanner screens for SQL Injection, XSS, Command Injection, and CSRF in the platform.}
 	\label{fig:ui_scanner_screens}
 \end{figure}
 
@@ -435,7 +125,7 @@ This section shows representative UI screens from the web-based platform. Figure
 		
 		\small CSRF results
 	\end{minipage}
-	\caption{Results screens for SQL Injection, XSS, Command Injection, and CSRF in the proposed platform.}
+	\caption{Results screens for SQL Injection, XSS, Command Injection, and CSRF in the platform.}
 	\label{fig:ui_results_screens}
 \end{figure}
 
