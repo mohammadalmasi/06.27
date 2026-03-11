@@ -1,0 +1,27 @@
+\chapter{Related Work}
+\label{ch:related_work}
+
+This chapter surveys prior work on vulnerability detection in source code, focusing on static analysis tools, machine learning--based approaches, and studies that compare or integrate both. It situates this thesis in the literature and clarifies the gap that the system addresses.
+
+\section{Static Analysis for Vulnerability Detection}
+\label{sec:rw_static}
+
+Static analysis identifies defects and security issues by examining source code without executing it. For web application vulnerabilities such as SQL injection, XSS, command injection, and CSRF, tools typically use pattern matching, abstract syntax tree (AST) analysis, and dataflow or taint tracking.
+
+Rule-based and AST-based tools are widely used in practice. Semgrep~\cite{Semgrep}, for example, matches rules over a program's AST and supports configurable dataflow and taint analysis to trace untrusted inputs to sensitive sinks. Bandit~\cite{Bandit} focuses on Python and checks for common insecure patterns (e.g., use of \texttt{eval}, hardcoded passwords). Pylint and similar linters can be extended with security-oriented rules. These tools are fast and interpretable but depend on the quality and coverage of rules; they may miss novel variants or produce false positives when patterns are too broad. In industry, additional static analysis platforms such as CodeQL~\cite{GitHubCodeQL}, SonarQube~\cite{SonarQube}, and Coverity~\cite{Coverity} are commonly used to detect security issues and code quality problems across large codebases.
+
+Studies on developer adoption show that static analysis tools are underused partly due to usability and trust: developers want actionable, relevant results and are frustrated by noisy or hard-to-interpret output~\cite{Christakis2016,Johnson2013}. This motivates tools that combine multiple analysis strategies and present findings in a clear, integrated way, as in the static analysis component of this thesis.
+
+\section{Machine Learning for Code Vulnerability Detection}
+\label{sec:rw_ml}
+
+Machine learning is used for vulnerability detection to learn patterns from large corpora of code and commits. Modern approaches build on representation learning for code and deep models for sequence and graph classification~\cite{Allamanis2018Survey,Alon2019code2vec,Feng2020CodeBERT,Zhou2019Devign,SySeVR2021,Steenhoek2024DeepDFA}.
+
+Recurrent architectures such as LSTM and BiLSTM are commonly used for sequence classification and can be trained to predict whether a code snippet is vulnerable. The VulnerabilityDetection-master project~\cite{VulnDetection} and the Python-Source-Code-Vulnerability-Detection repository~\cite{PythonVulnDetectionDataset} provide datasets and pretrained BiLSTM models for Python vulnerability types (SQL injection, XSS, command injection, CSRF), mined from real-world GitHub commits. Other work explores datasets such as DiverseVul for C/C++ vulnerabilities and evaluates a range of neural architectures~\cite{Fan2023DiverseVul,Zhou2019Devign}. Word2Vec and similar embeddings~\cite{Word2VecRef}, as well as more recent code representation models like code2vec and CodeBERT~\cite{Alon2019code2vec,Feng2020CodeBERT}, are often used to obtain distributed representations of code tokens or AST paths, which are then fed into LSTM-based or graph-based models for classification or localization~\cite{LSTMRef,Li2018VulDeePecker,Zhang2025DLSurvey}. Such models can generalize to unseen variants that follow similar patterns but require substantial training data and may lack interpretability compared to rule-based analysis.
+
+\section{Comparison and Hybrid Approaches}
+\label{sec:rw_comparison}
+
+Few works directly compare static analysis and machine learning for the same vulnerability types and codebase in a single, user-facing tool. Static analysis offers immediate feedback, no training data, and explainable findings (e.g., rule and code location), whereas ML can capture subtle or novel patterns at the cost of data dependency and ``black-box'' predictions. Hybrid or dual-mode systems allow users to run both and compare results, which supports both adoption and research on when each approach performs better.
+
+The system in this thesis provides exactly such a comparison: handcrafted static analysis (regex, AST, taint flow) and ML-based scoring using pretrained BiLSTM models, with a unified interface for file upload, paste, or GitHub URL. The evaluation in the main body compares precision, recall, and F1 across vulnerability types and discusses trade-offs and ways to reduce false positives and improve interpretability.

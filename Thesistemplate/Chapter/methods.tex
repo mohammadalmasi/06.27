@@ -1,0 +1,206 @@
+\chapter{Methodology}
+\label{ch:methods}
+
+This section describes the design and implementation of the proposed web-based vulnerability scanning platform. The methodology is divided into four main components: static analysis implementation, machine learning--based detection, web framework architecture, and the system workflow.
+
+\section{Static-Based Detection}
+\label{sec:static_detection}
+
+\subsection{}
+\label{sec:static_ast_intro}
+
+It leverages Python's Abstract Syntax Tree (AST)~\cite{PythonAST} to parse code and detect unsafe behaviors. The approach examines code structure and data flow without executing it, tracking how user input flows through the program and whether it reaches dangerous operations such as database queries, shell commands, or unescaped output. ``Tainted'' data is data from an untrusted source (e.g., user input, HTTP request); a ``sink'' is a dangerous operation that could cause a vulnerability if it receives tainted data. If tainted data reaches a sink, a vulnerability is reported.
+
+\subsection{Implementation Steps}
+\label{sec:static_implementation_steps}
+
+\subsubsection{Parsing}
+\label{sec:static_parsing}
+
+Convert Python source code into an AST. The system uses Python's built-in \texttt{ast} module to parse the complete syntactic structure. Each statement becomes a node in the tree, with the root as a Module node. The parser handles imports, functions, assignments, and calls, enabling semantic analysis beyond simple text matching.
+
+\textbf{Building the AST Tree from Code.} When Python parses the code, it creates a tree structure. The parsing process: (1) Python reads the source code line by line; (2) it identifies different code elements (imports, functions, assignments, calls); (3) it creates nodes for each element and connects them in a tree; (4) the root node is always a Module node containing all the code.
+
+Consider the following vulnerable Python code with SQL injection:
+
+\begin{lstlisting}[style=pycode]
+from flask import Flask, request
+import sqlite3
+
+@app.route("/user")
+def get_user():
+    user_id = request.args.get("id")  # SOURCE: User input
+    query = f"SELECT * FROM users WHERE id = {user_id}"  # TAINT
+    cursor.execute(query)  # SINK: Dangerous operation
+\end{lstlisting}
+
+The following tree shows how each line maps to AST nodes. The root is \texttt{Module}; the function \texttt{get\_user} is a \texttt{FunctionDef}; its body contains \texttt{Assign} nodes (source and taint propagation) and an \texttt{Expr} (the sink call):
+
+\begin{quote}
+\small
+\begin{verbatim}
+                    Module (Root)
+                           |
+                FunctionDef: get_user
+                     /     |     \
+               Assign   Assign   Expr
+                 |        |        |
+           user_id=   query=   cursor.execute()
+                 |        |        |
+               Call   JoinedStr   Call
+                 |        |        |
+       request.args.get  FormattedValue  query (arg)
+            [SOURCE]          |        [SINK]
+                          user_id
+\end{verbatim}
+\end{quote}
+
+\subsubsection{Traversal}
+\label{sec:static_traversal}
+
+Navigate the AST to analyze function calls, input handling, and data flows. A custom AST visitor walks the tree to identify sources (where untrusted data enters, e.g., \texttt{request.args.get()}, \texttt{request.form.get()}), track taint propagation through variable assignments and string operations, and detect sinks (dangerous operations such as \texttt{cursor.execute()}, \texttt{os.system()}, \texttt{eval()}). The visitor follows the path from source to sink to confirm vulnerabilities.
+
+\subsection{Rule-Based Detection}
+\label{sec:static_rule_based}
+
+Apply explicit rules for each targeted vulnerability: SQL Injection, Cross-Site Scripting (XSS), Command Injection, and Cross-Site Request Forgery (CSRF). The system employs a three-layer hybrid approach: \textbf{Layer 1 (Regex Patterns)} for fast initial screening with high recall; \textbf{Layer 2 (AST Analysis)} for context-aware validation and false positive reduction; \textbf{Layer 3 (Deduplication \& Scoring)} for severity classification, confidence scores, and report generation. For each vulnerability type, the rules detect: \textbf{SQL Injection} --- string concatenation, f-string formatting, and unsafe query construction; \textbf{XSS} --- unsafe output of user-controlled data in HTML, JavaScript, and attribute contexts; \textbf{Command Injection} --- \texttt{os.system()}, \texttt{subprocess} with \texttt{shell=True}, \texttt{eval()}, \texttt{exec()}; \textbf{CSRF} --- unprotected POST routes, missing CSRF tokens, and unsafe HTTP method usage.
+
+\section{Machine Learning--Based Detection}
+\label{sec:ml_detection}
+
+The machine learning module uses a BiLSTM (Bidirectional Long Short-Term Memory) model to detect vulnerabilities based on patterns learned from large annotated Python code corpora~\cite{VulnDetection,PythonVulnDetectionDataset}. The approach operates at the code token level, enabling precise identification of vulnerable code segments. A Word2Vec model is trained on a large corpus of Python code to learn distributed representations of code tokens; these embeddings capture semantic relationships between programming constructs. The BiLSTM architecture includes an input layer receiving token embeddings, LSTM layers with memory cells to capture long-range dependencies in code sequences, dense layers with dropout for classification, and a binary output layer (vulnerable/not vulnerable) for token-level classification. Training uses datasets mined from real-world GitHub commits, ensuring the models learn from actual vulnerability patterns in production code.
+
+\subsection{Implementation Steps}
+\label{sec:ml_implementation_steps}
+
+\subsubsection{Preprocessing}
+\label{sec:ml_preprocessing}
+
+Tokenize Python code and encode sequences for the BiLSTM model. The system uses character-level one-hot encoding (vocab size 300, sequence length 200) or token-based Word2Vec embeddings. Longer code is processed via sliding windows: window size 200 characters, stride 100 characters (50\% overlap); overall prediction is the maximum score across all windows. Each window is encoded to shape \texttt{(200, 300)} for model input.
+
+\subsubsection{Model Training}
+\label{sec:ml_training}
+
+Train on the VulnerabilityDetection-master dataset for SQL Injection, XSS, Command Injection, and CSRF. The dataset comprises 54,800+ samples across 548 repositories (Table~\ref{tab:dataset_statistics}). Training data is derived from the VUDENC (VulnerabilityDetection) project~\cite{VulnDetection} and the Python-Source-Code-Vulnerability-Detection repository (Model-BiLSTM)~\cite{PythonVulnDetectionDataset}, mined from real-world GitHub commits with security-related keywords.
+
+\subsubsection{Prediction}
+\label{sec:ml_prediction}
+
+Use the trained BiLSTM to identify potential vulnerabilities in new code. Each 200-character window is passed through the model; the model produces a probability score per window (0.0--1.0). Line-level localization uses an occlusion-based heuristic: for each line, mask that line and re-run the model; the score decrease (contribution $=$ baseline $-$ masked\_score) indicates how important the line is for the prediction. A dynamic threshold \texttt{max(0.01, baseline * 0.15)} filters lines for highlighting.
+
+\subsubsection{Output}
+\label{sec:ml_output}
+
+Provide probability scores, flagged code snippets, and vulnerability types. The system returns severity classification (High, Medium, Low) based on contribution thresholds, line numbers, and highlighted code for the frontend display. Results are formatted as JSON with \texttt{status}, \texttt{prediction}, \texttt{vulnerabilities} array, and \texttt{highlighted\_code}.
+
+\subsection{Dataset Statistics}
+\label{sec:dataset_statistics}
+
+Table~\ref{tab:dataset_statistics} shows the scale and diversity of the training data.
+
+\begin{table}[htbp]
+	\centering
+	\begin{tabular}{lrr}
+		\textbf{Vulnerability Type} & \textbf{Samples} & \textbf{Repositories} \\
+		\hline
+		SQL Injection & 33,600 & 336 \\
+		XSS & 3,900 & 39 \\
+		Command Injection & 8,500 & 85 \\
+		CSRF & 8,800 & 88 \\
+	\end{tabular}
+	\caption{Dataset statistics (VulnerabilityDetection-master~\cite{PythonVulnDetectionDataset})}
+	\label{tab:dataset_statistics}
+\end{table}
+
+\section{Web Framework Architecture}
+\label{sec:web_framework}
+
+The platform is implemented using a Flask backend and a React frontend, providing a responsive and user-friendly interface~\cite{React,Flask,AlmasiToolRepo,AlmasiDeployedApp}. The system follows a three-tier architecture: \textbf{Presentation Layer (Frontend)} --- React-based web application for user interface and interaction; \textbf{Application Layer (Backend)} --- Flask-based REST API server handling business logic and analysis; \textbf{Analysis Layer} --- Static analysis scanners and machine learning models for vulnerability detection.
+
+\subsection{Frontend (React)}
+\label{sec:frontend}
+
+The frontend is built with React and TypeScript, providing a component-based, responsive user interface. Key components include: \textbf{Scanner} --- for selecting vulnerability type (SQL Injection, XSS, Command Injection, CSRF), analysis mode (static or ML), and input method (paste, file upload, GitHub URL); \textbf{Results} --- for displaying vulnerabilities with code highlighting, severity indicators, filtering, and report download. The frontend validates input, prepares JSON payloads, sends HTTP POST requests to the backend API, and renders results with highlighted code and summary metrics. Communication uses the Fetch API; CORS is enabled for cross-origin requests between frontend and backend.
+
+\subsection{Backend (Flask)}
+\label{sec:backend}
+
+The backend is a Python Flask REST API server that receives requests, routes them to the appropriate scanner or ML analyzer, and returns JSON responses~\cite{Flask,AlmasiToolRepo}. For static analysis, endpoints include \texttt{/api/scan-sql-injection}, \texttt{/api/scan-xss}, \texttt{/api/scan-command-injection}, \texttt{/api/scan-csrf}; for machine learning, \texttt{/api/scan-ml} handles all vulnerability types with a \texttt{type} parameter. Report generation endpoints (\texttt{/api/generate-*-report}) produce Word documents using python-docx. The backend handles code upload and parsing, static analysis scanning using AST-based techniques, ML model inference, result aggregation, and error handling (validation, timeouts, GitHub URL fetching).
+
+\subsection{Components}
+\label{sec:web_components}
+
+\textbf{Code Submission.} Supports direct input (paste), file uploads, and GitHub repository scanning. Users can provide Python source code through any of these methods. The frontend validates that input is not empty, file size does not exceed limits, and GitHub URLs are properly formatted.
+
+\textbf{Analysis Engine.} Routes code to either static or machine learning detection modules based on user selection. The backend exposes RESTful API endpoints for each vulnerability type and analysis mode. Request processing validates input, maps vulnerability types to scanner modules or ML model modes, and executes the appropriate analysis pipeline.
+
+\textbf{Results Visualization.} Interactive frontend highlights vulnerable code, shows vulnerability type and severity, and allows download of Word reports with remediation suggestions and CWE/OWASP references. Results include vulnerability list, code highlighting (red for vulnerable, green for safe), severity breakdown, and filtering by severity level.
+
+\subsection{Design Goals}
+\label{sec:design_goals}
+
+\begin{itemize}
+	\item \textbf{Modular and scalable architecture} --- Separate scanner modules per vulnerability type; three-tier design enables independent updates and extensions.
+	\item \textbf{Easy integration of additional detection methods} --- Architecture supports adding new scanners or ML models without major refactoring.
+	\item \textbf{Open-source availability} --- Ensures accessibility for students, developers, and researchers who cannot afford commercial security tools.
+\end{itemize}
+
+Figure~\ref{fig:system_flow} illustrates the system flow.
+
+\begin{figure}[htbp]
+	\centering
+	\small
+	\setlength{\fboxsep}{4pt}
+	\newcommand{\flowarrow}{\raisebox{0.5ex}{$\downarrow$}}
+	\fbox{\textbf{START}} \\[0.8ex]
+	\flowarrow \\[0.4ex]
+	\fbox{\parbox{0.85\linewidth}{\centering \textbf{User Input}\\File Upload \;|\; Code Paste \;|\; GitHub URL}} \\[0.8ex]
+	\flowarrow \\[0.4ex]
+	\fbox{\parbox{0.85\linewidth}{\centering \textbf{Frontend (React)}\\Validate input \;$\cdot$\; Select scanner \;$\cdot$\; Choose mode}} \\[0.4ex]
+	\flowarrow \quad \textit{HTTP POST} \\[0.4ex]
+	\fbox{\parbox{0.85\linewidth}{\centering \textbf{Backend API (Flask)}\\Route to scanner \;$\cdot$\; Static or ML analysis}} \\[0.8ex]
+	\flowarrow \\[0.4ex]
+	\fbox{\parbox{0.85\linewidth}{\centering \textbf{Results}\\Vulnerability list \;$\cdot$\; Code highlighting \;$\cdot$\; Download reports}} \\[0.8ex]
+	\flowarrow \\[0.4ex]
+	\fbox{\textbf{END}}
+	\caption{System flow: user input to results display.}
+	\label{fig:system_flow}
+\end{figure}
+
+\section{System Workflow}
+\label{sec:system_workflow}
+
+This section explains how to use the system. From the user's perspective, the workflow is the same for both static analysis and machine learning: the user selects an analysis mode, provides code, and receives results. The only differences occur internally during preprocessing and vulnerability detection. The system workflow consists of the following steps:
+
+\subsection{Code Submission}
+\label{sec:workflow_submission}
+
+User provides Python code via one of the supported methods: direct paste, file upload, or GitHub repository URL. The frontend validates input (non-empty, file size limits, valid URL format) and sends the request to the backend. This step is identical for both static and ML modes.
+
+\subsection{Preprocessing}
+\label{sec:workflow_preprocessing}
+
+The backend preprocesses the code according to the selected mode:
+\begin{itemize}
+	\item \textbf{Static analysis:} Parse into AST using Python's \texttt{ast} module.
+	\item \textbf{Machine learning:} Tokenize and encode for the BiLSTM model (character-level one-hot or Word2Vec embeddings).
+\end{itemize}
+
+\subsection{Vulnerability Detection}
+\label{sec:workflow_detection}
+
+The analysis engine runs the appropriate detector:
+\begin{itemize}
+	\item \textbf{Static analysis:} Apply rule-based checks (regex patterns, AST taint analysis, sink detection).
+	\item \textbf{BiLSTM model:} Predict vulnerabilities and compute probability scores.
+\end{itemize}
+
+\subsection{Result Compilation}
+\label{sec:workflow_compilation}
+
+Detected vulnerabilities are organized into a report with line numbers, types, and mitigation suggestions. Results are deduplicated, severity-classified (Critical, High, Medium, Low), and formatted as JSON for the frontend. This step is the same for both modes.
+
+\subsection{User Interface Display}
+\label{sec:workflow_display}
+
+Frontend presents results interactively, allowing users to review and compare outputs from both methods. Users can filter by severity, view highlighted code (red for vulnerable, green for safe), download Word reports, and switch between static and ML results for comparison.
