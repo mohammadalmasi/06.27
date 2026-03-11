@@ -2744,7 +2744,7 @@ def vulnerable_code_auto_201():
     
     # Vulnerable: Explicitly disabling CSRF protection on a POST view
     @csrf_exempt
-def update_password(request):
+    def update_password(request):
         if request.method == "POST":
             new_pass = request.POST.get("password")
             request.user.set_password(new_pass)

@@ -69,7 +69,10 @@ def _run_semgrep(path: Path) -> list:
         env=env,
     )
 
-    if proc.returncode not in (0, 1):
+    # Semgrep sometimes returns exit code 2 even when the scan completes successfully
+    # (for example, when there are no findings but warnings are emitted). Treat 0, 1,
+    # and 2 as non-fatal in this evaluation script.
+    if proc.returncode not in (0, 1, 2):
         raise RuntimeError(f"Semgrep failed with code {proc.returncode}: {proc.stderr}")
 
     if not proc.stdout.strip():
