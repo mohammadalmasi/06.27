@@ -155,3 +155,12 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+#cd /Users/mohammadalmasi/thesis/06.27/backend
+
+# Activate venv (optional but convenient)
+# source ../.venv/bin/activate
+
+# python -m scanners.sql_injection.compare_ml_vs_static_sql
+# python -m scanners.sql_injection.compare_semgrep_vs_ml_sql
+# python -m scanners.sql_injection.compare_semgrep_vs_static_sql
