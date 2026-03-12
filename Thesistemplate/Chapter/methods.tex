@@ -1,12 +1,12 @@
 \chapter{Methodology}
 \label{ch:methods}
 
-This chapter describes the design and implementation of the proposed web-based vulnerability scanning platform. The methodology is divided into four main components: static analysis implementation, machine learning--based detection, web framework architecture, and the system workflow.
+This chapter presents the design and implementation of the proposed web-based vulnerability scanning platform. The methodology is divided into four main components: static analysis implementation, machine learning--based detection, web framework architecture, and the system workflow.
 
 \section{Static-Based Detection}
 \label{sec:static_detection}
 
-This section explains how the static analysis engines in the platform detect vulnerabilities directly from Python source code without executing it. The core idea is to model how untrusted user input flows through the program until it reaches dangerous operations. For most injection vulnerabilities, the system uses taint analysis to follow data flows from sources (user input) to sinks (dangerous functions). For CSRF, which is caused by configuration and architectural flaws rather than data flows, the system uses a structural AST visitor that analyzes decorators, HTTP methods, and state-changing operations.
+This section presents how the static analysis engines in the platform detect vulnerabilities directly from Python source code without executing it. The core idea is to model how untrusted user input flows through the program until it reaches dangerous operations. For most injection vulnerabilities, the system uses taint analysis to follow data flows from sources (user input) to sinks (dangerous functions). For CSRF, which is caused by configuration and architectural flaws rather than data flows, the system uses a structural AST visitor that analyzes decorators, HTTP methods, and state-changing operations.
 
 \subsection{Injection Vulnerabilities (Taint Analysis)}
 \label{sec:static_taint}
@@ -212,7 +212,7 @@ To address these limitations, a promising future direction is to integrate estab
 \section{Machine Learning--Based Detection}
 \label{sec:ml_detection}
 
-This section explains the step-by-step process of how the Machine Learning scanner
+This section presents the step-by-step process of how the machine learning scanner
 detects SQL injection vulnerabilities, followed by concrete examples to show how these
 steps apply in practice. This structure gives a clear overview of the theory first, making
 the examples easy to follow.
@@ -498,7 +498,7 @@ Figure~\ref{fig:system_flow} illustrates the system flow.
 \section{System Workflow}
 \label{sec:system_workflow}
 
-This section explains how to use the system. From the user's perspective, the workflow is the same for both static analysis and machine learning: the user selects an analysis mode, provides code, and receives results. The only differences occur internally during preprocessing and vulnerability detection. The system workflow consists of the following steps:
+This section presents how to use the system. From the user's perspective, the workflow is the same for both static analysis and machine learning: the user selects an analysis mode, provides code, and receives results. The only differences occur internally during preprocessing and vulnerability detection. The system workflow consists of the following steps:
 
 \subsection{Code Submission}
 \label{sec:workflow_submission}
