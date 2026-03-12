@@ -82,6 +82,30 @@ for different injection vulnerability types. It follows a fixed sequence of five
   a code snippet with remediation advice.
 \end{enumerate}
 
+Figure~\ref{fig:static_pipeline} summarizes the static analysis pipeline in one view.
+
+\begin{figure}[htbp]
+  \centering
+  \small
+  \setlength{\fboxsep}{4pt}
+  \newcommand{\flowdown}{\raisebox{0.5ex}{$\downarrow$}}
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Python source code}}} \\[0.6ex]
+  \flowdown \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 1: Parse}\\AST + symbol tables (\texttt{ast}, \texttt{symtable})}} \\[0.6ex]
+  \flowdown \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 2: Define sources and sinks}\\Per vulnerability type (e.g., \texttt{request.form} $\rightarrow$ source; \texttt{cursor.execute} $\rightarrow$ sink)}} \\[0.6ex]
+  \flowdown \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 3: Collect assignments and sink calls}\\Scope-aware (variable, expression, scope ID)}} \\[0.6ex]
+  \flowdown \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 4: Propagate taint}\\Source $\rightarrow$ assignments (concat, f-strings); sanitizers remove taint; fixpoint}} \\[0.6ex]
+  \flowdown \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 5: Check sinks \& report}\\If sink argument is tainted $\Rightarrow$ vulnerability (line, type, snippet)}} \\[0.6ex]
+  \flowdown \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Vulnerability report}}}
+  \caption{Static analysis pipeline: from source code to vulnerability report.}
+  \label{fig:static_pipeline}
+\end{figure}
+
 \subsubsection{Example: SQL Injection}
 \label{sec:static_sql_example}
 
@@ -245,6 +269,32 @@ the examples easy to follow.
   vulnerability and happen to start on the exact same line, the scanner deduplicates them
   and keeps only the report with the highest confidence score for that line.
 \end{enumerate}
+
+Figure~\ref{fig:ml_pipeline} summarizes the ML detection pipeline in one view.
+
+\begin{figure}[htbp]
+  \centering
+  \small
+  \setlength{\fboxsep}{4pt}
+  \newcommand{\flowdownB}{\raisebox{0.5ex}{$\downarrow$}}
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Python source code}}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 1: Tokenize}\\Flat list of tokens (words, symbols, operators); each token mapped to line number}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 2: Sliding windows}\\Window length = 200, step = 5; overlapping 200-token blocks}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 3: Vectorize}\\Word2Vec (300-dim); stack $\rightarrow$ matrix; pad to 200; batch shape (1, 200, 300)}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 4: BiLSTM prediction}\\One probability per window (0--1)}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 5: Threshold \& line reporting}\\prob $\geq$ 0.5 $\Rightarrow$ flag; report line of window start}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Step 6: Deduplication}\\Same start line $\Rightarrow$ keep highest score only}} \\[0.6ex]
+  \flowdownB \\[0.3ex]
+  \fbox{\parbox{0.88\linewidth}{\centering \textbf{Vulnerability report}}}
+  \caption{ML detection pipeline: from source code to vulnerability report (tokenize $\rightarrow$ windows $\rightarrow$ vectorize $\rightarrow$ BiLSTM $\rightarrow$ threshold $\rightarrow$ deduplicate).}
+  \label{fig:ml_pipeline}
+\end{figure}
 
 \subsection{Examples in Practice}
 \label{sec:ml_part2}
