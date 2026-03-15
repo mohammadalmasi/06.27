@@ -17,7 +17,31 @@ Studies on developer adoption show that static analysis tools are underused part
 
 Machine learning is used for vulnerability detection to learn patterns from large corpora of code and commits. Modern approaches build on representation learning for code and deep models for sequence and graph classification~\cite{Allamanis2018Survey,Alon2019code2vec,Feng2020CodeBERT,Zhou2019Devign,SySeVR2021,Steenhoek2024DeepDFA}.
 
+Farasat and Posegga~\cite{Farasat2024MLPython} present a comparative study of machine learning techniques for Python source code vulnerability detection (CODASPY~'24). They compare Gaussian Naive Bayes (GNB), Decision Tree, Logistic Regression (LR), Multi-Layer Perceptron (MLP), and BiLSTM. Their results show that BiLSTM combined with Word2Vec achieves state-of-the-art performance, with average accuracy of approximately 98.6\% and F1-score of approximately 94.7\%. The open-source code and model architecture are available in the Python-Source-Code-Vulnerability-Detection repository~\cite{PythonVulnDetectionDataset}, which uses a TensorFlow-based BiLSTM setup for the same vulnerability types (SQL injection, XSS, command injection, CSRF).
+
 Recurrent architectures such as LSTM and BiLSTM are commonly used for sequence classification and can be trained to predict whether a code snippet is vulnerable. The VulnerabilityDetection-master project~\cite{VulnDetection} and the Python-Source-Code-Vulnerability-Detection repository~\cite{PythonVulnDetectionDataset} provide datasets and pretrained BiLSTM models for Python vulnerability types (SQL injection, XSS, command injection, CSRF), mined from real-world GitHub commits. Other work explores datasets such as DiverseVul for C/C++ vulnerabilities and evaluates a range of neural architectures~\cite{Fan2023DiverseVul,Zhou2019Devign}. Word2Vec and similar embeddings~\cite{Word2VecRef}, as well as more recent code representation models like code2vec and CodeBERT~\cite{Alon2019code2vec,Feng2020CodeBERT}, are often used to obtain distributed representations of code tokens or AST paths, which are then fed into LSTM-based or graph-based models for classification or localization~\cite{LSTMRef,Li2018VulDeePecker,Zhang2025DLSurvey}. Such models can generalize to unseen variants that follow similar patterns but require substantial training data and may lack interpretability compared to rule-based analysis.
+
+\subsection{Other Python-Focused ML Approaches}
+\label{sec:rw_ml_python}
+
+Several other works focus specifically on machine learning for Python vulnerability detection. Wartschinski et al.~\cite{VulnDetection} introduce VUDENC, a machine learning approach for vulnerability detection in Python code. VUDENC focuses on source code analysis, often using feature extraction and traditional or deep learning models on a natural codebase. Wang et al.~\cite{Wang2024DLPythonVuln} conduct an extensive study of the effects of different deep learning models on code vulnerability detection in Python, comparing multiple neural architectures. Bagheri and Hegedűs~\cite{Bagheri2021PythonVuln} compare different source code representation methods for vulnerability prediction in Python; their work uses BERT embeddings and LSTM networks, combining contextual code representations with sequence modeling for improved detection.
+
+Table~\ref{tab:rw_python_ml} summarizes these Python-focused ML approaches by key idea or model.
+
+\begin{table}[htbp]
+\centering
+\caption{Selected Python-focused ML approaches for vulnerability detection.}
+\label{tab:rw_python_ml}
+\begin{tabular}{@{}ll@{}}
+\hline
+\textbf{Approach} & \textbf{Key idea / model} \\
+\hline
+Wartschinski et al. & VUDENC: ML-based Python vulnerability detection \\
+Wang et al. & Deep learning / NLP models for Python code \\
+Bagheri \& Hegedűs & BERT + LSTM for sequence/code analysis \\
+\hline
+\end{tabular}
+\end{table}
 
 \section{Comparison and Hybrid Approaches}
 \label{sec:rw_comparison}
