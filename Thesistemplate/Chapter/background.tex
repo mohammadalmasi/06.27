@@ -730,8 +730,6 @@ In addition to the vulnerabilities discussed above, the machine learning model i
 
 Unlike the four primary categories emphasized in the static-analysis part of this thesis, these additional classes are captured in the ML setting through learned token and context patterns rather than hand-crafted rules. This is useful when vulnerable behavior is expressed in diverse coding styles or appears in framework-specific logic where a single deterministic pattern is difficult to define.
 
-From a practical security perspective, these vulnerability types are also important because they often act as enablers for larger attack chains. For example, path disclosure can reveal deployment details that support follow-up exploitation, while open redirects can be used in phishing flows to steal credentials. Including these categories in the ML scope therefore improves the breadth of risk signals provided to users during code scanning.
-
 \subsection{Remote Code Execution (RCE)}
 Remote Code Execution vulnerabilities occur when untrusted input is executed as code (for example, through unsafe use of \texttt{eval()}, \texttt{exec()}, or dynamically built system commands). Successful exploitation can allow an attacker to run arbitrary commands on the target server with the application's privileges.
 
