@@ -723,3 +723,83 @@ def delete_item(item_id):
 \end{lstlisting}
 
 
+\section{Additional Vulnerabilities Detected by the ML Model}
+\label{sec:background_additional_ml_vulns}
+
+In addition to the vulnerabilities discussed above, the machine learning model is also trained to detect additional vulnerability patterns that commonly appear in Python web applications. These vulnerabilities are briefly summarized below.
+
+Unlike the four primary categories emphasized in the static-analysis part of this thesis, these additional classes are captured in the ML setting through learned token and context patterns rather than hand-crafted rules. This is useful when vulnerable behavior is expressed in diverse coding styles or appears in framework-specific logic where a single deterministic pattern is difficult to define.
+
+From a practical security perspective, these vulnerability types are also important because they often act as enablers for larger attack chains. For example, path disclosure can reveal deployment details that support follow-up exploitation, while open redirects can be used in phishing flows to steal credentials. Including these categories in the ML scope therefore improves the breadth of risk signals provided to users during code scanning.
+
+\subsection{Remote Code Execution (RCE)}
+Remote Code Execution vulnerabilities occur when untrusted input is executed as code (for example, through unsafe use of \texttt{eval()}, \texttt{exec()}, or dynamically built system commands). Successful exploitation can allow an attacker to run arbitrary commands on the target server with the application's privileges.
+
+\textbf{How it works:} The application reads user-controlled input and passes it into a dangerous execution primitive. If no strict validation or sandboxing is applied, the attacker controls the executed expression or command.
+
+\textbf{Example -- Vulnerable Code:}
+\begin{lstlisting}[style=pycode]
+from flask import request
+
+@app.route("/calc")
+def calc():
+    expr = request.args.get("expr", "")
+    return str(eval(expr))  # Vulnerable: executes user input
+\end{lstlisting}
+
+\textbf{Attack Example:}
+\begin{lstlisting}[style=attackcode]
+GET /calc?expr=__import__("os").popen("id").read()
+\end{lstlisting}
+The payload causes server-side command execution and returns command output to the client.
+
+\textbf{Mitigation:} Never execute raw user input with \texttt{eval()} or \texttt{exec()}. Use safe parsers, strict allowlists, and constrained execution environments. For expression evaluation, prefer dedicated libraries that parse only permitted operators and literals.
+
+\subsection{Path Disclosure}
+Path Disclosure vulnerabilities expose internal filesystem paths through error messages, debug output, or misconfigured responses. Although this does not always lead to direct compromise, it provides attackers with sensitive environment information that can be used to plan further attacks.
+
+\textbf{How it works:} The application returns stack traces or diagnostic output directly to users. These messages can reveal absolute paths, framework internals, usernames, or deployment structure.
+
+\textbf{Example -- Vulnerable Code:}
+\begin{lstlisting}[style=pycode]
+@app.route("/load")
+def load():
+    filename = request.args.get("file")
+    with open(f"/var/www/app/data/{filename}", "r") as f:
+        return f.read()
+\end{lstlisting}
+If an exception occurs and debug mode is enabled, the response may expose full server paths.
+
+\textbf{Attack Example:}
+\begin{lstlisting}[style=attackcode]
+GET /load?file=missing.txt
+\end{lstlisting}
+The attacker intentionally triggers an error and reads traceback output that reveals internal filesystem paths.
+
+\textbf{Mitigation:} Disable debug mode in production, use centralized error handling, and return generic user-facing error messages. Log detailed traces only on the server side with restricted access.
+
+\subsection{Open Redirect}
+Open Redirect vulnerabilities occur when an application redirects users based on unvalidated input (for example, a \texttt{next=} or \texttt{url=} parameter). Attackers can abuse this behavior for phishing, user redirection to malicious domains, or bypassing trust assumptions in multi-step workflows.
+
+\textbf{How it works:} After login or form submission, the application reads a redirect target from request parameters and forwards the user without checking whether the target is trusted.
+
+\textbf{Example -- Vulnerable Code:}
+\begin{lstlisting}[style=pycode]
+from flask import request, redirect
+
+@app.route("/go")
+def go():
+    target = request.args.get("next", "/")
+    return redirect(target)  # Vulnerable: no allowlist validation
+\end{lstlisting}
+
+\textbf{Attack Example:}
+\begin{lstlisting}[style=attackcode]
+https://example.com/go?next=https://attacker-site.com/login
+\end{lstlisting}
+Victims may trust the original domain and follow the redirect to a malicious phishing page.
+
+\textbf{Mitigation:} Enforce an allowlist of trusted redirect targets, reject absolute external URLs by default, and normalize/validate paths before redirecting. If external redirects are required, display a clear interstitial warning page.
+
+Together, these additional vulnerability classes complement the core four vulnerability types discussed earlier in this chapter. They broaden the model's ability to flag security-relevant code regions and provide developers with earlier indicators of potentially exploitable behavior during secure development and review.
+
