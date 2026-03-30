@@ -152,8 +152,8 @@
 \ftauthor{Mohammad Almasi}
 \ftmatrno{112290}
 \ftfaculty{Faculty of Computer Science and Mathematics}
-\ftchair{Chair of Computer Engineering}
-\ftchairholder{Prof. Dr. Stefan Katzenbeisser}
+\ftchair{Chair of IT Security}
+\ftchairholder{}
 % 1. examiner
 \ftgutachter{Prof. Dr. Stefan Katzenbeisser}
 % 2. examiner
@@ -162,7 +162,7 @@
 % supervisor
 \ftbetreuer{Ms. Talaya Farasat and Ms. Aleena George}
 % date of submission
-\ftdate{2026-03-21}
+\ftdate{2026-03-30}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -172,23 +172,20 @@
 
 \pagenumbering{roman}
 
-\tableofcontents
+\include{Includes/declaration}
+
+\include{Includes/supervisor_contacts}
+
+% Acknowledgements (optional)
+\input{Chapter/acknowledgements.tex}
 \newpage
 
 % Abstract
 \input{Chapter/abstract.tex}
 \newpage
 
-% Acknowledgements (optional)
-\input{Chapter/acknowledgements.tex}
+\tableofcontents
 \newpage
-
-
-%\addcontentsline{toc}{chapter}{Abbildungen}
-\listoffigures
-%\addcontentsline{toc}{chapter}{Tabellen}
-\listoftables
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \input{Chapter/introduction.tex} 
@@ -201,11 +198,15 @@
 %\bibliographystyle{gerabbrv}
 %\bibliography{literature}
 
+\newpage
+%\addcontentsline{toc}{chapter}{Abbildungen}
+\listoffigures
+%\addcontentsline{toc}{chapter}{Tabellen}
+\listoftables
+
 
 \newpage
 \printbibliography
-
-\include{Includes/declaration}
 
 
 \end{document}

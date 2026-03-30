@@ -28,9 +28,9 @@
 \gdef\ftfaculty#1{\gdef\@ftfaculty{#1}}
 \def\@ftfaculty{Faculty of Computer Science and Mathematics}
 \gdef\ftchair#1{\gdef\@ftchair{#1}}
-\def\@ftchair{Chair of Computer Engineering}
+\def\@ftchair{Chair of IT Security}
 \gdef\ftchairholder#1{\gdef\@ftchairholder{#1}}
-\def\@ftchairholder{Prof.\ Dr.\ Stefan Katzenbeisser}
+\def\@ftchairholder{}
 \gdef\ftmatrno#1{\gdef\@ftmatrno{#1}}
 \def\@ftmatrno{}
 
@@ -51,7 +51,10 @@
 {\large University of Passau\par}
 {\large \@ftfaculty\par}
 {\large \@ftchair\par}
-{\large \@ftchairholder\par}
+\ifx\@ftchairholder\@empty
+\else
+  {\large \@ftchairholder\par}
+\fi
 
 \vspace*{2.0cm}
 {\Large \@ftgrad\par}
