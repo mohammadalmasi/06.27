@@ -197,17 +197,17 @@ Neither approach universally outperforms the other across all vulnerability type
 \section{Semgrep vs My Web-Based Scanner}
 \label{sec:semgrep_comparison}
 
-This section presents a comprehensive comparison between Semgrep, a widely-used static analysis tool, and the custom web-based scanner developed in this thesis. The comparison covers their core approaches, capabilities, integration methods, and explains how the machine learning component is integrated into the custom scanner.
+This section compares Semgrep, a widely adopted static-analysis tool, with the custom web-based scanner developed in this thesis. The comparison covers analysis approach, integration model, practical capabilities, and the role of the machine learning pipeline in the proposed platform.
 
 \subsection{How Semgrep Works}
 \label{sec:semgrep_works}
 
-Semgrep is a static analysis tool that matches rules over a program's Abstract Syntax Tree (AST). In addition to direct pattern matching, Semgrep can be configured for dataflow/taint analysis to track the flow of untrusted inputs to sensitive sinks. In practice, Semgrep is executed over a repository with a selected rule set (built-in, community, or custom YAML rules). Findings are reported with rule identifiers, file locations, and code snippets.
+Semgrep performs static analysis by matching YAML-defined patterns against a program's Abstract Syntax Tree (AST). Beyond direct structural matching, it can operate in taint/dataflow mode to track untrusted inputs toward sensitive sinks. In typical usage, Semgrep scans a repository with built-in, community, or custom rule packs and reports findings with rule IDs, code locations, and matched snippets.
 
 \subsubsection{Pattern Matching}
 \label{sec:semgrep_patterns}
 
-Semgrep patterns are structural: they match program constructs rather than raw text. Consequently, matching is robust to variations in whitespace, formatting, and identifier naming.
+Semgrep rules are structural rather than plain-text signatures. As a result, matches are generally resilient to formatting changes, whitespace differences, and variable renaming.
 
 \textbf{Example: Python SQL Injection (Simplified Semgrep Rule):}
 
@@ -243,7 +243,7 @@ Why it is risky: An attacker can inject HTML/JavaScript into the page, leading t
 \subsubsection{Semgrep Rule Structure}
 \label{sec:semgrep_rule_structure}
 
-Semgrep rules follow a structured YAML format with the following components:
+Semgrep rules use a structured YAML schema with the following core elements:
 \begin{itemize}
 	\item \textbf{Rule identifier (id):} Unique name used for tracking and reporting
 	\item \textbf{Language scope:} Languages to which the rule is applied (e.g., python, javascript, typescript)
@@ -255,7 +255,7 @@ Semgrep rules follow a structured YAML format with the following components:
 \subsubsection{Taint/Dataflow Analysis}
 \label{sec:semgrep_taint}
 
-In taint mode, Semgrep can follow data flow. It marks user input as unsafe (tainted), then checks if it reaches a dangerous place (like SQL execute). If tainted data reaches a sink without proper sanitization, Semgrep reports a vulnerability.
+In taint mode, Semgrep tracks how untrusted input propagates through the program. It labels sources as tainted and checks whether that taint reaches dangerous sinks (for example, SQL execution) without an accepted sanitization step.
 
 \textbf{Example: Flask User Input Reaching SQL Execute:}
 

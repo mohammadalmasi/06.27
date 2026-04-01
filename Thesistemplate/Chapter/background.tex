@@ -1,12 +1,12 @@
 \chapter{Background}
 \label{ch:background}
 
-This chapter presents the four primary web application vulnerabilities targeted by the proposed platform: SQL Injection (SQLi), Cross-Site Scripting (XSS), Command Injection, and Cross-Site Request Forgery (CSRF). Understanding these vulnerabilities is essential for designing effective detection techniques using both static analysis and machine learning methods.
+This chapter introduces the four vulnerability classes analyzed in this thesis: SQL Injection (SQLi), Cross-Site Scripting (XSS), Command Injection, and Cross-Site Request Forgery (CSRF). For each class, the discussion connects attack behavior to the detection logic used later in the static and machine learning components.
 
 \section{SQL Injection}
 \label{sec:background_sqli}
 
-SQL Injection (SQLi) is a code injection technique that exploits security vulnerabilities in an application's database layer~\cite{OWASPTop10,OWASPSQLiCheatsheet,CWE89,Halfond2005AMNESIA}. Attackers can manipulate SQL queries by injecting malicious SQL statements into input fields, allowing them to:
+SQL Injection (SQLi) targets the interface between application code and the database engine~\cite{OWASPTop10,OWASPSQLiCheatsheet,CWE89,Halfond2005AMNESIA}. When user-controlled input is merged into query text, an attacker can alter query semantics and potentially:
 \begin{itemize}
 	\item Access unauthorized data
 	\item Modify or delete database records
@@ -17,9 +17,9 @@ SQL Injection (SQLi) is a code injection technique that exploits security vulner
 \subsection{String Concatenation}
 \label{sec:sqli_string_concat}
 
-String concatenation SQL injection occurs when user input is directly concatenated (joined) with SQL query strings using the plus (+) operator or similar string joining methods.
+This SQLi variant appears when developers build query strings by directly concatenating untrusted input (for example, with \texttt{+} or equivalent string-join operations).
 
-\textbf{How it works:} When developers build SQL queries by combining strings with user input, attackers can inject malicious SQL code. The database treats the injected code as part of the legitimate query.
+\textbf{How it works:} Because the database receives one final SQL string, any injected fragment is parsed as SQL syntax rather than plain data unless parameter binding is used.
 
 \textbf{Example -- Vulnerable Code:}
 
@@ -220,7 +220,7 @@ If the response is delayed 5 seconds, the first character is `a'.
 \section{Command Injection}
 \label{sec:background_cmd_injection}
 
-Command Injection is a critical security vulnerability that occurs when an application passes unsafe user-supplied data to a system shell~\cite{OWASPTop10,OWASPCommandInjection,CWE78}. Attackers can execute arbitrary operating system commands on the server, potentially leading to:
+Command Injection occurs when application code forwards untrusted input to shell-interpreted command execution~\cite{OWASPTop10,OWASPCommandInjection,CWE78}. In that case, an attacker may execute unintended operating-system commands and cause:
 \begin{itemize}
 	\item Unauthorized system access
 	\item Data theft or deletion
@@ -232,9 +232,9 @@ Command Injection is a critical security vulnerability that occurs when an appli
 \subsection{OS System Calls}
 \label{sec:cmd_os_system}
 
-OS system calls refer to direct execution of operating system commands using functions like \texttt{os.system()}, \texttt{os.popen()}, or similar methods that execute commands in the system shell.
+This pattern refers to direct shell command execution through APIs such as \texttt{os.system()} and \texttt{os.popen()}.
 
-\textbf{How it works:} When user input is directly passed to \texttt{os.system()} or similar functions, attackers can inject command separators (\texttt{;}, \texttt{\&\&}, \texttt{||}, \texttt{|}) to execute additional malicious commands. The system executes the injected commands with the same privileges as the application.
+\textbf{How it works:} If untrusted input is embedded in a shell command string, shell metacharacters (\texttt{;}, \texttt{\&\&}, \texttt{||}, \texttt{|}) can terminate or extend the intended command. The injected commands then run with the same privileges as the application process.
 
 \textbf{Example -- Vulnerable Code:}
 
@@ -437,14 +437,14 @@ subprocess.run(["command"], env=safe_env, shell=False)
 \section{Cross-Site Scripting (XSS)}
 \label{sec:background_xss}
 
-Cross-Site Scripting (XSS) is a critical security vulnerability that allows attackers to inject malicious scripts into web pages viewed by other users~\cite{OWASPTop10,OWASPXSSCheatsheet,CWE79,MDNCSP,XSSRef1}. XSS attacks occur when an application includes untrusted data in a web page without proper validation or escaping, enabling attackers to execute scripts in the victim's browser context.
+Cross-Site Scripting (XSS) occurs when untrusted data is rendered in a browser-executable context without adequate output encoding or sanitization~\cite{OWASPTop10,OWASPXSSCheatsheet,CWE79,MDNCSP,XSSRef1}. The result is that attacker-controlled script executes in the victim's browser session.
 
 \subsection{Reflected XSS}
 \label{sec:xss_reflected}
 
-Reflected XSS (also known as Non-Persistent XSS) occurs when malicious scripts are reflected off a web server, such as in error messages, search results, or any response that includes some or all of the input sent to the server as part of a request.
+Reflected XSS (non-persistent XSS) appears when request input is echoed immediately in a response page (for example, search pages or error views) without safe encoding.
 
-\textbf{How it works:} The attacker crafts a malicious URL or form submission containing JavaScript code. When the victim clicks the link or submits the form, the malicious script is sent to the server and immediately reflected back in the response, executing in the victim's browser.
+\textbf{How it works:} An attacker embeds script payloads in URL/query parameters or submitted form values. When that data is reflected into HTML unsafely, the browser executes the payload as page script.
 
 \textbf{Example -- Vulnerable Code:}
 
@@ -561,7 +561,7 @@ return f'<script>var username = {username_json};</script>'
 \section{Cross-Site Request Forgery (CSRF)}
 \label{sec:background_csrf}
 
-Cross-Site Request Forgery (CSRF) is a security vulnerability that forces authenticated users to execute unwanted actions on a web application~\cite{OWASPTop10,OWASPCSRCheatsheet,OWASPSessionManagementCheatsheet,OWASPAuthenticationCheatsheet,CWE352,XSSRef2,MDNSameSite,RFC6265}. Attackers exploit the trust that a site has in a user's browser by tricking the user into submitting a request to the vulnerable application. CSRF attacks can lead to:
+Cross-Site Request Forgery (CSRF) abuses the browser's automatic credential handling to trigger unintended state-changing requests from authenticated users~\cite{OWASPTop10,OWASPCSRCheatsheet,OWASPSessionManagementCheatsheet,OWASPAuthenticationCheatsheet,CWE352,XSSRef2,MDNSameSite,RFC6265}. Instead of stealing credentials directly, the attacker causes the victim's browser to submit valid-looking requests to the target application, which can result in:
 \begin{itemize}
 	\item Unauthorized state changes (password changes, email changes)
 	\item Unauthorized financial transactions
@@ -573,9 +573,9 @@ Cross-Site Request Forgery (CSRF) is a security vulnerability that forces authen
 \subsection{Unprotected POST Routes}
 \label{sec:csrf_unprotected_post}
 
-Unprotected POST routes are endpoints that accept POST requests without CSRF token validation. Attackers can craft malicious forms or scripts that submit POST requests on behalf of authenticated users.
+This issue appears when POST endpoints process state-changing requests but do not verify an anti-CSRF token (or equivalent defense).
 
-\textbf{How it works:} When a POST route lacks CSRF protection, an attacker can create a malicious website with a form or script that automatically submits a POST request to the vulnerable endpoint. If the user is authenticated, the browser includes their session cookies, making the request appear legitimate.
+\textbf{How it works:} A malicious site can auto-submit a form or script to the vulnerable endpoint. If the victim is logged in, browser-managed cookies are attached automatically, so the server may accept the request as authentic.
 
 \textbf{Example -- Vulnerable Code:}
 
@@ -721,83 +721,3 @@ def delete_item(item_id):
     delete_item_from_db(item_id)
     return redirect("/items")
 \end{lstlisting}
-
-
-\section{Additional Vulnerabilities Detected by the ML Model}
-\label{sec:background_additional_ml_vulns}
-
-In addition to the vulnerabilities discussed above, the machine learning model is also trained to detect additional vulnerability patterns that commonly appear in Python web applications. These vulnerabilities are briefly summarized below.
-
-Unlike the four primary categories emphasized in the static-analysis part of this thesis, these additional classes are captured in the ML setting through learned token and context patterns rather than hand-crafted rules. This is useful when vulnerable behavior is expressed in diverse coding styles or appears in framework-specific logic where a single deterministic pattern is difficult to define.
-
-\subsection{Remote Code Execution (RCE)}
-Remote Code Execution vulnerabilities occur when untrusted input is executed as code (for example, through unsafe use of \texttt{eval()}, \texttt{exec()}, or dynamically built system commands). Successful exploitation can allow an attacker to run arbitrary commands on the target server with the application's privileges.
-
-\textbf{How it works:} The application reads user-controlled input and passes it into a dangerous execution primitive. If no strict validation or sandboxing is applied, the attacker controls the executed expression or command.
-
-\textbf{Example -- Vulnerable Code:}
-\begin{lstlisting}[style=pycode]
-from flask import request
-
-@app.route("/calc")
-def calc():
-    expr = request.args.get("expr", "")
-    return str(eval(expr))  # Vulnerable: executes user input
-\end{lstlisting}
-
-\textbf{Attack Example:}
-\begin{lstlisting}[style=attackcode]
-GET /calc?expr=__import__("os").popen("id").read()
-\end{lstlisting}
-The payload causes server-side command execution and returns command output to the client.
-
-\textbf{Mitigation:} Never execute raw user input with \texttt{eval()} or \texttt{exec()}. Use safe parsers, strict allowlists, and constrained execution environments. For expression evaluation, prefer dedicated libraries that parse only permitted operators and literals.
-
-\subsection{Path Disclosure}
-Path Disclosure vulnerabilities expose internal filesystem paths through error messages, debug output, or misconfigured responses. Although this does not always lead to direct compromise, it provides attackers with sensitive environment information that can be used to plan further attacks.
-
-\textbf{How it works:} The application returns stack traces or diagnostic output directly to users. These messages can reveal absolute paths, framework internals, usernames, or deployment structure.
-
-\textbf{Example -- Vulnerable Code:}
-\begin{lstlisting}[style=pycode]
-@app.route("/load")
-def load():
-    filename = request.args.get("file")
-    with open(f"/var/www/app/data/{filename}", "r") as f:
-        return f.read()
-\end{lstlisting}
-If an exception occurs and debug mode is enabled, the response may expose full server paths.
-
-\textbf{Attack Example:}
-\begin{lstlisting}[style=attackcode]
-GET /load?file=missing.txt
-\end{lstlisting}
-The attacker intentionally triggers an error and reads traceback output that reveals internal filesystem paths.
-
-\textbf{Mitigation:} Disable debug mode in production, use centralized error handling, and return generic user-facing error messages. Log detailed traces only on the server side with restricted access.
-
-\subsection{Open Redirect}
-Open Redirect vulnerabilities occur when an application redirects users based on unvalidated input (for example, a \texttt{next=} or \texttt{url=} parameter). Attackers can abuse this behavior for phishing, user redirection to malicious domains, or bypassing trust assumptions in multi-step workflows.
-
-\textbf{How it works:} After login or form submission, the application reads a redirect target from request parameters and forwards the user without checking whether the target is trusted.
-
-\textbf{Example -- Vulnerable Code:}
-\begin{lstlisting}[style=pycode]
-from flask import request, redirect
-
-@app.route("/go")
-def go():
-    target = request.args.get("next", "/")
-    return redirect(target)  # Vulnerable: no allowlist validation
-\end{lstlisting}
-
-\textbf{Attack Example:}
-\begin{lstlisting}[style=attackcode]
-https://example.com/go?next=https://attacker-site.com/login
-\end{lstlisting}
-Victims may trust the original domain and follow the redirect to a malicious phishing page.
-
-\textbf{Mitigation:} Enforce an allowlist of trusted redirect targets, reject absolute external URLs by default, and normalize/validate paths before redirecting. If external redirects are required, display a clear interstitial warning page.
-
-Together, these additional vulnerability classes complement the core four vulnerability types discussed earlier in this chapter. They broaden the model's ability to flag security-relevant code regions and provide developers with earlier indicators of potentially exploitable behavior during secure development and review.
-
