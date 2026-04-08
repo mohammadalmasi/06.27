@@ -1,6 +1,8 @@
-# 06.27 — Web Vulnerability Scanner (Thesis Project)
+# Static Analysis vs. Machine Learning
 
-A web app that scans code for common web vulnerabilities using **custom static scanners** (regex/AST-style checks) and an **optional ML endpoint** (when ML assets are present).
+**A Study of Source Code Vulnerability VS. Detection Models**
+
+Repository for the thesis project **06.27**: a web app that scans code for common web vulnerabilities using **custom static scanners** (regex/AST-style checks) and an **optional ML endpoint** (when ML assets are present).
 
 ## Project structure
 
