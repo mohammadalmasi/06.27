@@ -78,29 +78,6 @@ REACT_APP_API_BASE_URL=http://localhost:5001
 - If the ML analyzer + model assets are **not** present in your checkout, the endpoint returns **HTTP 501** with a JSON error describing what’s missing.
 - This keeps the repo reproducible even when ML assets are private / too large to ship.
 
-## Deployment (Google App Engine)
-
-This repo includes:
-
-- `backend/app.yaml` (Python runtime + Gunicorn entrypoint)
-- `frontend/app.yaml` (static serving for CRA build output)
-
-### Option A) One-shot deploy script
-
-```bash
-bash deploy.sh
-```
-
-Notes:
-- It deploys the backend first and then builds the frontend with `REACT_APP_API_BASE_URL` set to the deployed backend URL.
-- You must have the Google Cloud CLI installed and be logged in.
-
-### Option B) Cloud Build (`cloudbuild.yaml`)
-
-```bash
-gcloud builds submit --config cloudbuild.yaml .
-```
-
 ## Reproducibility notes
 
 - **Python dependencies** are pinned in `backend/requirements.txt` and referenced by the root `requirements.txt`.
