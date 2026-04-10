@@ -1,7 +1,5 @@
 # Static Analysis vs. Machine Learning: A Study of Source Code Vulnerability Detection Models
 
-**A Study of Source Code Vulnerability VS. Detection Models**
-
 Repository for the thesis project **06.27**: a web app that scans Python source for common web vulnerabilities (including **SQL injection**, **XSS**, **command injection**, and **CSRF**) using **custom static scanners** (regex/AST-style checks) and **optional ML detectors** (Keras models under `backend/models/` when TensorFlow and weights are present).
 
 ## Project structure
