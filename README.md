@@ -1,4 +1,4 @@
-# Static Analysis vs. Machine Learning
+# Static Analysis vs. Machine Learning: A Study of Source Code Vulnerability Detection Models
 
 **A Study of Source Code Vulnerability VS. Detection Models**
 
